@@ -10,13 +10,13 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@mdi/font": "^7.4.47",
     "@prisma/nuxt": "^0.0.35",
     "nuxt": "^3.13.0",
     "sass": "^1.77.8",
     "vite-plugin-vuetify": "^2.0.4",
     "vue": "latest",
-    "vuetify": "^3.7.1",
-    "vuetify-nuxt-module": "^0.18.0"
+    "vuetify": "^3.7.1"
   },
   "devDependencies": {
     "@prisma/client": "^5.19.0"
