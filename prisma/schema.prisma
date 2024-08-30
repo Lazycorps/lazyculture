@@ -1,0 +1,21 @@
+datasource db {
+    provider          = "postgresql"
+    url               = env("DATABASE_URL")
+    directUrl         = env("DIRECT_URL")
+    shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model User {
+    id   Int    @id @default(autoincrement())
+    name String
+    slug String
+}
+
+model Question {
+    id   Int  @id @default(autoincrement())
+    data Json
+}

@@ -10,7 +10,12 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@prisma/nuxt": "^0.0.35",
     "nuxt": "^3.13.0",
-    "vue": "latest"
+    "vue": "latest",
+    "vuetify-nuxt-module": "^0.18.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^5.19.0"
   }
 }
