@@ -17,6 +17,13 @@
   >
     Valider
   </v-btn>
+  <button
+    @click="validateResponse()"
+    style="width: 200px; margin-bottom: 5px"
+    variant="outlined"
+  >
+    Valider
+  </button>
   {{ result }}
 </template>
 <script setup>
