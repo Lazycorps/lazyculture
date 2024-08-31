@@ -18,8 +18,9 @@ model User {
 model Question {
     id         Int      @id @default(autoincrement())
     difficulty Int
-    data       Json
+    data       Json?
     source     String
+    language   String
     createDate DateTime
     updateDate DateTime
     userCreate String
