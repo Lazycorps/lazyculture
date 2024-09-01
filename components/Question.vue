@@ -1,5 +1,5 @@
 <template>
-  <div class="d-flex flex-column justify-center" style="width: 500px;">
+  <div class="d-flex flex-column justify-center" style="max-width: 500px;">
     <h3>{{ question.data.libelle }}</h3>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
       <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }">
