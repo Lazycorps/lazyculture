@@ -1,49 +1,41 @@
 <template>
-  <div class="d-flex flex-column justify-center">
+  <div class="d-flex flex-column justify-center" style="width: 500px;">
     <h3>{{ question.data.libelle }}</h3>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-      <v-item
-        v-for="proposition in question.data.propositions"
-        v-slot="{ isSelected, toggle }"
-      >
-        <v-btn
-          style="width: 200px; margin-bottom: 5px; display: block"
-          :value="proposition.id"
-          :variant="isSelected ? 'tonal' : 'outlined'"
-          :color="
-            redResponse == proposition.id
-              ? 'red'
-              : greenResponse == proposition.id
+      <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }">
+        <v-btn style="width: 200px; margin-bottom: 5px; display: block" :value="proposition.id"
+          :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
+            ? 'red'
+            : greenResponse == proposition.id
               ? 'green'
               : isSelected
-              ? 'green'
-              : 'white'
-          "
-          @click="toggle(proposition.id)"
-        >
+                ? 'green'
+                : 'white'
+            " @click="toggle(proposition.id)">
           {{ proposition.value }}
         </v-btn>
       </v-item>
     </v-item-group>
-    <v-btn
-      @click="validateResponse()"
-      class="mx-auto"
-      style="width: 200px"
-      color="green"
-    >
+    <span class="mb-5">{{ commentaire }}</span>
+    <v-btn v-if="commentaire" @click="NextQuestion()" :loading="loading" class="mx-auto" style="width: 200px"
+      color="blue">
+      Suivant
+    </v-btn>
+    <v-btn v-else @click="validateResponse()" class="mx-auto" style="width: 200px" color="green">
       Valider
     </v-btn>
-    {{ result }}
   </div>
 </template>
 <script setup>
 const { data: question } = await useAsyncData("question", getNewQuestion);
-const result = ref("");
+const commentaire = ref("");
 const selectedResponse = ref();
 const redResponse = ref();
 const greenResponse = ref();
+const loading = ref(false)
 
 async function validateResponse() {
+  commentaire.value = question.value.data.commentaire;
   if (
     question.value.data.propositions[selectedResponse.value].id ==
     question.value.data.response
@@ -55,16 +47,16 @@ async function validateResponse() {
     selectedResponse.value = null;
     greenResponse.value = question.value.data.response;
   }
-
-  setTimeout(async () => {
-    question.value = await getNewQuestion();
-    selectedResponse.value = null;
-    redResponse.value = null;
-    greenResponse.value = null;
-  }, 2000);
+}
+async function NextQuestion() {
+  question.value = await getNewQuestion();
+  commentaire.value = "";
+  selectedResponse.value = null;
+  redResponse.value = null;
+  greenResponse.value = null;
 }
 
 async function getNewQuestion() {
-  return $fetch("/api/question/question");
+  return $fetch("/api/question/random");
 }
 </script>

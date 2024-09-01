@@ -12,6 +12,7 @@ export class QuestionDTO {
 
 export class QuestionDataDTO {
   type: string = "";
+  theme: string = "";
   libelle: string = "";
   response: number = 0;
   propositions: QuestionPropositionDTO[] = [];
