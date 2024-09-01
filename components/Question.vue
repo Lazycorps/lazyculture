@@ -3,7 +3,7 @@
     <h3>{{ question.data.libelle }}</h3>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
       <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }">
-        <v-btn style="width: 200px; margin-bottom: 5px; display: block" :value="proposition.id"
+        <v-btn style="width: 250px; margin-bottom: 5px; display: block" :value="proposition.id"
           :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
             ? 'red'
             : greenResponse == proposition.id
@@ -17,11 +17,11 @@
       </v-item>
     </v-item-group>
     <span class="mb-5">{{ commentaire }}</span>
-    <v-btn v-if="commentaire" @click="NextQuestion()" :loading="loading" class="mx-auto" style="width: 200px"
+    <v-btn v-if="commentaire" @click="NextQuestion()" :loading="loading" class="mx-auto" style="width: 250px"
       color="blue">
       Continuer
     </v-btn>
-    <v-btn v-else @click="validateResponse()" class="mx-auto" style="width: 200px" color="green">
+    <v-btn v-else @click="validateResponse()" class="mx-auto" style="width: 250px" color="green">
       Valider
     </v-btn>
   </div>
