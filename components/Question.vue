@@ -19,7 +19,7 @@
     <span class="mb-5">{{ commentaire }}</span>
     <v-btn v-if="commentaire" @click="NextQuestion()" :loading="loading" class="mx-auto" style="width: 200px"
       color="blue">
-      Suivant
+      Continuer
     </v-btn>
     <v-btn v-else @click="validateResponse()" class="mx-auto" style="width: 200px" color="green">
       Valider
@@ -49,11 +49,16 @@ async function validateResponse() {
   }
 }
 async function NextQuestion() {
-  question.value = await getNewQuestion();
-  commentaire.value = "";
-  selectedResponse.value = null;
-  redResponse.value = null;
-  greenResponse.value = null;
+  try {
+    loading.value = true;
+    question.value = await getNewQuestion();
+    commentaire.value = "";
+    selectedResponse.value = null;
+    redResponse.value = null;
+    greenResponse.value = null;
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function getNewQuestion() {
