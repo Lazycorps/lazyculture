@@ -33,4 +33,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiKey: "",
   },
+  supabase: {
+    redirect: false,
+  },
 });

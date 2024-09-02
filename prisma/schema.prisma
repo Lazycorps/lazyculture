@@ -10,17 +10,41 @@ generator client {
 }
 
 model User {
-    id   Int    @id @default(autoincrement())
-    name String
-    slug String
+    id         String             @id
+    name       String
+    slug       String
+    createDate DateTime
+    updateDate DateTime
+    Response   QuestionResponse[]
 }
 
 model Question {
-    id         Int      @id @default(autoincrement())
+    id         Int                @id @default(autoincrement())
     difficulty Int
     data       Json?
     source     String
     language   String
+    createDate DateTime
+    updateDate DateTime
+    userCreate String
+    userUpdate String
+    Response   QuestionResponse[]
+}
+
+model QuestionResponse {
+    id         Int      @id @default(autoincrement())
+    userId     String
+    user       User     @relation(fields: [userId], references: [id])
+    questionId Int
+    question   Question @relation(fields: [questionId], references: [id])
+    success    Boolean
+    date       DateTime
+}
+
+model QuestionTheme {
+    id         Int      @id @default(autoincrement())
+    name       String
+    slug       String
     createDate DateTime
     updateDate DateTime
     userCreate String
