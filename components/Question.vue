@@ -99,6 +99,6 @@ async function NextQuestion() {
 }
 
 async function getNewQuestion() {
-  return $fetch("/api/question/random?theme=World of Warcraft");
+  return $fetch("/api/question/random?theme=world_of_warcraft");
 }
 </script>
