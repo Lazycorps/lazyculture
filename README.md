@@ -2,4 +2,4 @@
 
 npx prisma generate
 
-npm prisma migrate dev --name MigrationName
+npx prisma migrate dev --name MigrationName

@@ -1,36 +1,40 @@
 <template>
-   <v-card v-for="theme in themes" class="theme-tile" outlined>
-      <!-- Image de l'en-tête -->
-      <v-img :src="image" height="200px"></v-img>
-
-      <!-- Contenu de la tuile -->
+  <div class="mx-auto my-auto pa-5 d-flex">
+    <v-card
+      v-for="theme in themes"
+      class="theme-tile"
+      rounded=""
+      outlined
+      @click="router.push('/themes/' + theme.slug)"
+    >
+      <v-img :src="theme.picture" height="200px"></v-img>
       <v-card-title>{{ theme.name }}</v-card-title>
-      <!-- <v-card-subtitle>{{ subtitle }}</v-card-subtitle> -->
-
-      <!-- Barre de progression -->
       <v-card-actions>
-         <v-progress-linear :value="progress" color="primary" height="10" class="mb-2"></v-progress-linear>
-         <div class="text-caption">{{ progress }}% completed</div>
+        <v-progress-linear
+          :value="progress"
+          color="primary"
+          height="10"
+        ></v-progress-linear>
+        <div class="text-caption">{{ progress }}/20</div>
       </v-card-actions>
-
-      <!-- Bouton d'action -->
-      <v-card-actions>
-         <v-btn color="primary" @click="router.push('/themes/' + theme.slug)">
-            Start Quiz
-         </v-btn>
-      </v-card-actions>
-   </v-card>
+    </v-card>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 const { data: themes } = await useFetch("/api/theme/all");
 const router = useRouter();
-const progress = ref(5)
+const progress = ref(5);
+
+// async function getProgress(theme: string) {
+//   const progress = await $fetch("/api/theme/progress", { query: { theme } });
+//   return progress.responseCount;
+// }
 </script>
 
 <style scoped>
 .theme-tile {
-   max-width: 300px;
-   margin: 10px;
+  width: 200px;
+  margin: 10px;
 }
 </style>
