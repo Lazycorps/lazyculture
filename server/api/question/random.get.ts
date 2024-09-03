@@ -1,34 +1,47 @@
 import { PrismaClient } from "@prisma/client";
-import { serverSupabaseUser } from "#supabase/server";
+import { serverSupabaseClient } from "#supabase/server";
 
 const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
-  //const userConnected = await serverSupabaseUser(event);
-  //console.log(userConnected);
+  const client = await serverSupabaseClient(event);
+  const userConnected = (await client.auth.getUser())?.data?.user;
   const query = getQuery(event);
-  let randomQuestion: any = null;
-  if (query.theme) {
-    randomQuestion = await prisma.question.findFirst({
-      where: {
+  let ids = await getRandomQuestionsIds(
+    query.theme as string,
+    userConnected?.id
+  );
+  if (ids.length == 0)
+    ids = await getRandomQuestionsIds(query.theme as string);
+  const id = getRandomId(ids);
+  return prisma.question.findFirst({ where: { id: id } });
+});
+
+const getRandomQuestionsIds = async (theme?: string, userId?: string) => {
+  return await prisma.question.findMany({
+    where: {
+      ...(theme && {
         data: {
           path: ["theme"],
-          array_contains: query.theme as string,
+          array_contains: theme as string,
         },
+      }),
+      ...(userId && {
         Response: {
           none: {
-            // Si as de réponse pour ce user
-            //userId: userConnected.id,
+            userId: userId,
+            success: true,
           },
         },
-      },
-    });
-  }
+      }),
+    },
+    select: {
+      id: true,
+    },
+  });
+};
 
-  if (randomQuestion == null) {
-    const q =
-      await prisma.$queryRaw`SELECT * FROM "Question" ORDER BY RANDOM() LIMIT 1;`;
-    randomQuestion = randomQuestion[0];
-  }
-  return randomQuestion;
-});
+const getRandomId = (ids: { id: number }[]) => {
+  const randomIndex = Math.floor(Math.random() * ids.length);
+  return ids[randomIndex].id;
+};
