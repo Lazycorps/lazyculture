@@ -1,32 +1,39 @@
 <template>
-  <!-- <form class="form-widget" @submit.prevent="updateProfile">
-    <div>
-      <label for="email">Email</label>
-      <input id="email" type="text" :value="user.email" disabled />
-    </div>
-    <div>
-      <label for="username">Username</label>
-      <input id="username" type="text" v-model="username" />
-    </div>
-
-    <div>
-      <input
-        type="submit"
-        class="button primary block"
-        :value="loading ? 'Loading ...' : 'Update'"
-        :disabled="loading"
-      />
-    </div>
-
-    <div>
-      <button class="button block" @click="signOut" :disabled="loading">
-        Sign Out
-      </button>
-    </div>
-  </form> -->
+  <v-card flat rounded class="mx-auto my-auto pa-5" width="350">
+    <form class="form-widget" @submit.prevent="updateProfile">
+      <div>
+        <v-text-field
+          label="Email"
+          v-model="user.email"
+          readonly
+        ></v-text-field>
+      </div>
+      <div>
+        <v-text-field label="Username" v-model="user.username"></v-text-field>
+      </div>
+      <div class="d-flex justify-end">
+        <v-btn
+          @click="signOut"
+          :disabled="loading"
+          prepend-icon="mdi-logout"
+          color="red"
+          class="mr-5"
+        >
+          Logout
+        </v-btn>
+        <v-btn
+          type="submit"
+          :disabled="loading"
+          color="primary"
+          prepend-icon="mdi-floppy"
+          >Save</v-btn
+        >
+      </div>
+    </form>
+  </v-card>
 </template>
 
-<!-- <script setup>
+<script setup>
 const supabase = useSupabaseClient();
 const router = useRouter();
 const user = useSupabaseUser();
@@ -85,4 +92,4 @@ async function signOut() {
     loading.value = false;
   }
 }
-</script> -->
+</script>

@@ -1,35 +1,15 @@
 <template>
-  <div class="mx-auto my-auto pa-5 d-flex">
-    <v-card
-      v-for="theme in themes"
-      class="theme-tile"
-      rounded=""
-      outlined
-      @click="router.push('/themes/' + theme.slug)"
-    >
-      <v-img :src="theme.picture" height="200px"></v-img>
-      <v-card-title>{{ theme.name }}</v-card-title>
-      <v-card-actions>
-        <v-progress-linear
-          :value="progress"
-          color="primary"
-          height="10"
-        ></v-progress-linear>
-        <div class="text-caption">{{ progress }}/20</div>
-      </v-card-actions>
-    </v-card>
+  <div class="mx-auto my-auto pa-5 d-flex flex-wrap justify-center">
+    <template v-for="theme in themes">
+      <Theme :theme="theme"></Theme>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-const { data: themes } = await useFetch("/api/theme/all");
-const router = useRouter();
-const progress = ref(5);
+import type { Theme } from "~/models/theme";
 
-// async function getProgress(theme: string) {
-//   const progress = await $fetch("/api/theme/progress", { query: { theme } });
-//   return progress.responseCount;
-// }
+const { data: themes } = await useFetch<Theme[]>("/api/theme/all");
 </script>
 
 <style scoped>
