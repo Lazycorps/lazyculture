@@ -2,7 +2,6 @@ export class QuestionDTO {
   id: number = 0;
   difficulty: number = 0;
   source: string = "";
-  theme: string[] = ["culture_generale"];
   createDate: Date = new Date();
   updateDate: Date = new Date();
   userCreate: string = "";
@@ -12,7 +11,7 @@ export class QuestionDTO {
 
 export class QuestionDataDTO {
   type: string = "";
-  theme: string = "";
+  theme: string[] = ["culture_generale"];
   libelle: string = "";
   response: number = 0;
   propositions: QuestionPropositionDTO[] = [];
