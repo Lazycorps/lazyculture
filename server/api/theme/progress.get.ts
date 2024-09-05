@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
   const userConnected = (await client.auth.getUser())?.data?.user;
   const query = getQuery(event);
-  return { questionCount, responseCount };
+  return { questionCount: 0, responseCount: 0 };
   const questionCount = await prisma.question.count({
     where: {
       data: {
