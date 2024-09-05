@@ -17,7 +17,6 @@ export default defineEventHandler(async (event) => {
     },
   });
   
-  return { questionCount, responseCount: 0 };
   // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
   let responseCount = 0;
   if(userConnected != null){
