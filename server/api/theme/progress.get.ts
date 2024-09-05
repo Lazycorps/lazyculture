@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   });
 
   // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
-  const responseCount = 0;
+  let responseCount = 0;
   if(userConnected != null){
       const responses = await prisma.questionResponse.findMany({
         include: {
