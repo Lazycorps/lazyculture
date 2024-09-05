@@ -18,22 +18,26 @@ export default defineEventHandler(async (event) => {
   });
 
   // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
-  const responses = await prisma.questionResponse.findMany({
-    include: {
-      question: true, // Inclure les questions pour accéder au champ JSON 'data'
-    },
-    where: {
-      question: {
-        data: {
-          path: ["theme"],
-          array_contains: query.theme as string,
+  const responseCount = 0;
+  if(userConnected != null){
+      const responses = await prisma.questionResponse.findMany({
+        include: {
+          question: true, // Inclure les questions pour accéder au champ JSON 'data'
         },
-      },
-      userId: userConnected?.id,
-      success: true,
-    },
-    distinct: ["questionId"],
-  });
+        where: {
+          question: {
+            data: {
+              path: ["theme"],
+              array_contains: query.theme as string,
+            },
+          },
+          userId: userConnected?.id,
+          success: true,
+        },
+        distinct: ["questionId"],
+      });
+    responseCount = responses.length;
+  }
 
-  return { questionCount, responseCount: responses.length };
+  return { questionCount, responseCount };
 });
