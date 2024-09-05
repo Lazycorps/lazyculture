@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
   const userConnected = (await client.auth.getUser())?.data?.user;
   const query = getQuery(event);
-  return { questionCount: 0, responseCount: 0 };
+  
   const questionCount = await prisma.question.count({
     where: {
       data: {
@@ -16,7 +16,8 @@ export default defineEventHandler(async (event) => {
       },
     },
   });
-
+  
+  return { questionCount, responseCount: 0 };
   // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
   let responseCount = 0;
   if(userConnected != null){
