@@ -29,5 +29,83 @@ export default defineEventHandler(async (event) => {
     },
   });
 
-  return;
+  const successCount = await prisma.questionResponse.count({
+    where: {
+      questionId: body.questionId,
+      userId: userConnected.id,
+      success: true,
+    },
+  });
+
+  if (success) {
+    const userProgress = await updateUserProgress(
+      userConnected.id,
+      question.xp_earned,
+      successCount
+    );
+    return {
+      success,
+      xpEarned: userProgress.xpEarned,
+      xpTot: userProgress.xpTot,
+      previousLevel: userProgress.previousLevel,
+      newLevel: userProgress.currentLevel,
+    };
+  } else return;
 });
+
+const updateUserProgress = async (
+  userId: string,
+  xpEarned: number,
+  successCount: number
+) => {
+  const userProgress = await prisma.userProgress.findFirst({
+    where: { userId: userId },
+  });
+
+  const userXpWin =
+    successCount == 0 ? xpEarned : Math.ceil(xpEarned / successCount);
+
+  if (userProgress) {
+    const userXpTot = userProgress.xp + userXpWin;
+    const level = await prisma.level.findFirst({
+      where: { xp_threshold: { lte: userXpTot } },
+      orderBy: { xp_threshold: "desc" },
+    });
+    const updateUser = await prisma.userProgress.update({
+      where: {
+        userId: userId,
+      },
+      data: {
+        xp: {
+          increment: userXpWin,
+        },
+        levelId: level?.id,
+      },
+    });
+    return {
+      xpEarned: userXpWin,
+      xpTot: updateUser.xp,
+      previousLevel: userProgress.levelId,
+      currentLevel: updateUser.levelId,
+    };
+  } else {
+    const level = await prisma.level.findFirst({
+      where: { xp_threshold: { gte: userXpWin } },
+      orderBy: { xp_threshold: "asc" },
+    });
+    const userProgressCreated = await prisma.userProgress.create({
+      data: {
+        userId: userId,
+        xp: userXpWin,
+        levelId: level?.id ?? 1,
+      },
+    });
+
+    return {
+      userXpWin,
+      xpTot: userXpWin,
+      previousLevel: userProgressCreated.levelId,
+      currentLevel: userProgressCreated.levelId,
+    };
+  }
+};

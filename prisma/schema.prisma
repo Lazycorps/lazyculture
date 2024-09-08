@@ -10,12 +10,32 @@ generator client {
 }
 
 model User {
-    id         String             @id
-    name       String
-    slug       String
-    createDate DateTime
-    updateDate DateTime
-    Response   QuestionResponse[]
+    id           String             @id
+    name         String
+    slug         String
+    createDate   DateTime           @default(now())
+    updateDate   DateTime           @default(now())
+    Response     QuestionResponse[]
+    UserProgress UserProgress?
+}
+
+model UserProgress {
+    userId     String   @id
+    user       User     @relation(fields: [userId], references: [id])
+    xp         Int
+    levelId    Int
+    level      Level    @relation(fields: [levelId], references: [id])
+    createDate DateTime @default(now())
+    updateDate DateTime @default(now())
+}
+
+model Level {
+    id           Int            @id
+    name         String
+    xp_threshold Int
+    createDate   DateTime       @default(now())
+    updateDate   DateTime       @default(now())
+    UserProgress UserProgress[]
 }
 
 model Question {
@@ -25,8 +45,9 @@ model Question {
     picture    String             @default("")
     source     String
     language   String
-    createDate DateTime
-    updateDate DateTime
+    xp_earned  Int                @default(10)
+    createDate DateTime           @default(now())
+    updateDate DateTime           @default(now())
     userCreate String
     userUpdate String
     Response   QuestionResponse[]
@@ -39,7 +60,7 @@ model QuestionResponse {
     questionId Int
     question   Question @relation(fields: [questionId], references: [id])
     success    Boolean
-    date       DateTime
+    date       DateTime @default(now())
 }
 
 model QuestionTheme {
@@ -47,8 +68,8 @@ model QuestionTheme {
     name       String
     slug       String
     picture    String   @default("")
-    createDate DateTime
-    updateDate DateTime
+    createDate DateTime @default(now())
+    updateDate DateTime @default(now())
     userCreate String
     userUpdate String
 }
