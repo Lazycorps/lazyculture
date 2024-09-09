@@ -1,6 +1,10 @@
 <template>
   <v-container fluid class="fill-height d-flex justify-center align-center">
-    <v-card width="450px" class="pa-10 d-flex flex-column" rounded="100">
+    <v-card
+      style="max-width: 500px; width: 100%"
+      class="pa-5 d-flex flex-column"
+      rounded="100"
+    >
       <v-form
         :validate-on="validateOn"
         v-model="formIsValid"

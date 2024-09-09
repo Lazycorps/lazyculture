@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto my-auto pa-5 d-flex flex-wrap justify-center">
+  <div class="mx-auto my-auto d-flex flex-wrap justify-center">
     <template v-for="theme in themes">
       <Theme :theme="theme"></Theme>
     </template>

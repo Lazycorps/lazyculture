@@ -34,6 +34,9 @@ export default defineEventHandler(async (event) => {
       questionId: body.questionId,
       userId: userConnected.id,
       success: true,
+      date: {
+        gt: new Date("2024-09-08"),
+      },
     },
   });
 
