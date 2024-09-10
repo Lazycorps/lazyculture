@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig();
+  const query = getQuery(event);
 
   if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {
     setResponseStatus(event, 401);
@@ -14,15 +15,15 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<OpenQuizzDB>(event);
   const questions: Prisma.QuestionCreateInput[] = [];
   body.quizz.fr.débutant.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr");
+    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
     if (question) questions.push(question);
   });
   body.quizz.fr.confirmé.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr");
+    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
     if (question) questions.push(question);
   });
   body.quizz.fr.expert.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr");
+    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
     if (question) questions.push(question);
   });
 
@@ -34,12 +35,14 @@ export default defineEventHandler(async (event) => {
 const GetQuestion = (
   question: OpenQuizzDBQuestion,
   difficulty: number,
-  language: string
+  language: string,
+  theme?: string
 ): Prisma.QuestionCreateInput | null => {
   const questionData = new QuestionDataDTO();
   questionData.type = "choix";
   let i = 1;
   questionData.libelle = question.question;
+  if (theme) questionData.theme = theme.split(",");
   question.propositions.forEach((p) => {
     questionData.propositions.push({
       id: i++,

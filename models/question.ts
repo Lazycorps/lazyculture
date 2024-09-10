@@ -11,6 +11,7 @@ export class QuestionDTO {
 
 export class QuestionDataDTO {
   type: string = "";
+  difficulty: number = 0;
   theme: string[] = ["culture_generale"];
   libelle: string = "";
   response: number = 0;

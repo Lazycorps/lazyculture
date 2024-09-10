@@ -14,16 +14,16 @@ export default defineEventHandler(async (event) => {
   const questionsToAdd: Prisma.QuestionCreateInput[] = [];
   questions.forEach((q) => {
     const question: Prisma.QuestionCreateInput = {
-      difficulty: 1,
+      difficulty: q.difficulty,
       data: q as any,
       source: "ChatGpt",
-      language : "fr",
+      language: "fr",
       createDate: new Date(),
       updateDate: new Date(),
       userCreate: "IMPORT",
       userUpdate: "IMPORT",
-      };
-      questionsToAdd.push(question);
+    };
+    questionsToAdd.push(question);
   });
   return prisma.question.createManyAndReturn({
     data: questionsToAdd as Prisma.QuestionCreateInput[],

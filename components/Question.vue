@@ -7,7 +7,8 @@
         v-slot="{ isSelected, toggle }"
       >
         <v-btn
-          style="width: 250px; margin-bottom: 5px; display: block"
+          style="min-width: 250px; margin-bottom: 5px; display: block"
+          class="mx-auto"
           :value="proposition.id"
           :variant="isSelected ? 'tonal' : 'outlined'"
           :color="
@@ -41,7 +42,7 @@
         Continuer
       </v-btn>
       <transition name="fade">
-        <p v-if="showXP" class="xp-text" style="position: absolute; left: 80%">
+        <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
           + {{ xpWin }} xp
         </p>
       </transition>
