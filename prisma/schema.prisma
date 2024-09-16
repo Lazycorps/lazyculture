@@ -17,6 +17,7 @@ model User {
     updateDate   DateTime           @default(now())
     Response     QuestionResponse[]
     UserProgress UserProgress?
+    Reporting    QuestionReporting[]
 }
 
 model UserProgress {
@@ -51,6 +52,7 @@ model Question {
     userCreate String
     userUpdate String
     Response   QuestionResponse[]
+    Reporting  QuestionReporting[]
 }
 
 model QuestionResponse {
@@ -72,4 +74,15 @@ model QuestionTheme {
     updateDate DateTime @default(now())
     userCreate String
     userUpdate String
+}
+
+model QuestionReporting {
+    id          Int      @id @default(autoincrement())
+    userId      String
+    user        User     @relation(fields: [userId], references: [id])
+    questionId  Int
+    question    Question @relation(fields: [questionId], references: [id])
+    commentaire String
+    date        DateTime @default(now())
+    closed      Boolean
 }
