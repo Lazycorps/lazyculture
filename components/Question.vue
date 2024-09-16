@@ -1,5 +1,18 @@
 <template>
   <div class="d-flex flex-column justify-center" style="max-width: 500px">
+    <div class="d-flex flex-row justify-center" style="max-width: 500px">
+      <v-spacer></v-spacer>
+      <v-btn
+      class="m3"
+      @click="reportQuestion()"
+      color="orange-lighten-2"
+      :disabled="reported"
+      icon="mdi-comment-alert"
+      size="x-small"
+      :loading="loadingReporting"
+      >
+      </v-btn>
+    </div>
     <h3>{{ question.data.libelle }}</h3>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
       <v-item
@@ -27,39 +40,40 @@
       </v-item>
     </v-item-group>
     <span class="mb-5">{{ commentaire }}</span>
-    <span
-      v-if="commentaire"
-      class="d-flex justify-center align-center"
-      style="position: relative"
-    >
-      <v-btn
-        @click="NextQuestion()"
-        :loading="loading"
-        class="mx-auto"
-        style="width: 250px"
-        color="blue"
+      <span
+        v-if="commentaire"
+        class="d-flex justify-center align-center"
+        style="position: relative"
       >
-        Continuer
+        <v-btn
+          @click="NextQuestion()"
+          :loading="loading"
+          class="mx-auto"
+          style="width: 250px"
+          color="blue"
+        >
+          Continuer
+        </v-btn>
+        <transition name="fade">
+          <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
+            + {{ xpWin }} xp
+          </p>
+        </transition>
+      </span>
+      <v-btn
+        v-if="!commentaire"
+        @click="validateResponse()"
+        style="width: 250px"
+        class="mx-auto"
+        color="green"
+        :disabled="selectedResponse == null"
+      >
+        Valider
       </v-btn>
-      <transition name="fade">
-        <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
-          + {{ xpWin }} xp
-        </p>
-      </transition>
-    </span>
-    <v-btn
-      v-if="!commentaire"
-      @click="validateResponse()"
-      style="width: 250px"
-      class="mx-auto"
-      color="green"
-      :disabled="selectedResponse == null"
-    >
-      Valider
-    </v-btn>
   </div>
 </template>
 <script setup lang="ts">
+import { ReportingDTO } from "~/models/DTO/reportingDTO";
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
 
@@ -72,7 +86,9 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const loading = ref(false);
+const loadingReporting = ref(false);
 const question = ref(new QuestionDTO());
+const reported = ref(false)
 
 onMounted(() => {
   try {
@@ -117,6 +133,8 @@ async function NextQuestion() {
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
+    reported.value = false;
+    loadingReporting.value = false;
   } finally {
     loading.value = false;
   }
@@ -138,6 +156,22 @@ async function getNewQuestion() {
   if (props.theme)
     return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
   else return $fetch<QuestionDTO>("/api/question/random");
+}
+
+async function reportQuestion() {
+  try{
+    loadingReporting.value = true;
+    const reportingDto = new ReportingDTO();
+    reportingDto.questionId = question.value.id;
+    await $fetch("/api/question/report", {
+      method: "post",
+      body: { ...reportingDto },
+    });
+    reported.value = true;
+  }
+  finally{
+    loadingReporting.value = false;
+  }
 }
 </script>
 
