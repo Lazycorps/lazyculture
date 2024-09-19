@@ -130,8 +130,9 @@ async function validateResponse() {
 async function NextQuestion() {
   try {
     loading.value = true;
-    question.value = await getNewQuestion();
-    await getThemeName();
+    const newQuestion = await getNewQuestion();
+    await getThemeName(newQuestion.data.theme[0]);
+    question.value = newQuestion;
     commentaire.value = "";
     selectedResponse.value = null;
     redResponse.value = null;
@@ -177,8 +178,8 @@ async function reportQuestion() {
   }
 }
 
-async function getThemeName() {
-    const responseResult = await $fetch<ThemeDTO>("/api/theme/name?theme=" + question.value.data.theme);
+async function getThemeName(theme: string) {
+    const responseResult = await $fetch<ThemeDTO>("/api/theme/name?theme=" + theme);
     themeName.value = responseResult?.name;
 }
 </script>
