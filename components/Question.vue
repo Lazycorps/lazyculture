@@ -1,13 +1,13 @@
 <template>
   <div class="d-flex flex-column justify-center" style="max-width: 500px">
     <div class="d-flex flex-row justify-center" style="max-width: 500px">
+      <h3>Thème: {{ themeName }}</h3>
       <v-spacer></v-spacer>
       <v-btn
-      class="m3"
       @click="reportQuestion()"
       color="orange-lighten-2"
       :disabled="reported"
-      icon="mdi-comment-alert"
+      icon="mdi-delete"
       size="x-small"
       :loading="loadingReporting"
       >
@@ -76,6 +76,7 @@
 import { ReportingDTO } from "~/models/DTO/reportingDTO";
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
+import { ThemeDTO } from "~/models/theme";
 
 const props = defineProps<{ theme?: string }>();
 //const { data: question } = await useAsyncData("question", getNewQuestion);
@@ -89,6 +90,7 @@ const loading = ref(false);
 const loadingReporting = ref(false);
 const question = ref(new QuestionDTO());
 const reported = ref(false)
+const themeName = ref("");
 
 onMounted(() => {
   try {
@@ -129,6 +131,7 @@ async function NextQuestion() {
   try {
     loading.value = true;
     question.value = await getNewQuestion();
+    await getThemeName();
     commentaire.value = "";
     selectedResponse.value = null;
     redResponse.value = null;
@@ -172,6 +175,11 @@ async function reportQuestion() {
   finally{
     loadingReporting.value = false;
   }
+}
+
+async function getThemeName() {
+    const responseResult = await $fetch<ThemeDTO>("/api/theme/name?theme=" + question.value.data.theme);
+    themeName.value = responseResult?.name;
 }
 </script>
 
