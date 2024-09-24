@@ -4,7 +4,6 @@
     outlined
     @click="router.push('/themes/' + theme.slug)"
     class="ma-1"
-    style="width: 200px"
   >
     <v-img :src="theme.picture" height="200px"></v-img>
     <v-card-title>{{ theme.name }}</v-card-title>

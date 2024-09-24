@@ -1,17 +1,16 @@
 <template>
   <div class="d-flex flex-column justify-center" style="max-width: 500px">
-    <div class="d-flex flex-row justify-center" style="max-width: 500px">
-      <h3>Thème: {{ themeName }}</h3>
+    <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
+      <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ themeName }}
       <v-spacer></v-spacer>
-      <v-btn
+      <v-icon
       @click="reportQuestion()"
       color="orange-lighten-2"
       :disabled="reported"
-      icon="mdi-delete"
-      size="x-small"
+      icon="mdi-flag"
       :loading="loadingReporting"
       >
-      </v-btn>
+      </v-icon>
     </div>
     <h3>{{ question.data.libelle }}</h3>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
