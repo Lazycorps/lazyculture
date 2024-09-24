@@ -1,9 +1,9 @@
 <template>
   <v-layout>
-    <v-main>
+    <v-main class="page-content">
       <slot />
     </v-main>
-    <v-bottom-navigation>
+    <v-bottom-navigation fixed app>
       <v-btn value="Themes" @click="router.push('/themes')" width="100">
         <v-icon>mdi-book-open-variant-outline</v-icon>
 
@@ -15,7 +15,7 @@
 
         <span>Random</span>
       </v-btn>
-      <v-btn value="Random" @click="router.push('/ranking')" width="100">
+      <v-btn value="Ranking" @click="router.push('/ranking')" width="100">
         <v-icon>mdi-podium-gold</v-icon>
         <span>Ranking</span>
       </v-btn>
@@ -36,3 +36,20 @@ function goUserPage() {
   else router.push("/user/profil");
 }
 </script>
+
+<style>
+html,
+body,
+#app,
+.v-application {
+  height: 100%;
+  margin: 0;
+}
+
+.page-content {
+  height: calc(100vh - 56px);
+  /* 100% de la hauteur de la page moins la hauteur de la bottom navigation */
+  overflow-y: auto;
+  /* Ajoute une scrollbar uniquement si nécessaire pour le contenu */
+}
+</style>
