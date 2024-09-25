@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
   
   // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
   let responseCount = 0;
+  let mastery = 0;
   if(userConnected != null){
       const responses = await prisma.questionResponse.findMany({
         include: {
@@ -32,12 +33,17 @@ export default defineEventHandler(async (event) => {
             },
           },
           userId: userConnected?.id,
-          success: true,
+          // success: true,
         },
+        orderBy: [{date:"desc"}],
         distinct: ["questionId"],
       });
-    responseCount = responses.length;
+    
+    responseCount = responses.filter((r) => r.success).length;
+    const lastResponse = responses.slice(0, 50);
+    const goodResponse = lastResponse.filter(r => r.success).length;
+    mastery = lastResponse.length > 20 ? goodResponse / lastResponse.length * 10 : 0;
   }
 
-  return { questionCount, responseCount };
+  return { questionCount, responseCount, mastery };
 });
