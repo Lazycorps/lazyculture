@@ -40,7 +40,7 @@
     </v-item-group>
     <span class="mb-5">{{ commentaire }}</span>
       <span
-        v-if="commentaire"
+        v-if="responded"
         class="d-flex justify-center align-center"
         style="position: relative"
       >
@@ -60,7 +60,7 @@
         </transition>
       </span>
       <v-btn
-        v-if="!commentaire"
+        v-if="!responded"
         @click="validateResponse()"
         style="width: 250px"
         class="mx-auto"
@@ -80,6 +80,7 @@ import { ThemeDTO } from "~/models/theme";
 const props = defineProps<{ theme?: string }>();
 //const { data: question } = await useAsyncData("question", getNewQuestion);
 const commentaire = ref("");
+const responded = ref(false);
 const selectedResponse = ref();
 const redResponse = ref();
 const greenResponse = ref();
@@ -100,8 +101,8 @@ onMounted(() => {
 async function validateResponse() {
   try {
     loading.value = true;
+    responded.value = true;
     commentaire.value = question.value.data.commentaire;
-
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
     reponseDTO.userResponseId = selectedResponse.value + 1;
@@ -131,6 +132,7 @@ async function NextQuestion() {
     loading.value = true;
     const newQuestion = await getNewQuestion();
     await getThemeName(newQuestion.data.theme[0]);
+    responded.value = false;
     question.value = newQuestion;
     commentaire.value = "";
     selectedResponse.value = null;
