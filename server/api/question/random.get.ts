@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
+import { QuestionDataDTO } from "~/models/question";
 
 const prisma = new PrismaClient();
 
@@ -11,10 +12,20 @@ export default defineEventHandler(async (event) => {
     query.theme as string,
     userConnected?.id
   );
-  if (ids.length == 0)
-    ids = await getRandomQuestionsIds(query.theme as string);
+  if (ids.length == 0) ids = await getRandomQuestionsIds(query.theme as string);
   const id = getRandomId(ids);
-  return prisma.question.findFirst({ where: { id: id } });
+  const question = await prisma.question.findFirst({ where: { id: id } });
+  if (question) {
+    const questionThemes = (question.data as any as QuestionDataDTO).theme;
+    const themes = await prisma.questionTheme.findMany({
+      where: { slug: { in: questionThemes } },
+    });
+
+    return {
+      ...question,
+      themes: themes.map(t => t.name)
+    }
+  }
 });
 
 const getRandomQuestionsIds = async (theme?: string, userId?: string) => {

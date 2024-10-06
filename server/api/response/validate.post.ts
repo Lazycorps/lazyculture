@@ -19,11 +19,11 @@ export default defineEventHandler(async (event) => {
   const success =
     (question.data as unknown as QuestionDataDTO).response ==
     body.userResponseId;
-
+  
   await prisma.questionResponse.create({
     data: {
       userId: userConnected.id,
-      questionId: body.questionId,
+      questionId: question.id,
       success: success,
       date: new Date(),
     },
@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const successCount = await prisma.questionResponse.count({
     where: {
-      questionId: body.questionId,
+      questionId: question.id,
       userId: userConnected.id,
       success: true,
       date: {
