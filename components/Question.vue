@@ -1,5 +1,5 @@
 <template>
-  <v-skeleton-loader :loading="loading" type="article, list-item,list-item,list-item,list-item, actions" width="500">
+  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions" width="500">
     <div class="d-flex flex-column justify-center" style="max-width: 500px">
       <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
         <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ question.themes.join(', ') }}
