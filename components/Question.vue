@@ -51,7 +51,9 @@ import { QuestionDTO } from "~/models/question";
 import { ThemeDTO } from "~/models/theme";
 
 const props = defineProps<{ theme?: string }>();
-//const { data: question } = await useAsyncData("question", getNewQuestion);
+const firstLoading = ref(true)
+const loading = ref(true);
+const loadingReporting = ref(false);
 const commentaire = ref("");
 const responded = ref(false);
 const selectedResponse = ref();
@@ -59,8 +61,6 @@ const redResponse = ref();
 const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
-const loading = ref(true);
-const loadingReporting = ref(false);
 const question = ref(new QuestionDTO());
 const reported = ref(false)
 
@@ -113,6 +113,7 @@ async function NextQuestion() {
     loadingReporting.value = false;
   } finally {
     loading.value = false;
+    firstLoading.value = false;
   }
 }
 
