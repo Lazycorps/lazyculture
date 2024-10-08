@@ -1,7 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import { serverSupabaseUser } from "#supabase/server";
 
-const prisma = new PrismaClient();
+const config = useRuntimeConfig();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl,
+    },
+  },
+});
 
 export default defineEventHandler(async (event) => {
   const userConnected = await serverSupabaseUser(event);

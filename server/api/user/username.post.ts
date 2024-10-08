@@ -1,7 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import { serverSupabaseUser } from "#supabase/server";
 
-const prisma = new PrismaClient();
+const config = useRuntimeConfig();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl,
+    },
+  },
+});
 
 export default defineEventHandler(async (event) => {
   const userConnected = await serverSupabaseUser(event);
@@ -20,13 +27,12 @@ export default defineEventHandler(async (event) => {
       slug: slugify(body.username),
     },
   });
-    
-    return {
-        ...user,
-        email: userConnected.email
-    }
-});
 
+  return {
+    ...user,
+    email: userConnected.email,
+  };
+});
 
 const slugify = (str: string) => {
   str = str.replace(/^\s+|\s+$/g, ""); // trim leading/trailing white space
@@ -36,4 +42,4 @@ const slugify = (str: string) => {
     .replace(/\s+/g, "_") // replace spaces with hyphens
     .replace(/-+/g, "_"); // remove consecutive hyphens
   return str;
-}
+};

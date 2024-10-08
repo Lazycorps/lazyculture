@@ -2,7 +2,14 @@ import { PrismaClient } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
 import { QuestionDataDTO } from "~/models/question";
 
-const prisma = new PrismaClient();
+const config = useRuntimeConfig();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl,
+    },
+  },
+});
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
@@ -23,8 +30,8 @@ export default defineEventHandler(async (event) => {
 
     return {
       ...question,
-      themes: themes.map(t => t.name)
-    }
+      themes: themes.map((t) => t.name),
+    };
   }
 });
 

@@ -1,8 +1,15 @@
 import { Prisma, PrismaClient, Question } from "@prisma/client";
 import { QuestionDataDTO, QuestionPropositionDTO } from "~/models/question";
 // import { JSDOM } from "jsdom";
+const config = useRuntimeConfig();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl,
+    },
+  },
+});
 
-const prisma = new PrismaClient();
 type QuizzCultureRequestDTO = {
   url: string;
   themes: string[];

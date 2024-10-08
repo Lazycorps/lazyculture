@@ -3,7 +3,14 @@ import { serverSupabaseClient, serverSupabaseUser } from "#supabase/server";
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDataDTO } from "~/models/question";
 
-const prisma = new PrismaClient();
+const config = useRuntimeConfig();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: config.databaseUrl,
+    },
+  },
+});
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
@@ -19,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const success =
     (question.data as unknown as QuestionDataDTO).response ==
     body.userResponseId;
-  
+
   await prisma.questionResponse.create({
     data: {
       userId: userConnected.id,
