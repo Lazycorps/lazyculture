@@ -6,15 +6,16 @@ datasource db {
 }
 
 generator client {
-    provider = "prisma-client-js"
+    provider      = "prisma-client-js"
+    binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
 model User {
-    id           String             @id
+    id           String              @id
     name         String
     slug         String
-    createDate   DateTime           @default(now())
-    updateDate   DateTime           @default(now())
+    createDate   DateTime            @default(now())
+    updateDate   DateTime            @default(now())
     Response     QuestionResponse[]
     UserProgress UserProgress?
     Reporting    QuestionReporting[]
@@ -40,15 +41,15 @@ model Level {
 }
 
 model Question {
-    id         Int                @id @default(autoincrement())
+    id         Int                 @id @default(autoincrement())
     difficulty Int
     data       Json?
-    picture    String             @default("")
+    picture    String              @default("")
     source     String
     language   String
-    xp_earned  Int                @default(10)
-    createDate DateTime           @default(now())
-    updateDate DateTime           @default(now())
+    xp_earned  Int                 @default(10)
+    createDate DateTime            @default(now())
+    updateDate DateTime            @default(now())
     userCreate String
     userUpdate String
     Response   QuestionResponse[]
