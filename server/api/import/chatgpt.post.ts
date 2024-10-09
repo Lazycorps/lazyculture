@@ -1,13 +1,7 @@
-import { Prisma, PrismaClient, Question } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { QuestionDataDTO } from "~/models/question";
-const config = useRuntimeConfig();
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl,
-    },
-  },
-});
+import prisma from "~/lib/prisma";
+
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig();
   if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {

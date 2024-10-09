@@ -1,13 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { serverSupabaseClient } from "#supabase/server";
-const config = useRuntimeConfig();
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl,
-    },
-  },
-});
+import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   return prisma.questionTheme.findMany();

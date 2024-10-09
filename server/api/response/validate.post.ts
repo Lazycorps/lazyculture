@@ -1,16 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import { serverSupabaseClient, serverSupabaseUser } from "#supabase/server";
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDataDTO } from "~/models/question";
-
-const config = useRuntimeConfig();
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl,
-    },
-  },
-});
+import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
