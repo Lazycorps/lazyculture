@@ -6,19 +6,20 @@ datasource db {
 }
 
 generator client {
-    provider      = "prisma-client-js"
-    binaryTargets = ["native", "rhel-openssl-1.0.x"]
+    provider = "prisma-client-js"
+    //binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
 model User {
-    id           String              @id
-    name         String
-    slug         String
-    createDate   DateTime            @default(now())
-    updateDate   DateTime            @default(now())
-    Response     QuestionResponse[]
-    UserProgress UserProgress?
-    Reporting    QuestionReporting[]
+    id                     String                   @id
+    name                   String
+    slug                   String
+    createDate             DateTime                 @default(now())
+    updateDate             DateTime                 @default(now())
+    Response               QuestionResponse[]
+    UserProgress           UserProgress?
+    Reporting              QuestionReporting[]
+    QuestionSeriesResponse QuestionSeriesResponse[]
 }
 
 model UserProgress {
@@ -86,4 +87,29 @@ model QuestionReporting {
     commentaire String
     date        DateTime @default(now())
     closed      Boolean
+}
+
+model QuestionSeries {
+    id                     Int                      @id @default(autoincrement())
+    type                   String
+    difficulty             Int
+    title                  String
+    data                   Json?
+    date                   DateTime                 @db.Date
+    createDate             DateTime                 @default(now())
+    updateDate             DateTime                 @default(now())
+    userCreate             String
+    userUpdate             String
+    QuestionSeriesResponse QuestionSeriesResponse[]
+}
+
+model QuestionSeriesResponse {
+    id         Int            @id @default(autoincrement())
+    seriesId   Int
+    series     QuestionSeries @relation(fields: [seriesId], references: [id])
+    userId     String
+    user       User           @relation(fields: [userId], references: [id])
+    data       Json?
+    createDate DateTime       @default(now())
+    updateDate DateTime       @default(now())
 }
