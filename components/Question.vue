@@ -77,15 +77,15 @@ async function validateResponse() {
     commentaire.value = question.value.data.commentaire;
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
-    reponseDTO.userResponseId = selectedResponse.value.id;
+    reponseDTO.userResponseId = selectedResponse.value + 1;
     if (
       question.value.data.propositions[selectedResponse.value].id ==
       question.value.data.response
     ) {
-      greenResponse.value = selectedResponse.value.id;
+      greenResponse.value = selectedResponse.value + 1;
       selectedResponse.value = null;
     } else {
-      redResponse.value = selectedResponse.value.id;
+      redResponse.value = selectedResponse.value + 1;
       selectedResponse.value = null;
       greenResponse.value = question.value.data.response;
     }
