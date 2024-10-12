@@ -15,7 +15,9 @@ export default defineEventHandler(async (event) => {
   const id = getRandomId(ids);
   const question = await prisma.question.findFirst({ where: { id: id } });
   if (question) {
-    const questionThemes = (question.data as any as QuestionDataDTO).theme;
+    const questionData = question.data as any as QuestionDataDTO;
+    questionData.propositions = shuffleArray(questionData.propositions);
+    const questionThemes = questionData.theme;
     const themes = await prisma.questionTheme.findMany({
       where: { slug: { in: questionThemes } },
     });
@@ -55,3 +57,11 @@ const getRandomId = (ids: { id: number }[]) => {
   const randomIndex = Math.floor(Math.random() * ids.length);
   return ids[randomIndex].id;
 };
+
+function shuffleArray(array: any[]) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]]; // Échange des éléments
+  }
+  return array;
+}
