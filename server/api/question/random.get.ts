@@ -2,7 +2,6 @@ import { PrismaClient } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
 import { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
-import { shuffle } from 'lodash';
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
@@ -16,10 +15,7 @@ export default defineEventHandler(async (event) => {
   const id = getRandomId(ids);
   const question = await prisma.question.findFirst({ where: { id: id } });
   if (question) {
-    const questionData = question.data as any as QuestionDataDTO;
-    questionData.propositions = shuffle(questionData.propositions);
-
-    const questionThemes = questionData.theme;
+    const questionThemes = (question.data as any as QuestionDataDTO).theme;
     const themes = await prisma.questionTheme.findMany({
       where: { slug: { in: questionThemes } },
     });
