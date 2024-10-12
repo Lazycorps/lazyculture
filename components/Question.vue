@@ -12,7 +12,7 @@
       </div>
       <h3>{{ question.data.libelle }}</h3>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }">
+        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }" :value="proposition.id">
           <v-btn style="min-width: 250px; margin-bottom: 5px; display: block" class="mx-auto" :value="proposition.id"
             :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
               ? 'red'
@@ -77,15 +77,15 @@ async function validateResponse() {
     commentaire.value = question.value.data.commentaire;
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
-    reponseDTO.userResponseId = selectedResponse.value + 1;
+    reponseDTO.userResponseId = selectedResponse.value;
     if (
-      question.value.data.propositions[selectedResponse.value].id ==
+      selectedResponse.value ==
       question.value.data.response
     ) {
-      greenResponse.value = selectedResponse.value + 1;
+      greenResponse.value = selectedResponse.value;
       selectedResponse.value = null;
     } else {
-      redResponse.value = selectedResponse.value + 1;
+      redResponse.value = selectedResponse.value;
       selectedResponse.value = null;
       greenResponse.value = question.value.data.response;
     }
