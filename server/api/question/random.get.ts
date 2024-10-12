@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const question = await prisma.question.findFirst({ where: { id: id } });
   if (question) {
     const questionData = question.data as any as QuestionDataDTO;
-    // questionData.propositions = shuffleArray(questionData.propositions);
+    questionData.propositions = shuffleArray(questionData.propositions);
     const questionThemes = questionData.theme;
     const themes = await prisma.questionTheme.findMany({
       where: { slug: { in: questionThemes } },
