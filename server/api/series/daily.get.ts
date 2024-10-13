@@ -1,16 +1,25 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
+import {
+  QuestionSeriesDTO,
+  QuestionSeriesResponseData,
+  QuestionSeriesResponseDTO,
+  UserSeriesDTO,
+} from "~/models/series";
 
 export default defineEventHandler(async (event) => {
-  //   const client = await serverSupabaseClient(event);
+  const client = await serverSupabaseClient(event);
 
   const today = new Date().toJSON().slice(0, 10);
-  const currentDailySeries = await prisma.questionSeries.findFirst({
+  const userConnected = (await client.auth.getUser())?.data?.user;
+  if (!userConnected) return;
+
+  let currentDailySeries = await prisma.questionSeries.findFirst({
     where: { date: new Date(today) },
   });
-  if (currentDailySeries) return currentDailySeries;
-  else {
+
+  if (!currentDailySeries) {
     let dailyNumber = await prisma.questionSeries.count({
       where: { type: "daily" },
     });
@@ -28,10 +37,22 @@ export default defineEventHandler(async (event) => {
         questionsIds,
       },
     };
-
-    return prisma.questionSeries.create({ data: newSeries });
+    currentDailySeries = await prisma.questionSeries.create({
+      data: newSeries,
+    });
   }
+
+  const userResponse = await prisma.questionSeriesResponse.findFirst({
+    where: { seriesId: currentDailySeries.id, userId: userConnected.id },
+  });
+
+  return {
+    series: currentDailySeries as unknown as QuestionSeriesDTO,
+    userResponse:
+      (userResponse as unknown as QuestionSeriesResponseDTO) ?? null,
+  } as UserSeriesDTO;
 });
+
 /**
  * Récupère l'ID minimum et maximum des questions dans la base de données.
  */
