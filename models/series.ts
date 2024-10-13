@@ -1,3 +1,8 @@
+export type UserSeriesDTO = {
+  series: QuestionSeriesDTO;
+  userResponse: QuestionSeriesResponseDTO;
+};
+
 export type QuestionSeriesDTO = {
   id: number;
   type: string;
@@ -9,20 +14,29 @@ export type QuestionSeriesDTO = {
   updateDate: Date;
   userCreate: string;
   userUpdate: string;
-}
+};
 
 export type QuestionSeriesData = {
   id: number;
   questionsIds: number[];
-}
+};
+
+export type QuestionSeriesResponseDTO = {
+  id: number;
+  seriesId: number;
+  userId: string;
+  data: QuestionSeriesResponseData;
+  createDate: Date;
+  updateDate: Date;
+};
 
 export type QuestionSeriesResponseData = {
-  reponses: QuestionSeriesResponseDataResponse[];
-}
+  responses: QuestionSeriesResponseDataResponse[];
+};
 
 export type QuestionSeriesResponseDataResponse = {
   questionId: number;
   responseId: number;
   success: boolean;
   elapsedTime: number;
-}
+};

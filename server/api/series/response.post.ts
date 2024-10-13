@@ -44,14 +44,14 @@ export default defineEventHandler(async (event) => {
         seriesId: body.seriesId,
         userId: userConnected.id,
         data: {
-          reponses: [seriesResponseToAdd as any],
+          responses: [seriesResponseToAdd as any],
         },
       },
     });
   } else {
     const responseData =
       seriesResponse.data as any as QuestionSeriesResponseData;
-    responseData.reponses.push(seriesResponseToAdd);
+    responseData.responses.push(seriesResponseToAdd);
     return await prisma.questionSeriesResponse.update({
       where: { id: seriesResponse.id },
       data: {
