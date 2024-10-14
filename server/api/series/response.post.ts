@@ -2,6 +2,7 @@ import { serverSupabaseClient, serverSupabaseUser } from "#supabase/server";
 import { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
 import {
+  QuestionSeriesData,
   QuestionSeriesResponseData,
   QuestionSeriesResponseDataResponse,
 } from "~/models/series";
@@ -51,7 +52,33 @@ export default defineEventHandler(async (event) => {
   } else {
     const responseData =
       seriesResponse.data as any as QuestionSeriesResponseData;
+    const countSeriesQuestions = (series.data as any as QuestionSeriesData)
+      .questionsIds.length;
+    const seriesAlreadyEnded =
+      responseData.responses.length == countSeriesQuestions;
+    if (seriesAlreadyEnded) return;
     responseData.responses.push(seriesResponseToAdd);
+    const countResponse = responseData.responses.length;
+    const countSuccessResponse = responseData.responses.filter(
+      (c) => c.success
+    ).length;
+    const seriesEnded = countResponse == countSeriesQuestions;
+    let xpEarned = 0;
+    if (seriesEnded) {
+      xpEarned = await calculUserXP(
+        countResponse,
+        countSeriesQuestions,
+        countSuccessResponse,
+        userConnected.id
+      );
+    }
+
+    responseData.xpEarned = xpEarned;
+    responseData.score =
+      Math.round(
+        ((countResponse / countSeriesQuestions) * 10 + Number.EPSILON) * 100
+      ) / 100;
+
     return await prisma.questionSeriesResponse.update({
       where: { id: seriesResponse.id },
       data: {
@@ -61,3 +88,38 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
+
+const calculUserXP = async (
+  countResponse: number,
+  countSeriesQuestions: number,
+  countSuccessResponse: number,
+  userId: string
+) => {
+  const multiplicator = 10 * (1 + countResponse / countSeriesQuestions);
+  const userXpWin = Math.ceil(countSuccessResponse * multiplicator);
+
+  const userProgress = await prisma.userProgress.findFirst({
+    where: { userId: userId },
+  });
+
+  if (userProgress) {
+    const userXpTot = userProgress.xp + userXpWin;
+    const level = await prisma.level.findFirst({
+      where: { xp_threshold: { lte: userXpTot } },
+      orderBy: { xp_threshold: "desc" },
+    });
+    await prisma.userProgress.update({
+      where: {
+        userId: userId,
+      },
+      data: {
+        xp: {
+          increment: userXpWin,
+        },
+        levelId: level?.id,
+      },
+    });
+  }
+
+  return userXpWin;
+};

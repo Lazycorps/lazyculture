@@ -10,10 +10,10 @@
         <span>Themes</span>
       </v-btn>
 
-      <v-btn value="Random" @click="router.push('/')" width="100">
-        <v-icon>mdi-dice-5</v-icon>
+      <v-btn value="Daily" @click="router.push('/series/daily')" width="100">
+        <v-icon>mdi-calendar</v-icon>
 
-        <span>Random</span>
+        <span>Daily</span>
       </v-btn>
       <v-btn value="Ranking" @click="router.push('/ranking')" width="100">
         <v-icon>mdi-podium-gold</v-icon>

@@ -32,6 +32,8 @@ export type QuestionSeriesResponseDTO = {
 
 export type QuestionSeriesResponseData = {
   responses: QuestionSeriesResponseDataResponse[];
+  xpEarned: number;
+  score: number;
 };
 
 export type QuestionSeriesResponseDataResponse = {
