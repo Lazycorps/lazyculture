@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
       userId: userConnected.id,
       questionId: body.questionId,
       closed: false,
-      commentaire: "Question à vérifier",
+      commentaire: body.comment,
     },
   });
 });

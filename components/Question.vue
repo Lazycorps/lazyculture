@@ -1,18 +1,29 @@
 <template>
-  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions" width="500">
+  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions"
+    width="500">
     <div class="d-flex flex-column justify-center" style="max-width: 500px">
       <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
         <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ question.themes.join(', ') }}
         <v-spacer></v-spacer>
         <v-progress-circular v-if="loadingReporting" indeterminate>
         </v-progress-circular>
-        <v-icon v-else @click="reportQuestion()" color="orange-lighten-2" :disabled="reported" icon="mdi-flag"
-          :loading="loadingReporting">
-        </v-icon>
+        <v-icon v-else @click="dialog = true" color="orange-lighten-2" :disabled="reported" icon="mdi-flag" />
+        <v-dialog 
+          v-model="dialog"
+          class="d-flex flex-column justify-center" 
+          style="max-width: 450px; max-height: 300px; background-color: black; color: white;">
+          <form @submit.prevent="reportQuestion()">
+            <v-textarea clearable label="Commentaire" v-model="comment" variant="underlined" :no-resize="true"></v-textarea>
+            <v-btn type="submit" :loading="loadingReporting" style="width: 250px" class="mx-auto" color="green">
+              Envoyer
+            </v-btn>
+          </form>
+        </v-dialog>
       </div>
       <h3>{{ question.data.libelle }}</h3>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }" :value="proposition.id">
+        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }"
+          :value="proposition.id">
           <v-btn style="min-width: 250px; margin-bottom: 5px; display: block" class="mx-auto" :value="proposition.id"
             :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
               ? 'red'
@@ -62,7 +73,9 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const reported = ref(false)
+const reported = ref(false);
+const dialog = ref(false);
+const comment = ref("");
 
 onMounted(() => {
   try {
@@ -140,14 +153,17 @@ async function reportQuestion() {
     loadingReporting.value = true;
     const reportingDto = new ReportingDTO();
     reportingDto.questionId = question.value.id;
+    reportingDto.comment = comment.value ? comment.value : "Question à vérifier";
     await $fetch("/api/question/report", {
       method: "post",
       body: { ...reportingDto },
     });
     reported.value = true;
+    comment.value = "";
   }
   finally {
     loadingReporting.value = false;
+    dialog.value = false;
   }
 }
 </script>
