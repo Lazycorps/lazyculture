@@ -46,12 +46,16 @@ export default defineEventHandler(async (event) => {
         userId: userConnected.id,
         data: {
           responses: [seriesResponseToAdd as any],
+          nextQuestion: (series.data as any as QuestionSeriesData)
+            .questionsIds[1],
         },
       },
     });
   } else {
     const responseData =
       seriesResponse.data as any as QuestionSeriesResponseData;
+    //Si la question envoyé est != de la question suivante pas normal ! CHEAT !
+    if (body.questionId != responseData.nextQuestion) return seriesResponse;
     const countSeriesQuestions = (series.data as any as QuestionSeriesData)
       .questionsIds.length;
     const seriesAlreadyEnded =
@@ -66,7 +70,6 @@ export default defineEventHandler(async (event) => {
     let xpEarned = 0;
     if (seriesEnded) {
       xpEarned = await calculUserXP(
-        countResponse,
         countSeriesQuestions,
         countSuccessResponse,
         userConnected.id
@@ -80,6 +83,10 @@ export default defineEventHandler(async (event) => {
           100
       ) / 100;
 
+    responseData.nextQuestion = (
+      series.data as any as QuestionSeriesData
+    ).questionsIds[countResponse];
+
     return await prisma.questionSeriesResponse.update({
       where: { id: seriesResponse.id },
       data: {
@@ -91,7 +98,6 @@ export default defineEventHandler(async (event) => {
 });
 
 const calculUserXP = async (
-  countResponse: number,
   countSeriesQuestions: number,
   countSuccessResponse: number,
   userId: string

@@ -34,6 +34,7 @@ export type QuestionSeriesResponseData = {
   responses: QuestionSeriesResponseDataResponse[];
   xpEarned: number;
   score: number;
+  nextQuestion: number;
 };
 
 export type QuestionSeriesResponseDataResponse = {
