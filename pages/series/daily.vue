@@ -1,6 +1,5 @@
 <template>
   <v-card flat rounded class="mx-auto my-auto pa-5">
-    {{ userSeries}}
     <div class="d-flex flex-column" style="min-width: 300px; max-width: 500px">
       <template v-if="!user">
         <h2>Daily Quizz</h2>
