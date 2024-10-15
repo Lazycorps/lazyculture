@@ -1,17 +1,19 @@
 <template>
   <v-icon @click="dialog = true" color="orange-lighten-2" :disabled="reported" icon="mdi-flag" />
-  <v-dialog v-model="dialog" class="d-flex flex-column justify-center"
-    style="max-width: 450px; max-height: 400px; background-color: black; color: white;">
-    <form @submit.prevent="reportQuestion">
-      <v-checkbox v-for="(reason, index) in defaultReasons" v-model="selectedReasons" :key="index" :label="reason"
-        :value="reason"
-        style="margin-bottom: -20px; margin-top: -15px;"></v-checkbox>
-      <v-textarea clearable label="Commentaire" v-model="comment" variant="underlined" :no-resize="true">
-      </v-textarea>
-      <v-btn type="submit" :loading="loadingReporting" style="width: 250px" class="mx-auto" color="green">
-        Envoyer
-      </v-btn>
-    </form>
+  <v-dialog v-model="dialog" max-width="450" :opacity="0.5" scrim="black">
+    <v-card class="pa-5">
+      <form @submit.prevent="reportQuestion">
+        <v-checkbox v-for="(reason, index) in defaultReasons" v-model="selectedReasons" :key="index" :label="reason"
+          :value="reason" style="height: 50px;"></v-checkbox>
+        <v-textarea class="mt-5" clearable label="Commentaire" v-model="comment" variant="outlined" :no-resize="true">
+        </v-textarea>
+        <div class="d-flex">
+          <v-btn type="submit" :loading="loadingReporting" style="width: 250px" class="mx-auto" color="green">
+            Envoyer
+          </v-btn>
+        </div>
+      </form>
+    </v-card>
   </v-dialog>
 </template>
 
