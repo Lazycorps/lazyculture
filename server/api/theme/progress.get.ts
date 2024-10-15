@@ -5,13 +5,15 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
   const userConnected = (await client.auth.getUser())?.data?.user;
   const query = getQuery(event);
-
+  const isNotRandom = query.theme != "random";
   const questionCount = await prisma.question.count({
     where: {
-      data: {
-        path: ["theme"],
-        array_contains: query.theme as string,
-      },
+      ...(isNotRandom && {
+        data: {
+          path: ["theme"],
+          array_contains: query.theme as string,
+        },
+      }),
     },
   });
 
@@ -40,17 +42,20 @@ export default defineEventHandler(async (event) => {
 });
 
 async function getAllSuccessResponses(userConnected: string, theme: string) {
+  const isNotRandom = theme != "random";
   return await prisma.questionResponse.findMany({
     include: {
       question: true, // Inclure les questions pour accéder au champ JSON 'data'
     },
     where: {
-      question: {
-        data: {
-          path: ["theme"],
-          array_contains: theme as string,
+      ...(isNotRandom && {
+        question: {
+          data: {
+            path: ["theme"],
+            array_contains: theme as string,
+          },
         },
-      },
+      }),
       userId: userConnected,
       success: true,
     },
@@ -62,17 +67,20 @@ async function getLastResponses(
   theme: string,
   take: number
 ) {
+  const isNotRandom = theme != "random";
   return await prisma.questionResponse.findMany({
     include: {
       question: true, // Inclure les questions pour accéder au champ JSON 'data'
     },
     where: {
-      question: {
-        data: {
-          path: ["theme"],
-          array_contains: theme as string,
+      ...(isNotRandom && {
+        question: {
+          data: {
+            path: ["theme"],
+            array_contains: theme as string,
+          },
         },
-      },
+      }),
       userId: userConnected,
     },
     orderBy: [{ date: "desc" }],
