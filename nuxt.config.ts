@@ -29,6 +29,12 @@ export default defineNuxtConfig({
       },
     },
   },
+  routeRules: {
+    "/": {
+      // Temporary redirect using a 307 status code
+      redirect: "/themes",
+    },
+  },
   runtimeConfig: {
     apiKey: "",
     databaseUrl: process.env.DATABASE_URL,
