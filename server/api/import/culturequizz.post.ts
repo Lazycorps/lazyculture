@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { QuestionDataDTO, QuestionPropositionDTO } from "~/models/question";
 import { JSDOM } from "jsdom";
 import prisma from "~/lib/prisma";
+import { serverSupabaseClient } from "#supabase/server";
 
 type QuizzCultureRequestDTO = {
   url: string;
@@ -11,6 +12,7 @@ type QuizzCultureRequestDTO = {
 
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig();
+  const supabase = await serverSupabaseClient(event);
   if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {
     setResponseStatus(event, 401);
     return;
@@ -19,6 +21,18 @@ export default defineEventHandler(async (event) => {
   const request = await readBody<QuizzCultureRequestDTO>(event);
   const questions = await extractQuestionsData(request);
   const questionsToAdd: Prisma.QuestionCreateInput[] = [];
+
+  for (const question of questions) {
+    if (question.img) {
+      const imageName = crypto.randomUUID();
+      question.img = await downloadAndUploadImage(
+        supabase,
+        question.img,
+        imageName
+      );
+    }
+  }
+
   questions.forEach((q) => {
     const question: Prisma.QuestionCreateInput = {
       difficulty: q.difficulty,
@@ -95,9 +109,40 @@ async function extractQuestionsData(
       questionData.commentaire = commentaireElement.textContent?.trim() || "";
     }
 
+    // Télécharger et uploader l'image si elle existe
+    const imageElement = slideElement.querySelector(".photo-answer img");
+    if (imageElement) {
+      const imageUrl = imageElement.getAttribute("src");
+      if (imageUrl) {
+        questionData.img = imageUrl;
+      }
+    }
     // Ajouter la question extraite à la liste
     questions.push(questionData);
   });
 
   return questions;
+}
+
+// Fonction pour télécharger et sauvegarder une image sur Supabase
+async function downloadAndUploadImage(
+  supabase: any,
+  imageUrl: string,
+  imageName: string
+): Promise<string> {
+  const response = await fetch(imageUrl);
+  const imageBuffer = await response.arrayBuffer();
+
+  // Téléversement de l'image sur Supabase Storage
+  const { data, error } = await supabase.storage
+    .from("images")
+    .upload(`questions/${imageName}`, imageBuffer, {
+      contentType: "image/jpeg",
+    });
+
+  if (error) {
+    throw new Error(`Error uploading image: ${error.message}`);
+  }
+
+  return `https://osyurrvwveoeevfsshhz.supabase.co/storage/v1/object/public/${data.fullPath}`;
 }

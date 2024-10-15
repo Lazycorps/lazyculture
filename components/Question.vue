@@ -8,6 +8,7 @@
         <QuestionReporting ref="questionReporting" :questionId="question.id"/>
       </div>
       <h3>{{ question.data.libelle }}</h3>
+      <v-img v-if="question.data.img" :src="question.data.img"></v-img>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
         <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }"
           :value="proposition.id">
