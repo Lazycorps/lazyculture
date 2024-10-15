@@ -5,9 +5,7 @@
       <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
         <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ question.themes.join(', ') }}
         <v-spacer></v-spacer>
-        <v-progress-circular v-if="loadingReporting" indeterminate>
-        </v-progress-circular>
-        <QuestionReporting :questionId="question.id" />
+        <QuestionReporting ref="questionReporting" :questionId="question.id"/>
       </div>
       <h3>{{ question.data.libelle }}</h3>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
@@ -45,10 +43,11 @@
   </v-skeleton-loader>
 </template>
 <script setup lang="ts">
-import { ReportingDTO } from "~/models/DTO/reportingDTO";
+
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
-import { ThemeDTO } from "~/models/theme";
+import QuestionReporting from './QuestionReporting.vue';
+
 
 const props = defineProps<{ theme?: string }>();
 const firstLoading = ref(true)
@@ -61,6 +60,7 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
+const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
 
 onMounted(() => {
   try {
@@ -101,14 +101,17 @@ async function NextQuestion() {
   try {
     loading.value = true;
     const newQuestion = await getNewQuestion();
+
+    if (questionReporting.value) {
+      questionReporting.value.reported = false;
+    }
+
     responded.value = false;
     question.value = newQuestion;
     commentaire.value = "";
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
-    reported.value = false;
-    loadingReporting.value = false;
   } finally {
     loading.value = false;
     firstLoading.value = false;

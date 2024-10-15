@@ -1,31 +1,14 @@
 <template>
-  <v-icon v-else @click="dialog = true" color="orange-lighten-2" :disabled="reported" icon="mdi-flag" />
-  <v-dialog 
-    v-model="dialog"
-    class="d-flex flex-column justify-center" 
-    style="max-width: 450px; max-height: 300px; background-color: black; color: white;">
+  <v-icon @click="dialog = true" color="orange-lighten-2" :disabled="reported" icon="mdi-flag" />
+  <v-dialog v-model="dialog" class="d-flex flex-column justify-center"
+    style="max-width: 450px; max-height: 400px; background-color: black; color: white;">
     <form @submit.prevent="reportQuestion">
-      <v-checkbox-group v-model="selectedReasons">
-        <v-checkbox
-          v-for="(reason, index) in defaultReasons"
-          :key="index"
-          :label="reason"
-          :value="reason"
-        ></v-checkbox>
-      </v-checkbox-group>
-      <v-textarea 
-        clearable 
-        label="Commentaire" 
-        v-model="comment" 
-        variant="underlined" 
-        :no-resize="true">
+      <v-checkbox v-for="(reason, index) in defaultReasons" v-model="selectedReasons" :key="index" :label="reason"
+        :value="reason"
+        style="margin-bottom: -20px; margin-top: -15px;"></v-checkbox>
+      <v-textarea clearable label="Commentaire" v-model="comment" variant="underlined" :no-resize="true">
       </v-textarea>
-      <v-btn 
-        type="submit" 
-        :loading="loadingReporting" 
-        style="width: 250px" 
-        class="mx-auto" 
-        color="green">
+      <v-btn type="submit" :loading="loadingReporting" style="width: 250px" class="mx-auto" color="green">
         Envoyer
       </v-btn>
     </form>
@@ -34,8 +17,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { ReportingDTO } from '~/models/DTO/reportingDTO';
 
-const props = defineProps<{ questionId: number }>();
+const props = defineProps<{
+  questionId: number;
+}>();
 
 const reported = ref(false);
 const dialog = ref(false);
@@ -48,7 +34,7 @@ async function reportQuestion() {
   try {
     loadingReporting.value = true;
 
-    const reasonsText = selectedReasons.value.length > 0 ? `Raisons : ${selectedReasons.value.join(", ")}.` : "";
+    const reasonsText = selectedReasons.value.length > 0 ? selectedReasons.value.join(", ") : "";
     const reportingDto = new ReportingDTO();
 
     reportingDto.questionId = props.questionId;
@@ -62,10 +48,14 @@ async function reportQuestion() {
     reported.value = true;
     comment.value = "";
     selectedReasons.value = [];
-  } 
+  }
   finally {
     loadingReporting.value = false;
     dialog.value = false;
   }
 }
+
+defineExpose({
+  reported
+});
 </script>
