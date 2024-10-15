@@ -35,6 +35,7 @@
             </div>
 
             <b class="mt-5">Reviens demain pour un nouveau Quizz</b>
+            <v-btn class="mt-5" color="primary "@click="router.push('/ranking/daily')" prepend-icon="mdi-podium-gold">Daily ranking</v-btn>
           </div>
         </template>
       </template>
