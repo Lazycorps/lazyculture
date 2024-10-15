@@ -1,57 +1,93 @@
 <template>
-  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions"
-    width="500">
+  <v-skeleton-loader
+    :loading="firstLoading"
+    type="article, list-item,list-item,list-item,list-item, actions"
+    width="500"
+  >
     <div class="d-flex flex-column justify-center" style="max-width: 500px">
       <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
-        <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ question.themes.join(', ') }}
+        <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon>
+        {{ question.themes.join(", ") }}
         <v-spacer></v-spacer>
-        <QuestionReporting ref="questionReporting" :questionId="question.id"/>
+        <QuestionReporting ref="questionReporting" :questionId="question.id" />
       </div>
       <h3>{{ question.data.libelle }}</h3>
-      <v-img v-if="question.data.img" :src="question.data.img"></v-img>
+      <v-img
+        v-if="question.data.img"
+        :src="question.data.img"
+        height="200"
+      ></v-img>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }"
-          :value="proposition.id">
-          <v-btn style="min-width: 250px; margin-bottom: 5px; display: block" class="mx-auto" :value="proposition.id"
-            :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
-              ? 'red'
-              : greenResponse == proposition.id
+        <v-item
+          v-for="proposition in question.data.propositions"
+          v-slot="{ isSelected, toggle }"
+          :value="proposition.id"
+        >
+          <v-btn
+            style="min-width: 250px; margin-bottom: 5px; display: block"
+            class="mx-auto"
+            :value="proposition.id"
+            :variant="isSelected ? 'tonal' : 'outlined'"
+            :color="
+              redResponse == proposition.id
+                ? 'red'
+                : greenResponse == proposition.id
                 ? 'green'
                 : isSelected
-                  ? 'green'
-                  : 'white'
-              " @click="toggle">
+                ? 'green'
+                : 'white'
+            "
+            @click="toggle"
+          >
             {{ proposition.value }}
           </v-btn>
         </v-item>
       </v-item-group>
       <span class="mb-5">{{ commentaire }}</span>
-      <span v-if="responded" class="d-flex justify-center align-center" style="position: relative">
-        <v-btn @click="NextQuestion()" :loading="loading" class="mx-auto" style="width: 250px" color="blue">
+      <span
+        v-if="responded"
+        class="d-flex justify-center align-center"
+        style="position: relative"
+      >
+        <v-btn
+          @click="NextQuestion()"
+          :loading="loading"
+          class="mx-auto"
+          style="width: 250px"
+          color="blue"
+        >
           Continuer
         </v-btn>
         <transition name="fade">
-          <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
+          <p
+            v-if="showXP"
+            class="xp-text"
+            style="position: absolute; left: 85%"
+          >
             + {{ xpWin }} xp
           </p>
         </transition>
       </span>
-      <v-btn v-if="!responded" @click="validateResponse()" style="width: 250px" class="mx-auto" color="green"
-        :disabled="selectedResponse == null">
+      <v-btn
+        v-if="!responded"
+        @click="validateResponse()"
+        style="width: 250px"
+        class="mx-auto"
+        color="green"
+        :disabled="selectedResponse == null"
+      >
         Valider
       </v-btn>
     </div>
   </v-skeleton-loader>
 </template>
 <script setup lang="ts">
-
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
-import QuestionReporting from './QuestionReporting.vue';
-
+import QuestionReporting from "./QuestionReporting.vue";
 
 const props = defineProps<{ theme?: string }>();
-const firstLoading = ref(true)
+const firstLoading = ref(true);
 const loading = ref(true);
 const commentaire = ref("");
 const responded = ref(false);
@@ -61,12 +97,14 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
+const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(
+  null
+);
 
 onMounted(() => {
   try {
     NextQuestion();
-  } catch (err) { }
+  } catch (err) {}
 });
 
 async function validateResponse() {
@@ -77,10 +115,7 @@ async function validateResponse() {
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
     reponseDTO.userResponseId = selectedResponse.value;
-    if (
-      selectedResponse.value ==
-      question.value.data.response
-    ) {
+    if (selectedResponse.value == question.value.data.response) {
       greenResponse.value = selectedResponse.value;
       selectedResponse.value = null;
     } else {
