@@ -96,7 +96,7 @@ const calculUserXP = async (
   countSuccessResponse: number,
   userId: string
 ) => {
-  const multiplicator = 10 * (1 + countResponse / countSeriesQuestions);
+  const multiplicator = 10 * (1 + countSuccessResponse / countSeriesQuestions);
   const userXpWin = Math.ceil(countSuccessResponse * multiplicator);
 
   const userProgress = await prisma.userProgress.findFirst({
