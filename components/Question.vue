@@ -1,19 +1,17 @@
 <template>
-  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions" width="500">
+  <v-skeleton-loader :loading="firstLoading" type="article, list-item,list-item,list-item,list-item, actions"
+    width="500">
     <div class="d-flex flex-column justify-center" style="max-width: 500px">
       <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
         <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon> {{ question.themes.join(', ') }}
         <v-spacer></v-spacer>
-        <v-progress-circular v-if="loadingReporting" indeterminate>
-        </v-progress-circular>
-        <v-icon v-else @click="reportQuestion()" color="orange-lighten-2" :disabled="reported" icon="mdi-flag"
-          :loading="loadingReporting">
-        </v-icon>
+        <QuestionReporting ref="questionReporting" :questionId="question.id"/>
       </div>
       <h3>{{ question.data.libelle }}</h3>
       <v-img v-if="question.data.img" :src="question.data.img"></v-img>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }" :value="proposition.id">
+        <v-item v-for="proposition in question.data.propositions" v-slot="{ isSelected, toggle }"
+          :value="proposition.id">
           <v-btn style="min-width: 250px; margin-bottom: 5px; display: block" class="mx-auto" :value="proposition.id"
             :variant="isSelected ? 'tonal' : 'outlined'" :color="redResponse == proposition.id
               ? 'red'
@@ -46,15 +44,15 @@
   </v-skeleton-loader>
 </template>
 <script setup lang="ts">
-import { ReportingDTO } from "~/models/DTO/reportingDTO";
+
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
-import { ThemeDTO } from "~/models/theme";
+import QuestionReporting from './QuestionReporting.vue';
+
 
 const props = defineProps<{ theme?: string }>();
 const firstLoading = ref(true)
 const loading = ref(true);
-const loadingReporting = ref(false);
 const commentaire = ref("");
 const responded = ref(false);
 const selectedResponse = ref();
@@ -63,7 +61,7 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const reported = ref(false)
+const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
 
 onMounted(() => {
   try {
@@ -104,14 +102,17 @@ async function NextQuestion() {
   try {
     loading.value = true;
     const newQuestion = await getNewQuestion();
+
+    if (questionReporting.value) {
+      questionReporting.value.reported = false;
+    }
+
     responded.value = false;
     question.value = newQuestion;
     commentaire.value = "";
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
-    reported.value = false;
-    loadingReporting.value = false;
   } finally {
     loading.value = false;
     firstLoading.value = false;
@@ -134,22 +135,6 @@ async function getNewQuestion() {
   if (props.theme)
     return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
   else return $fetch<QuestionDTO>("/api/question/random");
-}
-
-async function reportQuestion() {
-  try {
-    loadingReporting.value = true;
-    const reportingDto = new ReportingDTO();
-    reportingDto.questionId = question.value.id;
-    await $fetch("/api/question/report", {
-      method: "post",
-      body: { ...reportingDto },
-    });
-    reported.value = true;
-  }
-  finally {
-    loadingReporting.value = false;
-  }
 }
 </script>
 
