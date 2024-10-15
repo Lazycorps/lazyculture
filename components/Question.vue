@@ -7,18 +7,7 @@
         <v-spacer></v-spacer>
         <v-progress-circular v-if="loadingReporting" indeterminate>
         </v-progress-circular>
-        <v-icon v-else @click="dialog = true" color="orange-lighten-2" :disabled="reported" icon="mdi-flag" />
-        <v-dialog 
-          v-model="dialog"
-          class="d-flex flex-column justify-center" 
-          style="max-width: 450px; max-height: 300px; background-color: black; color: white;">
-          <form @submit.prevent="reportQuestion()">
-            <v-textarea clearable label="Commentaire" v-model="comment" variant="underlined" :no-resize="true"></v-textarea>
-            <v-btn type="submit" :loading="loadingReporting" style="width: 250px" class="mx-auto" color="green">
-              Envoyer
-            </v-btn>
-          </form>
-        </v-dialog>
+        <QuestionReporting :questionId="question.id" />
       </div>
       <h3>{{ question.data.libelle }}</h3>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
@@ -64,7 +53,6 @@ import { ThemeDTO } from "~/models/theme";
 const props = defineProps<{ theme?: string }>();
 const firstLoading = ref(true)
 const loading = ref(true);
-const loadingReporting = ref(false);
 const commentaire = ref("");
 const responded = ref(false);
 const selectedResponse = ref();
@@ -73,9 +61,6 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const reported = ref(false);
-const dialog = ref(false);
-const comment = ref("");
 
 onMounted(() => {
   try {
@@ -146,25 +131,6 @@ async function getNewQuestion() {
   if (props.theme)
     return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
   else return $fetch<QuestionDTO>("/api/question/random");
-}
-
-async function reportQuestion() {
-  try {
-    loadingReporting.value = true;
-    const reportingDto = new ReportingDTO();
-    reportingDto.questionId = question.value.id;
-    reportingDto.comment = comment.value ? comment.value : "Question à vérifier";
-    await $fetch("/api/question/report", {
-      method: "post",
-      body: { ...reportingDto },
-    });
-    reported.value = true;
-    comment.value = "";
-  }
-  finally {
-    loadingReporting.value = false;
-    dialog.value = false;
-  }
 }
 </script>
 
