@@ -9,9 +9,9 @@ type QuizzCultureRequestDTO = {
   themes: string[];
   difficulty: number;
 };
+const runtimeConfig = useRuntimeConfig();
 
 export default defineEventHandler(async (event) => {
-  const runtimeConfig = useRuntimeConfig();
   const supabase = await serverSupabaseClient(event);
   if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {
     setResponseStatus(event, 401);
@@ -144,5 +144,8 @@ async function downloadAndUploadImage(
     throw new Error(`Error uploading image: ${error.message}`);
   }
 
-  return `https://osyurrvwveoeevfsshhz.supabase.co/storage/v1/object/public/${data.fullPath}`;
+  return `${runtimeConfig.supabaseUrl.replace(
+    /\/$/,
+    ""
+  )}/storage/v1/object/public/${data.fullPath}`;
 }
