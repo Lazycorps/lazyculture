@@ -15,12 +15,15 @@ export class QuestionDataDTO {
   difficulty: number = 0;
   theme: string[] = ["culture_generale"];
   libelle: string = "";
+  img: string = "";
   response: number = 0;
   propositions: QuestionPropositionDTO[] = [];
   commentaire: string = "";
+  commentaireImg: string = "";
 }
 
 export class QuestionPropositionDTO {
   id: number = 0;
   value: string = "";
+  img: string = "";
 }

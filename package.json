@@ -23,7 +23,7 @@
     "vuetify": "^3.7.1"
   },
   "devDependencies": {
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "^5.21.0",
     "@types/jsdom": "^21.1.7",
     "prisma": "^5.19.1"
   }
