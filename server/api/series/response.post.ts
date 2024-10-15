@@ -76,7 +76,8 @@ export default defineEventHandler(async (event) => {
     responseData.xpEarned = xpEarned;
     responseData.score =
       Math.round(
-        ((countResponse / countSeriesQuestions) * 10 + Number.EPSILON) * 100
+        ((countSuccessResponse / countSeriesQuestions) * 10 + Number.EPSILON) *
+          100
       ) / 100;
 
     return await prisma.questionSeriesResponse.update({
