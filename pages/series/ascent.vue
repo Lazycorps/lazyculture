@@ -4,63 +4,42 @@
       <template v-if="!user">
         <h2>Ascent Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary"
-          >Please login to play</v-btn
-        >
+        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
       </template>
       <template v-else>
-        <h2>{{ userSeries?.series.title }}</h2>
+        <div class="d-flex justify-space-between align-center">
+          <h2>{{ userSeries?.series.title }}</h2>
+          <div>
+            <v-icon v-for="health in seriesHealthPoint" class="ml-2" icon="mdi-heart"
+              :color="health > userHealthPoint ? 'grey' : 'pink'"> </v-icon>
+          </div>
+        </div>
         <div class="d-flex align-center">
-          <v-progress-linear
-            :indeterminate="loading"
-            :model-value="questionId"
-            :max="nbrQuestion"
-            min="0"
-            color="green"
-            height="10"
-            rounded
-          ></v-progress-linear>
+          <v-progress-linear :indeterminate="loading" :model-value="questionId" :max="nbrQuestion" min="0" color="green"
+            height="10" rounded></v-progress-linear>
           <div style="min-width: 60px" class="ml-5">
             {{ questionId }} / {{ nbrQuestion }}
           </div>
         </div>
         <v-divider class="my-5"></v-divider>
-        <template v-if="questionId != nbrQuestion">
-          <QuestionSeries
-            v-if="seriesStarted"
-            :question="question"
-            :parentLoading="loading"
-            @validate-response="validateResponse"
-            @next-question="nextQuestion"
-          ></QuestionSeries>
-          <v-btn v-else @click="startSeries" color="green" :loading="loading"
-            >{{ questionId > 0 ? "Reprendre" : "Démarer" }} l'ascension</v-btn
-          >
+        <template v-if="userSeries?.userResponse || !userSeries?.userResponse?.data?.ended">
+          <QuestionSeries v-if="seriesStarted" :question="question" :parentLoading="loading"
+            @validate-response="validateResponse" @next-question="nextQuestion"></QuestionSeries>
+          <v-btn v-else @click="startSeries" color="green" :loading="loading">{{ questionId > 0 ? "Reprendre" :
+            "Démarer" }} l'ascension</v-btn>
         </template>
         <template v-else>
           <div class="d-flex flex-column align-center">
-            <v-icon
-              color="green"
-              icon="mdi-check-circle-outline"
-              size="120"
-            ></v-icon>
+            <v-icon color="green" icon="mdi-image-filter-hdr" size="120"></v-icon>
             <div>
-              Score : {{ userSeries?.userResponse.data.score }} /
-              {{ userSeries?.series.data.questionsIds.length }}
+              Résultat : {{ userSeries?.userResponse?.data?.responses?.length }} /
+              {{ userSeries?.series?.data?.questionsIds?.length }}
             </div>
             <div>
               Expérience gagnée :
-              {{ userSeries?.userResponse.data.xpEarned }}
+              {{ userSeries?.userResponse?.data?.xpEarned }}
             </div>
-
-            <b class="mt-5">Reviens demain pour un nouveau Quizz</b>
-            <v-btn
-              class="mt-5"
-              color="primary "
-              @click="router.push('/ranking/daily')"
-              prepend-icon="mdi-podium-gold"
-              >Daily ranking</v-btn
-            >
+            <v-btn @click="startNewSeries" class="mt-5" color="primary" :loading="loading">Nouvelle ascension</v-btn>
           </div>
         </template>
       </template>
@@ -71,7 +50,7 @@
 import type { ResponseDTO } from "~/models/DTO/responseDTO";
 import type { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
 import { QuestionDTO } from "~/models/question";
-import type { UserSeriesDTO } from "~/models/series";
+import type { UserAscentSeriesDTO } from "~/models/series/seriesAscension";
 
 const supabase = useSupabaseClient();
 const {
@@ -81,15 +60,33 @@ const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
-const { data: userSeries } = await useFetch<UserSeriesDTO>(
+const { data: userSeries } = await useFetch<UserAscentSeriesDTO>(
   "/api/series/ascent"
 );
+
+const seriesHealthPoint = computed(() => {
+  return userSeries.value?.series?.data?.healthPoint ?? 1;
+});
+const userHealthPoint = computed(() => {
+  return userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value;
+});
 const nbrQuestion = computed(() => {
-  return userSeries.value?.series.data.questionsIds.length;
+  return userSeries.value?.series?.data?.questionsIds.length;
 });
 const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
 });
+
+async function startNewSeries() {
+  try {
+    loading.value = true;
+    userSeries.value = await $fetch<UserAscentSeriesDTO>(
+      "/api/series/ascent"
+    );
+  } finally {
+    loading.value = false;
+  }
+}
 
 async function startSeries() {
   try {
@@ -105,7 +102,7 @@ async function nextQuestion() {
     loading.value = true;
     const nexQuestion =
       userSeries.value?.userResponse?.data?.nextQuestion ??
-      userSeries.value?.series.data.questionsIds[0];
+      userSeries.value?.series?.data?.questionsIds[0];
     question.value = await $fetch<QuestionDTO>("/api/question", {
       query: {
         id: nexQuestion,
