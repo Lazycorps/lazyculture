@@ -54,6 +54,7 @@ const GetQuestion = (
     questionData.propositions.push({
       id: i++,
       value: p,
+      img: ""
     });
   });
 

@@ -8,7 +8,7 @@ export class QuestionDTO {
   userUpdate: string = "";
   themes: string[] = []
   data: QuestionDataDTO = new QuestionDataDTO();
-  reported: boolean = false;
+  reportings: QuestionReportingDTO[] = [];
 }
 
 export class QuestionDataDTO {
