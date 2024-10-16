@@ -1,6 +1,8 @@
 <template>
   <v-card flat rounded class="mx-auto my-auto pa-5">
-    <Question :theme="route.params.id"></Question>
+    <Question
+      :theme="route.params.id == 'random' ? null : route.params.id"
+    ></Question>
   </v-card>
 </template>
 <script setup>

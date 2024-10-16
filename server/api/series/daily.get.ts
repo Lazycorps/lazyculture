@@ -2,8 +2,8 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 import {
+  QuestionSeriesData,
   QuestionSeriesDTO,
-  QuestionSeriesResponseData,
   QuestionSeriesResponseDTO,
   UserSeriesDTO,
 } from "~/models/series";
@@ -71,8 +71,16 @@ async function getMinMaxId() {
  * @param maxId - L'ID maximum possible.
  * @returns Un ID aléatoire.
  */
-function getRandomId(minId: number, maxId: number): number {
-  return Math.floor(Math.random() * (maxId - minId + 1) + minId);
+function getRandomId(
+  minId: number,
+  maxId: number,
+  idToIgnore: number[]
+): number {
+  let randomId;
+  do {
+    randomId = Math.floor(Math.random() * (maxId - minId + 1) + minId);
+  } while (idToIgnore.includes(randomId));
+  return randomId;
 }
 
 /**
@@ -95,10 +103,21 @@ async function isQuestionExists(id: number): Promise<boolean> {
 async function getRandomQuestionsIds() {
   const { minId, maxId } = await getMinMaxId();
   const uniqueIds = new Set<number>();
+  const previousSeries = await prisma.questionSeries.findMany({
+    orderBy: { id: "desc" },
+    take: 10,
+  });
+
+  const questionIdsToIgnore: number[] = [];
+  previousSeries.forEach((p) =>
+    questionIdsToIgnore.concat(
+      (p.data as any as QuestionSeriesData).questionsIds
+    )
+  );
 
   // Continuer à générer des IDs jusqu'à ce qu'on en ait 10 uniques et existants
   while (uniqueIds.size < 10) {
-    const randomId = getRandomId(minId!, maxId!);
+    const randomId = getRandomId(minId!, maxId!, questionIdsToIgnore);
     if (await isQuestionExists(randomId)) {
       uniqueIds.add(randomId); // Ajouter seulement si l'ID existe
     }
