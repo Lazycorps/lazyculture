@@ -31,6 +31,7 @@ export type QuestionSeriesResponseDTO = {
 };
 
 export type QuestionSeriesResponseData = {
+  seriesType: string;
   responses: QuestionSeriesResponseDataResponse[];
   xpEarned: number;
   score: number;
