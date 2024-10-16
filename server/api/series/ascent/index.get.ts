@@ -17,8 +17,6 @@ export default defineEventHandler(async (event) => {
   if (!userConnected) return;
   const userSeriesDTO = {} as UserSeriesDTO;
   let lastUserAscent = await getLastUserAscent(userConnected);
-
-  //
   if (lastUserAscent) {
     const lastUserAscentData =
       lastUserAscent.data as QuestionSeriesAscensionResponseData;
@@ -118,6 +116,7 @@ async function generateNewAscentSeries(seriesId: number) {
       id: seriesId,
       questionsIds,
       healthPoint: 2,
+      seriesType: 'ascent'
     },
   };
   return (await prisma.questionSeries.create({
