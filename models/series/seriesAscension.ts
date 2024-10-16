@@ -1,16 +1,7 @@
-import type { QuestionSeriesData, QuestionSeriesDTO, QuestionSeriesResponseData, QuestionSeriesResponseDTO } from "../series";
-
-export type UserAscentSeriesDTO = {
-  series: QuestionSeriesDTO;
-  userResponse: QuestionSeriesAscensionResponse;
-};
+import type { QuestionSeriesData, QuestionSeriesResponseData } from "../series";
 
 export type QuestionSeriesAscensionData = QuestionSeriesData & {
   healthPoint: number;
-};
-
-export type QuestionSeriesAscensionResponse = QuestionSeriesResponseDTO & {
-  data: QuestionSeriesAscensionResponseData;
 };
 
 export type QuestionSeriesAscensionResponseData = QuestionSeriesResponseData & {
