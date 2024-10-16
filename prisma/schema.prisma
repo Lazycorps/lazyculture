@@ -54,7 +54,7 @@ model Question {
     userCreate String
     userUpdate String
     Response   QuestionResponse[]
-    Reporting  QuestionReporting[]
+    Reporting  QuestionReporting[] @relation("QuestionToReporting")
 }
 
 model QuestionResponse {
@@ -83,7 +83,7 @@ model QuestionReporting {
     userId      String
     user        User     @relation(fields: [userId], references: [id])
     questionId  Int
-    question    Question @relation(fields: [questionId], references: [id])
+    question    Question @relation("QuestionToReporting", fields: [questionId], references: [id])
     commentaire String
     date        DateTime @default(now())
     closed      Boolean
