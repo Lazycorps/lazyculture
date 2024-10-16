@@ -116,7 +116,7 @@ async function generateNewAscentSeries(seriesId: number) {
       id: seriesId,
       questionsIds,
       healthPoint: 2,
-      seriesType: 'ascent'
+      seriesType: "ascent",
     },
   };
   return (await prisma.questionSeries.create({
