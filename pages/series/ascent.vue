@@ -23,7 +23,6 @@
         </div>
         <div class="d-flex align-center">
           <v-progress-linear
-            :indeterminate="loading"
             :model-value="questionId"
             :max="nbrQuestion"
             min="0"
