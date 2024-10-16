@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const lastResponse = await getLastResponses(
       userConnected?.id,
       query.theme as string,
-      50
+      isNotRandom ? 50 : 1000
     );
     responseCount = responses.length;
     const goodResponseCount = lastResponse.filter((r) => r.success).length;
