@@ -4,27 +4,27 @@
       <slot />
     </v-main>
     <v-bottom-navigation fixed app>
-      <v-btn value="Themes" @click="router.push('/themes')" width="100">
+      <v-btn value="Themes" @click="router.push('/themes')" width="90">
         <v-icon>mdi-book-open-variant-outline</v-icon>
 
         <span>Themes</span>
       </v-btn>
 
-      <v-btn value="Daily" @click="router.push('/series/daily')" width="100">
+      <v-btn value="Daily" @click="router.push('/series/daily')" width="80">
         <v-icon>mdi-calendar</v-icon>
 
         <span>Daily</span>
       </v-btn>
-      <v-btn value="Ascent" @click="router.push('/series/ascent')" width="100">
+      <v-btn value="Ascent" @click="router.push('/series/ascent')" width="90">
         <v-icon>mdi-image-filter-hdr</v-icon>
 
         <span>Ascent</span>
       </v-btn>
-      <v-btn value="Ranking" @click="router.push('/ranking')" width="100">
+      <v-btn value="Ranking" @click="router.push('/ranking')" width="90">
         <v-icon>mdi-podium-gold</v-icon>
         <span>Ranking</span>
       </v-btn>
-      <v-btn value="User" @click="goUserPage()" width="100">
+      <v-btn value="User" @click="goUserPage()" width="90">
         <v-icon>mdi-account</v-icon>
 
         <span>Account</span>
