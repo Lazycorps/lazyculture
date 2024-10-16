@@ -18,6 +18,7 @@ export type QuestionSeriesDTO = {
 
 export type QuestionSeriesData = {
   id: number;
+  healthPoint: number;
   questionsIds: number[];
 };
 
