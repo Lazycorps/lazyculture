@@ -4,27 +4,45 @@
       <template v-if="!user">
         <h2>Daily Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
+        <v-btn @click="router.push('/login')" color="primary"
+          >Please login to play</v-btn
+        >
       </template>
       <template v-else>
         <h2>{{ userSeries?.series.title }}</h2>
         <div class="d-flex align-center">
-          <v-progress-linear :indeterminate="loading" :model-value="questionId" :max="nbrQuestion" min="0" color="green"
-            height="10" rounded></v-progress-linear>
+          <v-progress-linear
+            :model-value="questionId"
+            :max="nbrQuestion"
+            min="0"
+            color="green"
+            height="10"
+            rounded
+          ></v-progress-linear>
           <div style="min-width: 60px" class="ml-5">
             {{ questionId }} / {{ nbrQuestion }}
           </div>
         </div>
         <v-divider class="my-5"></v-divider>
         <template v-if="questionId != nbrQuestion">
-          <QuestionSeries v-if="seriesStarted" :question="question" :parentLoading="loading"
-            @validate-response="validateResponse" @next-question="nextQuestion"></QuestionSeries>
-          <v-btn v-else @click="startSeries" color="green" :loading="loading">{{ questionId > 0 ? "Reprendre" :
-            "Démarer" }} la série</v-btn>
+          <QuestionSeries
+            v-if="seriesStarted"
+            :question="question"
+            :parentLoading="loading"
+            @validate-response="validateResponse"
+            @next-question="nextQuestion"
+          ></QuestionSeries>
+          <v-btn v-else @click="startSeries" color="green" :loading="loading"
+            >{{ questionId > 0 ? "Reprendre" : "Démarer" }} la série</v-btn
+          >
         </template>
         <template v-else>
           <div class="d-flex flex-column align-center">
-            <v-icon color="green" icon="mdi-check-circle-outline" size="120"></v-icon>
+            <v-icon
+              color="green"
+              icon="mdi-check-circle-outline"
+              size="120"
+            ></v-icon>
             <div>
               Score : {{ userSeries?.userResponse.data.score }} /
               {{ userSeries?.series.data.questionsIds.length }}
@@ -35,7 +53,13 @@
             </div>
 
             <b class="mt-5">Reviens demain pour un nouveau Quizz</b>
-            <v-btn class="mt-5" color="primary "@click="router.push('/ranking/daily')" prepend-icon="mdi-podium-gold">Daily ranking</v-btn>
+            <v-btn
+              class="mt-5"
+              color="primary "
+              @click="router.push('/ranking/daily')"
+              prepend-icon="mdi-podium-gold"
+              >Daily ranking</v-btn
+            >
           </div>
         </template>
       </template>
@@ -76,7 +100,9 @@ async function startSeries() {
 async function nextQuestion() {
   try {
     loading.value = true;
-    const nexQuestion = userSeries.value?.userResponse?.data?.nextQuestion ?? userSeries.value?.series.data.questionsIds[0];
+    const nexQuestion =
+      userSeries.value?.userResponse?.data?.nextQuestion ??
+      userSeries.value?.series.data.questionsIds[0];
     question.value = await $fetch<QuestionDTO>("/api/question", {
       query: {
         id: nexQuestion,
