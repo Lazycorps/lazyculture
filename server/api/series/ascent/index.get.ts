@@ -1,5 +1,5 @@
-import { QuestionSeries } from './../../../../.nuxt/components.d';
-import { Prisma, PrismaClient } from "@prisma/client";
+import { QuestionSeries } from "../../../../.nuxt/components";
+import { Prisma } from "@prisma/client";
 import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 import {
@@ -9,80 +9,42 @@ import {
   UserSeriesDTO,
 } from "~/models/series";
 import { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
+import { User } from "@supabase/auth-js";
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
-
-  const today = new Date().toJSON().slice(0, 10);
   const userConnected = (await client.auth.getUser())?.data?.user;
   if (!userConnected) return;
-
-  let lastUserAscent = await prisma.questionSeriesResponse.findFirst({
-    where: {
-      userId: userConnected.id,
-      data: {
-        path: ["seriesType"],
-        equals: "ascent",
-      },
-    },
-    orderBy: {
-      id: "desc",
-    },
-    take: 1,
-    include: {
-      series: true,
-    },
-  });
-
   const userSeriesDTO = {} as UserSeriesDTO;
-  //const ascentSeries: Prisma.QuestionSeries
+  let lastUserAscent = await getLastUserAscent(userConnected);
+
+  //
   if (lastUserAscent) {
     const lastUserAscentData =
-      lastUserAscent.data as any as QuestionSeriesAscensionResponseData;
+      lastUserAscent.data as QuestionSeriesAscensionResponseData;
     if (!lastUserAscentData.ended) {
-      userSeriesDTO.series = lastUserAscent.series as any as QuestionSeriesDTO;
+      userSeriesDTO.series = lastUserAscent.series as QuestionSeriesDTO;
       userSeriesDTO.userResponse =
         lastUserAscent as any as QuestionSeriesResponseDTO;
     } else {
-      const lastUserAscentSeries = lastUserAscent.series
-        .data as any as QuestionSeriesData;
-
-      const nextAscentId = lastUserAscentSeries.id + 1;
-      let nextUserAscentSeries = await prisma.questionSeries.findFirst({
-        where: {
-          data: {
-            path: ["id"],
-            equals: nextAscentId,
-          },
-        },
-      });
+      var { nextUserAscentSeries, nextAscentId } =
+        await getNextUserAscentSeries(
+          lastUserAscent.series.data as any as QuestionSeriesData
+        );
       if (nextUserAscentSeries) {
         userSeriesDTO.series = nextUserAscentSeries as any as QuestionSeriesDTO;
       } else {
-        await generateNewAscentSeries(nextAscentId);
+        userSeriesDTO.series = await generateNewAscentSeries(nextAscentId);
       }
     }
+  } else {
+    var firstAscentSeries = await getFirstAscentSeries();
+    if (firstAscentSeries)
+      userSeriesDTO.series = firstAscentSeries as QuestionSeriesDTO;
+    else userSeriesDTO.series = await generateNewAscentSeries(1);
   }
 
-//   let nextUserAscent = await prisma.questionSeries.findFirst({
-//     where: {
-//       userId: userConnected.id,
-//       data: {
-//         path: ["ended"],
-//         equals: false,
-//       },
-//     },
-//   });
-
-//   const userResponse = await prisma.questionSeriesResponse.findFirst({
-//     where: { seriesId: currentDailySeries.id, userId: userConnected.id },
-//   });
-
-//   return {
-//     series: currentDailySeries as unknown as QuestionSeriesDTO,
-//     userResponse:
-//       (userResponse as unknown as QuestionSeriesResponseDTO) ?? null,
-//   } as UserSeriesDTO;
+  return userSeriesDTO;
 });
 
 /**
@@ -143,21 +105,67 @@ async function getRandomQuestionsIds() {
   return Array.from(uniqueIds);
 }
 
-async function generateNewAscentSeries(seriesId: number,) {
+async function generateNewAscentSeries(seriesId: number) {
   const questionsIds = await getRandomQuestionsIds();
   const newSeries: Prisma.QuestionSeriesCreateInput = {
     date: new Date(),
     difficulty: 1,
     title: `Ascension ${seriesId}`,
-    type: "ascension",
+    type: "ascent",
     userCreate: "Auto",
     userUpdate: "Auto",
     data: {
       id: seriesId,
       questionsIds,
+      healthPoint: 2,
     },
   };
   return (await prisma.questionSeries.create({
     data: newSeries,
   })) as any as QuestionSeriesDTO;
+}
+
+async function getNextUserAscentSeries(
+  lastUserAscentSeries: QuestionSeriesData
+) {
+  const nextAscentId = lastUserAscentSeries.id + 1;
+  let nextUserAscentSeries = await prisma.questionSeries.findFirst({
+    where: {
+      type: "ascent",
+      data: {
+        path: ["id"],
+        equals: nextAscentId,
+      },
+    },
+  });
+  return { nextUserAscentSeries, nextAscentId };
+}
+
+async function getLastUserAscent(userConnected: User) {
+  return await prisma.questionSeriesResponse.findFirst({
+    where: {
+      userId: userConnected.id,
+      data: {
+        path: ["seriesType"],
+        equals: "ascent",
+      },
+    },
+    orderBy: {
+      id: "desc",
+    },
+    take: 1,
+    include: {
+      series: true,
+    },
+  });
+}
+async function getFirstAscentSeries() {
+  let firstAscentSeries = await prisma.questionSeries.findFirst({
+    where: {
+      type: "ascent",
+    },
+    orderBy: { id: "asc" },
+    take: 1,
+  });
+  return firstAscentSeries;
 }
