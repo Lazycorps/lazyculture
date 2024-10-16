@@ -4,42 +4,73 @@
       <template v-if="!user">
         <h2>Ascent Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
+        <v-btn @click="router.push('/login')" color="primary"
+          >Please login to play</v-btn
+        >
       </template>
       <template v-else>
         <div class="d-flex justify-space-between align-center">
           <h2>{{ userSeries?.series.title }}</h2>
           <div>
-            <v-icon v-for="health in seriesHealthPoint" class="ml-2" icon="mdi-heart"
-              :color="health > userHealthPoint ? 'grey' : 'pink'"> </v-icon>
+            <v-icon
+              v-for="health in seriesHealthPoint"
+              class="ml-2"
+              icon="mdi-heart"
+              :color="health > userHealthPoint ? 'grey' : 'pink'"
+            >
+            </v-icon>
           </div>
         </div>
         <div class="d-flex align-center">
-          <v-progress-linear :indeterminate="loading" :model-value="questionId" :max="nbrQuestion" min="0" color="green"
-            height="10" rounded></v-progress-linear>
+          <v-progress-linear
+            :indeterminate="loading"
+            :model-value="questionId"
+            :max="nbrQuestion"
+            min="0"
+            color="green"
+            height="10"
+            rounded
+          ></v-progress-linear>
           <div style="min-width: 60px" class="ml-5">
             {{ questionId }} / {{ nbrQuestion }}
           </div>
         </div>
         <v-divider class="my-5"></v-divider>
-        <template v-if="userSeries?.userResponse || !userSeries?.userResponse?.data?.ended">
-          <QuestionSeries v-if="seriesStarted" :question="question" :parentLoading="loading"
-            @validate-response="validateResponse" @next-question="nextQuestion"></QuestionSeries>
-          <v-btn v-else @click="startSeries" color="green" :loading="loading">{{ questionId > 0 ? "Reprendre" :
-            "Démarer" }} l'ascension</v-btn>
+        <template v-if="!userSeries?.userResponse?.data?.ended">
+          <QuestionSeries
+            v-if="seriesStarted"
+            :question="question"
+            :parentLoading="loading"
+            @validate-response="validateResponse"
+            @next-question="nextQuestion"
+          ></QuestionSeries>
+          <v-btn v-else @click="startSeries" color="green" :loading="loading"
+            >{{ questionId > 0 ? "Reprendre" : "Démarer" }} l'ascension</v-btn
+          >
         </template>
         <template v-else>
           <div class="d-flex flex-column align-center">
-            <v-icon color="green" icon="mdi-image-filter-hdr" size="120"></v-icon>
+            <v-icon
+              color="green"
+              icon="mdi-image-filter-hdr"
+              size="120"
+            ></v-icon>
             <div>
-              Résultat : {{ userSeries?.userResponse?.data?.responses?.length }} /
+              Résultat :
+              {{ userSeries?.userResponse?.data?.responses?.length }} /
               {{ userSeries?.series?.data?.questionsIds?.length }}
             </div>
             <div>
               Expérience gagnée :
               {{ userSeries?.userResponse?.data?.xpEarned }}
             </div>
-            <v-btn @click="startNewSeries" class="mt-5" color="primary" :loading="loading">Nouvelle ascension</v-btn>
+            <v-btn
+              @click="startNewSeries"
+              class="mt-5"
+              color="primary"
+              :loading="loading"
+              >Nouvelle ascension</v-btn
+            >
           </div>
         </template>
       </template>
@@ -68,7 +99,9 @@ const seriesHealthPoint = computed(() => {
   return userSeries.value?.series?.data?.healthPoint ?? 1;
 });
 const userHealthPoint = computed(() => {
-  return userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value;
+  return (
+    userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value
+  );
 });
 const nbrQuestion = computed(() => {
   return userSeries.value?.series?.data?.questionsIds.length;
@@ -80,9 +113,7 @@ const questionId = computed(() => {
 async function startNewSeries() {
   try {
     loading.value = true;
-    userSeries.value = await $fetch<UserAscentSeriesDTO>(
-      "/api/series/ascent"
-    );
+    userSeries.value = await $fetch<UserAscentSeriesDTO>("/api/series/ascent");
   } finally {
     loading.value = false;
   }
