@@ -9,20 +9,10 @@
         >
       </template>
       <template v-else>
-        <div class="d-flex justify-space-between align-center">
-          <h2>{{ userSeries?.series.title }}</h2>
-          <div>
-            <v-icon
-              v-for="health in seriesHealthPoint"
-              class="ml-2"
-              icon="mdi-heart"
-              :color="health > userHealthPoint ? 'grey' : 'pink'"
-            >
-            </v-icon>
-          </div>
-        </div>
+        <h2>{{ userSeries?.series.title }}</h2>
         <div class="d-flex align-center">
           <v-progress-linear
+            :indeterminate="loading"
             :model-value="questionId"
             :max="nbrQuestion"
             min="0"
@@ -35,7 +25,7 @@
           </div>
         </div>
         <v-divider class="my-5"></v-divider>
-        <template v-if="!userSeries?.userResponse?.data?.ended">
+        <template v-if="questionId != nbrQuestion">
           <QuestionSeries
             v-if="seriesStarted"
             :question="question"
@@ -51,24 +41,25 @@
           <div class="d-flex flex-column align-center">
             <v-icon
               color="green"
-              icon="mdi-image-filter-hdr"
+              icon="mdi-check-circle-outline"
               size="120"
             ></v-icon>
             <div>
-              Résultat :
-              {{ userSeries?.userResponse?.data?.responses?.length }} /
-              {{ userSeries?.series?.data?.questionsIds?.length }}
+              Score : {{ userSeries?.userResponse.data.score }} /
+              {{ userSeries?.series.data.questionsIds.length }}
             </div>
             <div>
               Expérience gagnée :
-              {{ userSeries?.userResponse?.data?.xpEarned }}
+              {{ userSeries?.userResponse.data.xpEarned }}
             </div>
+
+            <b class="mt-5">Reviens demain pour un nouveau Quizz</b>
             <v-btn
-              @click="startNewSeries"
               class="mt-5"
-              color="primary"
-              :loading="loading"
-              >Nouvelle ascension</v-btn
+              color="primary "
+              @click="router.push('/ranking/daily')"
+              prepend-icon="mdi-podium-gold"
+              >Daily ranking</v-btn
             >
           </div>
         </template>
@@ -80,7 +71,7 @@
 import type { ResponseDTO } from "~/models/DTO/responseDTO";
 import type { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
 import { QuestionDTO } from "~/models/question";
-import type { UserAscentSeriesDTO } from "~/models/series/seriesAscension";
+import type { UserSeriesDTO } from "~/models/series";
 
 const supabase = useSupabaseClient();
 const {
@@ -90,33 +81,15 @@ const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
-const { data: userSeries } = await useFetch<UserAscentSeriesDTO>(
+const { data: userSeries } = await useFetch<UserSeriesDTO>(
   "/api/series/ascent"
 );
-
-const seriesHealthPoint = computed(() => {
-  return userSeries.value?.series?.data?.healthPoint ?? 1;
-});
-const userHealthPoint = computed(() => {
-  return (
-    userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value
-  );
-});
 const nbrQuestion = computed(() => {
-  return userSeries.value?.series?.data?.questionsIds.length;
+  return userSeries.value?.series.data.questionsIds.length;
 });
 const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
 });
-
-async function startNewSeries() {
-  try {
-    loading.value = true;
-    userSeries.value = await $fetch<UserAscentSeriesDTO>("/api/series/ascent");
-  } finally {
-    loading.value = false;
-  }
-}
 
 async function startSeries() {
   try {
@@ -132,7 +105,7 @@ async function nextQuestion() {
     loading.value = true;
     const nexQuestion =
       userSeries.value?.userResponse?.data?.nextQuestion ??
-      userSeries.value?.series?.data?.questionsIds[0];
+      userSeries.value?.series.data.questionsIds[0];
     question.value = await $fetch<QuestionDTO>("/api/question", {
       query: {
         id: nexQuestion,
