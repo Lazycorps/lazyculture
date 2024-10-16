@@ -15,6 +15,11 @@
 
         <span>Daily</span>
       </v-btn>
+      <v-btn value="Daily" @click="router.push('/series/ascent')" width="100">
+        <v-icon>mdi-image-filter-hdr</v-icon>
+
+        <span>Ascent</span>
+      </v-btn>
       <v-btn value="Ranking" @click="router.push('/ranking')" width="100">
         <v-icon>mdi-podium-gold</v-icon>
         <span>Ranking</span>

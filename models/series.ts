@@ -18,6 +18,7 @@ export type QuestionSeriesDTO = {
 
 export type QuestionSeriesData = {
   id: number;
+  healthPoint: number;
   questionsIds: number[];
 };
 
@@ -31,6 +32,7 @@ export type QuestionSeriesResponseDTO = {
 };
 
 export type QuestionSeriesResponseData = {
+  seriesType: string;
   responses: QuestionSeriesResponseDataResponse[];
   xpEarned: number;
   score: number;

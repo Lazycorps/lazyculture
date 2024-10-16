@@ -10,6 +10,9 @@ type DailySeriesRankingDTO = {
 
 export default defineEventHandler(async (event) => {
   const lastSeries = await prisma.questionSeries.findFirst({
+    where: {
+      type: "daily",
+    },
     orderBy: {
       id: "desc",
     },
