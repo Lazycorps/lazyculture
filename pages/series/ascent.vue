@@ -113,7 +113,6 @@ async function startNewSeries() {
   try {
     loading.value = true;
     userSeries.value = await $fetch<UserAscentSeriesDTO>("/api/series/ascent");
-    await nextQuestion();
   } finally {
     loading.value = false;
   }
