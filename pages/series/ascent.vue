@@ -4,9 +4,7 @@
       <template v-if="!user">
         <h2>Ascent Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary"
-          >Please login to play</v-btn
-        >
+        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
       </template>
       <template v-else>
         <div class="d-flex justify-space-between align-center">
