@@ -15,7 +15,7 @@
 
         <span>Daily</span>
       </v-btn>
-      <v-btn value="Daily" @click="router.push('/series/ascent')" width="100">
+      <v-btn value="Ascent" @click="router.push('/series/ascent')" width="100">
         <v-icon>mdi-image-filter-hdr</v-icon>
 
         <span>Ascent</span>
