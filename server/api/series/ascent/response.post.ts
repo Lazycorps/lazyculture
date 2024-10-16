@@ -56,6 +56,7 @@ export default defineEventHandler(async (event) => {
           ended: seriesEnded,
           nextQuestion: (series.data as any as QuestionSeriesData)
             .questionsIds[1],
+          seriesType: "ascent",
         },
       },
     });
@@ -82,20 +83,16 @@ export default defineEventHandler(async (event) => {
       responseData.responses.length >= series.data.questionsIds.length;
 
     let xpEarned = 0;
-    // if (seriesEnded) {
-    //   xpEarned = await calculUserXP(
-    //     countSeriesQuestions,
-    //     countSuccessResponse,
-    //     userConnected.id
-    //   );
-    // }
+    if (responseData.ended) {
+      xpEarned = await calculUserXP(
+        countSeriesQuestions,
+        countSuccessResponse,
+        userConnected.id
+      );
+    }
 
     responseData.xpEarned = xpEarned;
-    responseData.score =
-      Math.round(
-        ((countSuccessResponse / countSeriesQuestions) * 10 + Number.EPSILON) *
-          100
-      ) / 100;
+    responseData.score = countSuccessResponse;
 
     responseData.nextQuestion = (
       series.data as any as QuestionSeriesData
@@ -116,8 +113,12 @@ const calculUserXP = async (
   countSuccessResponse: number,
   userId: string
 ) => {
-  const multiplicator = 10 * (1 + countSuccessResponse / countSeriesQuestions);
-  const userXpWin = Math.ceil(countSuccessResponse * multiplicator);
+  const fiveXp = Math.floor(countSuccessResponse / 5) * 20;
+  const tenXp = Math.floor(countSuccessResponse / 10) * 40;
+  const twentyFiveXp = Math.floor(countSuccessResponse / 25) * 100;
+  const fiftyXp = Math.floor(countSuccessResponse / 50) * 200;
+  const hundredXp = Math.floor(countSuccessResponse / 100) * 500;
+  const userXpWin = fiveXp + tenXp + twentyFiveXp + fiftyXp + hundredXp;
 
   const userProgress = await prisma.userProgress.findFirst({
     where: { userId: userId },
