@@ -17,7 +17,7 @@
         </p>
       </v-alert>
       <div class="align-self-end">
-        <v-btn @click="router.push('Signin')" color="primary" variant="flat"
+        <v-btn @click="router.push('/login')" color="primary" variant="flat"
           >Sign In</v-btn
         >
       </div>
