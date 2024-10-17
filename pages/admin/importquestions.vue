@@ -6,25 +6,27 @@
       ><v-btn @click="loadJsonIntoQuestions">Charger</v-btn
       ><!-- <v-btn>Ajouter</v-btn> --></span
     >
-    <h2>Questions</h2>
-    <div v-for="(question, index) in questionsfromJson" style="overflow-y: scroll;">
-      <h3>{{ index + 1 }}.</h3>
-      <v-text-field label="Intitulé" v-model="question.libelle" />
-      <span class="d-flex">
-        <v-select label="Type" v-model="question.type" />
-        <v-select label="Difficulté" v-model="question.difficulty" />
-        <v-combobox multiple chips label="Thème(s)" v-model="question.theme" />
-      </span>
-      <span v-for="(prop, propIndex) in question.propositions" class="d-flex">        
-        <v-text-field :label="`Réponse ${propIndex + 1}`" :model-value="prop.value" :class="question.response == propIndex + 1 ? 'text-green' : ''" />
-      </span>
+    <div v-if="questionsfromJson.length > 0" style="overflow-y: scroll" class="d-flex flex-shrink-1 flex-column">
+      <h2>{{ questionsfromJson.length }} questions</h2>
+      <v-checkbox v-model="hideAnswers" label="Cacher la bonne réponse" />
+      <div
+        v-for="(question, index) in questionsfromJson"        
+      >
+        <span class="d-flex justify-space-between"
+          ><h3>{{ index + 1 }}.</h3>
+          <v-btn density="compact" @click="removeFromQuestions(index)" color="red" text="Supprimer"
+        /></span>
+        <QuestionForm :question="question" :hide-answers="hideAnswers" />
+      </div>
     </div>
   </v-card>
 </template>
 
 <script setup lang="ts">
 import { QuestionDataDTO } from "~/models/question";
+import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
+const hideAnswers = ref(true);
 const sourceJson = ref("");
 
 const questionsfromJson = ref<QuestionDataDTO[]>([]);
@@ -38,5 +40,9 @@ function loadJsonIntoQuestions() {
     const questionData = json[key];
     questionsfromJson.value.push(questionData);
   }
+}
+
+function removeFromQuestions(index: number) {
+  questionsfromJson.value.splice(index, 1);
 }
 </script>
