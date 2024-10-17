@@ -84,9 +84,6 @@ async function register() {
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
-      options: {
-        emailRedirectTo: `${process.env.BASE_URL}`,
-      },
     });
     if (error) errorDisplay.value = error.message;
     else router.push("registerValidation");
