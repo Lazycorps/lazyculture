@@ -10,6 +10,9 @@ type DailySeriesRankingDTO = {
 
 export default defineEventHandler(async (event) => {
   const lastSeries = await prisma.questionSeries.findFirst({
+    where: {
+      type: "daily",
+    },
     orderBy: {
       id: "desc",
     },
@@ -24,18 +27,20 @@ export default defineEventHandler(async (event) => {
     include: { user: true },
   });
 
-  const ranking = usersResponses.sort((a, b) => {
-    const aData = a.data as any as QuestionSeriesResponseData;
-    const bData = b.data as any as QuestionSeriesResponseData;
-    if (aData.score < bData.score) return 1;
-    if (aData.score > bData.score) return -1;
-    // Si les noms sont égaux, comparer les âges
-    const elapsedA = a.updateDate.getTime() - a.createDate.getTime();
-    const elapsedB = b.updateDate.getTime() - b.createDate.getTime();
-    if (elapsedA < elapsedB) return -1;
-    if (elapsedA > elapsedB) return 1;
-    return 0;
-  });
+  const ranking = usersResponses
+    .filter((u) => (u.data as any).score)
+    .sort((a, b) => {
+      const aData = a.data as any as QuestionSeriesResponseData;
+      const bData = b.data as any as QuestionSeriesResponseData;
+      if (aData.score < bData.score) return 1;
+      if (aData.score > bData.score) return -1;
+      // Si les noms sont égaux, comparer les âges
+      const elapsedA = a.updateDate.getTime() - a.createDate.getTime();
+      const elapsedB = b.updateDate.getTime() - b.createDate.getTime();
+      if (elapsedA < elapsedB) return -1;
+      if (elapsedA > elapsedB) return 1;
+      return 0;
+    });
 
   return ranking.map((r) => {
     const data = r.data as any as QuestionSeriesResponseData;

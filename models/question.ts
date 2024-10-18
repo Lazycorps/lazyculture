@@ -8,6 +8,7 @@ export class QuestionDTO {
   userUpdate: string = "";
   themes: string[] = []
   data: QuestionDataDTO = new QuestionDataDTO();
+  reportings: QuestionReportingDTO[] = [];
 }
 
 export class QuestionDataDTO {
@@ -26,4 +27,10 @@ export class QuestionPropositionDTO {
   id: number = 0;
   value: string = "";
   img: string = "";
+}
+
+export class QuestionReportingDTO {
+  id: number = 0;
+  commentaire: string = "";
+  closed: boolean = true;
 }
