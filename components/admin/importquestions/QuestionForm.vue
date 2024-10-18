@@ -31,7 +31,7 @@
           :class="!hideAnswers && question.response == propIndex + 1 ? 'text-green' : ''"
         />
       </span>
-      <v-text-field dense label="Commentaire" v-model="question.commentaire" />
+      <v-text-field v-if="!hideAnswers" dense label="Commentaire" v-model="question.commentaire" />
     </div>
   </v-card>
 </template>

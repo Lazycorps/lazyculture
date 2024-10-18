@@ -2,17 +2,17 @@
   <v-card flat rounded class="d-flex flex-column pa-5">
     <h1>Import des questions</h1>
     <v-textarea label="JSON source" rows="5" v-model="sourceJson" />
+    <span><v-btn @click="loadJsonIntoQuestions">Charger</v-btn></span>
     <span
-      ><v-btn @click="loadJsonIntoQuestions">Charger</v-btn
-      ><!-- <v-btn>Ajouter</v-btn> --></span
-    >
-    <div
       v-if="questionsfromJson.length > 0"
       style="overflow-y: scroll"
       class="d-flex flex-shrink-1 flex-column"
     >
       <h2>{{ questionsfromJson.length }} questions</h2>
-      <v-checkbox v-model="hideAnswers" label="Cacher la bonne réponse" />
+      <v-checkbox
+        v-model="hideAnswers"
+        label="Cacher la bonne réponse (et le commentaire)"
+      />
       <div v-for="(question, index) in questionsfromJson">
         <span class="d-flex justify-space-between"
           ><h3>{{ index + 1 }}.</h3>
@@ -24,9 +24,13 @@
         /></span>
         <QuestionForm :question="question" :hide-answers="hideAnswers" />
       </div>
-      <v-btn color="blue" text="Importer les questions" @click="sendToApi" />
-    </div>
-
+      <v-btn
+        color="blue"
+        text="Importer les questions"
+        :loading
+        @click="sendToApi"
+      />
+    </span>
   </v-card>
 </template>
 
@@ -59,13 +63,13 @@ async function sendToApi() {
   try {
     loading.value = true;
     if (questionsfromJson.value.length == 0) return;
-    await $fetch("/api/import/chatgpt", {
+    await $fetch("/api/import/importquestions", {
       method: "post",
-      body: questionsfromJson.value      
+      body: questionsfromJson.value,
     });
   } finally {
-    // sourceJson.value = "";
-    // questionsfromJson.value = [];
+    sourceJson.value = "";
+    questionsfromJson.value = [];
     loading.value = false;
   }
 }
