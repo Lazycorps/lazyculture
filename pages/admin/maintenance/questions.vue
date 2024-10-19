@@ -307,6 +307,11 @@ async function save() {
     return theme ? theme.slug : null;
   }).filter(slug => slug !== null);
 
+  if(editedItem.value.data.theme.length === 0)
+    editedItem.value.data.theme = ["culture_generale"];
+  
+  editedItem.value.data.difficulty = editedItem.value.difficulty;
+
   if (editedIndex.value > -1) {
     Object.assign(questions?.value ? [editedIndex.value] : defaultItem, editedItem.value);
     {
