@@ -35,6 +35,9 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+    layout: "admin",
+})
 import { QuestionDataDTO } from "~/models/question";
 import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
