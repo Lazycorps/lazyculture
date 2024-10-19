@@ -33,7 +33,7 @@
         <v-icon class="me-2" size="small" @click="editItem(item)">
           mdi-pencil
         </v-icon>
-        <v-icon size="small" @click="deleteItem(item)" :disabled="true">
+        <v-icon size="small" @click="deleteItem(item)">
           mdi-delete
         </v-icon>
       </template>
@@ -287,7 +287,6 @@ async function deleteItemConfirm() {
   await $fetch("/api/question/delete?id=" + editedItem.value.id, {
     method: "delete"
   });
-  questions?.value?.splice(editedIndex.value, 1);
   closeDelete();
 };
 

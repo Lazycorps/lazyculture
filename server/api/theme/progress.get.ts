@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
   const questionCount = await prisma.question.count({
     where: {
       ...(isNotRandom && {
+        deleted: false,
         data: {
           path: ["theme"],
           array_contains: query.theme as string,
@@ -50,6 +51,7 @@ async function getAllSuccessResponses(userConnected: string, theme: string) {
     where: {
       ...(isNotRandom && {
         question: {
+          deleted: false,
           data: {
             path: ["theme"],
             array_contains: theme as string,
@@ -75,6 +77,7 @@ async function getLastResponses(
     where: {
       ...(isNotRandom && {
         question: {
+          deleted: false,
           data: {
             path: ["theme"],
             array_contains: theme as string,

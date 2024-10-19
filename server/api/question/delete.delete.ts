@@ -12,9 +12,10 @@ export default defineEventHandler(async (event) => {
     }
     const query = getQuery(event);
 
-    await prisma.question.delete({
+    await prisma.question.update({
         where: {
             id: parseInt(query.id as string, 10)
         },
+        data: {deleted: true}
     });
 });
