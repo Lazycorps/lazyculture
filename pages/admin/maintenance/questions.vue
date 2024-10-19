@@ -59,6 +59,7 @@
               <v-combobox v-model="selectedThemeNames" :items="themes?.map(theme => theme.name) ?? []" label="Thèmes"
                 multiple hide-selected chips closable-chips density="compact" />
               <v-text-field v-model="editedItem.data.img" label="URL de l'image" density="compact" />
+              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" />
             </v-col>
           </v-row>
           <v-textarea v-model="editedItem.data.commentaire" label="Commentaire" rows="2" auto-grow density="compact" />
