@@ -16,6 +16,7 @@ model User {
     slug                   String
     createDate             DateTime                 @default(now())
     updateDate             DateTime                 @default(now())
+    admin                  Boolean                  @default(false)
     Response               QuestionResponse[]
     UserProgress           UserProgress?
     Reporting              QuestionReporting[]
@@ -53,6 +54,7 @@ model Question {
     updateDate DateTime            @default(now())
     userCreate String
     userUpdate String
+    deleted    Boolean             @default(false)
     Response   QuestionResponse[]
     Reporting  QuestionReporting[] @relation("QuestionToReporting")
 }
@@ -68,14 +70,14 @@ model QuestionResponse {
 }
 
 model QuestionTheme {
-    id         Int      @id @default(autoincrement())
-    name       String
-    slug       String
-    picture    String   @default("")
-    createDate DateTime @default(now())
-    updateDate DateTime @default(now())
-    userCreate String
-    userUpdate String
+    id           Int      @id @default(autoincrement())
+    name         String
+    slug         String
+    picture      String   @default("")
+    createDate   DateTime @default(now())
+    updateDate   DateTime @default(now())
+    userCreate   String
+    userUpdate   String
 }
 
 model QuestionReporting {
