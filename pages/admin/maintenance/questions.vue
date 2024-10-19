@@ -8,10 +8,11 @@
             v-model="textFilter" />
           <v-combobox label="Thèmes" :items="themes?.map(theme => theme.name) ?? []" v-model="selectedTheme"
             density="compact" width="200px" class="mr-10" clearable></v-combobox>
-          <v-switch v-model="showReportedQuestions" color="green" label="Questions Signalées" class="mr-10"></v-switch>
-          <v-switch color="green" label="Afficher réponses" v-model="showResponse"></v-switch>
+            <v-switch color="green" label="Réponses" v-model="showResponse" class="mr-2"></v-switch>
+          <v-switch v-model="showReportedQuestions" color="orange" label="Signalées" class="mr-2"></v-switch>
+          <v-switch color="red" label="Supprimées" v-model="showDeleted" class="mr-2"></v-switch>
           <v-spacer></v-spacer>
-          <v-btn icon @click="editItem(defaultItem)" :disabled="false" class="rounded-circle mr-6 mb-4"
+          <v-btn icon @click="editItem(defaultItem)" :disabled="false" class="rounded-circle mr-2 ml-2 mb-4"
             style="background-color: green; color: white;">
             <v-icon>mdi-plus</v-icon>
           </v-btn>
@@ -60,6 +61,7 @@
                 multiple hide-selected chips closable-chips density="compact" />
               <v-text-field v-model="editedItem.data.img" label="URL de l'image" density="compact" />
               <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" />
+              <v-switch color="red" label="Supprimée" v-model="editedItem.deleted"></v-switch>
             </v-col>
           </v-row>
           <v-textarea v-model="editedItem.data.commentaire" label="Commentaire" rows="2" auto-grow density="compact" />
@@ -108,6 +110,7 @@ const textFilter = ref<string>("");
 const dialog = ref(false);
 const dialogDelete = ref(false);
 const showResponse = ref(false);
+const showDeleted = ref(false);
 const showReportedQuestions = ref(false);
 const editedIndex = ref(-1);
 const editedItem = ref<QuestionDTO>({
@@ -118,6 +121,7 @@ const editedItem = ref<QuestionDTO>({
   updateDate: new Date(),
   userCreate: "",
   userUpdate: "",
+  deleted: false,
   themes: [],
   data: {
     type: "",
@@ -140,6 +144,7 @@ const defaultItem = {
   updateDate: new Date(),
   userCreate: "",
   userUpdate: "",
+  deleted: false,
   themes: [],
   data: {
     type: "",
@@ -162,6 +167,11 @@ const filteredQuestions = computed(() => {
     filtered = filtered.filter(question =>
       question.reportings.some(report => !report.closed)
     );
+  }
+
+  if (showDeleted.value) {
+    filtered = filtered.filter(question =>
+      question.deleted)
   }
 
   if (selectedTheme.value) {

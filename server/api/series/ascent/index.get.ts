@@ -74,7 +74,7 @@ function getRandomId(minId: number, maxId: number): number {
  */
 async function isQuestionExists(id: number): Promise<boolean> {
   const question = await prisma.question.findUnique({
-    where: { id },
+    where: { id, deleted: false },
     select: { id: true },
   });
   return question !== null;

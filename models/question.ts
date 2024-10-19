@@ -6,6 +6,7 @@ export class QuestionDTO {
   updateDate: Date = new Date();
   userCreate: string = "";
   userUpdate: string = "";
+  deleted: boolean = false;
   themes: string[] = []
   data: QuestionDataDTO = new QuestionDataDTO();
   reportings: QuestionReportingDTO[] = [];

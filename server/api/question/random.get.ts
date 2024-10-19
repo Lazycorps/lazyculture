@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   );
   if (ids.length == 0) ids = await getRandomQuestionsIds(query.theme as string);
   const id = getRandomId(ids);
-  const question = await prisma.question.findFirst({ where: { id: id } });
+  const question = await prisma.question.findFirst({ where: { id: id, deleted: false } });
   if (question) {
     const questionData = question.data as any as QuestionDataDTO;
     questionData.propositions = shuffleArray(questionData.propositions);
