@@ -97,9 +97,9 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({
-  layout: "admin",
-})
+// definePageMeta({
+//     middleware: 'admin'
+// });
 import { ref, computed } from 'vue';
 import type { VDataTable } from 'vuetify/components'
 import type { QuestionDataDTO, QuestionDTO, QuestionPropositionDTO, QuestionReportingDTO } from '~/models/question';

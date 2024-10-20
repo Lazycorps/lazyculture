@@ -1,6 +1,6 @@
 <template>
     <v-layout>
-        <v-navigation-drawer width="200"permanent>
+        <v-navigation-drawer width="200" permanent>
             <v-list>
                 <v-list-item-group>
                     <v-list-item>
@@ -30,7 +30,7 @@
                     <!-- Menu Imports sans trait en dessous et même style que Maintenance -->
                     <v-list-item>
                         <v-list-item-content>
-                            <v-list-item-title  class="menu-item highlight">Imports</v-list-item-title>
+                            <v-list-item-title class="menu-item highlight">Imports</v-list-item-title>
                         </v-list-item-content>
                     </v-list-item>
 
@@ -78,24 +78,31 @@ body,
 
 .headline {
     padding: 16px;
-    text-align: left; /* Aligne le texte à gauche */
+    text-align: left;
+    /* Aligne le texte à gauche */
 }
 
 .highlight {
-    font-weight: bold; /* Met en gras */
-    color: #1976D2; /* Change la couleur si nécessaire */
+    font-weight: bold;
+    /* Met en gras */
+    color: #1976D2;
+    /* Change la couleur si nécessaire */
 }
 
 .menu-item {
-    border-bottom: 1px solid #E0E0E0; /* Ajoute une bordure en bas pour Questions et Themes */
-    padding: 12px 16px; /* Ajuste le remplissage pour les éléments de menu */
+    border-bottom: 1px solid #E0E0E0;
+    /* Ajoute une bordure en bas pour Questions et Themes */
+    padding: 12px 16px;
+    /* Ajuste le remplissage pour les éléments de menu */
 }
 
 .menu-item:last-child {
-    border-bottom: none; /* Enlève la bordure du dernier élément */
+    border-bottom: none;
+    /* Enlève la bordure du dernier élément */
 }
 
 .menu-item.highlight {
-    border-bottom: none; /* Enlève la bordure pour Imports */
+    border-bottom: none;
+    /* Enlève la bordure pour Imports */
 }
 </style>

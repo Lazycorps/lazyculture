@@ -1,7 +1,7 @@
 <template>
 </template>
 <script setup lang="ts">
-definePageMeta({
-    layout: "admin",
-})
+// definePageMeta({
+//     middleware: 'admin'
+// });
 </script>
