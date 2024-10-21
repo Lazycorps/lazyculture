@@ -21,6 +21,7 @@ model User {
     UserProgress           UserProgress?
     Reporting              QuestionReporting[]
     QuestionSeriesResponse QuestionSeriesResponse[]
+    UserAchievement        UserAchievement[]
 }
 
 model UserProgress {
@@ -70,14 +71,14 @@ model QuestionResponse {
 }
 
 model QuestionTheme {
-    id           Int      @id @default(autoincrement())
-    name         String
-    slug         String
-    picture      String   @default("")
-    createDate   DateTime @default(now())
-    updateDate   DateTime @default(now())
-    userCreate   String
-    userUpdate   String
+    id         Int      @id @default(autoincrement())
+    name       String
+    slug       String
+    picture    String   @default("")
+    createDate DateTime @default(now())
+    updateDate DateTime @default(now())
+    userCreate String
+    userUpdate String
 }
 
 model QuestionReporting {
@@ -111,7 +112,31 @@ model QuestionSeriesResponse {
     series     QuestionSeries @relation(fields: [seriesId], references: [id])
     userId     String
     user       User           @relation(fields: [userId], references: [id])
+    seriesType String         @default("")
+    result     Decimal        @default(0)
     data       Json?
     createDate DateTime       @default(now())
     updateDate DateTime       @default(now())
+}
+
+model Achievement {
+    id          Int               @id @default(autoincrement())
+    title       String
+    description String
+    createdAt   DateTime          @default(now())
+    type        String
+    condition   Int
+    xpEarned    Int
+    users       UserAchievement[]
+}
+
+model UserAchievement {
+    id            Int         @id @default(autoincrement())
+    userId        String
+    user          User        @relation(fields: [userId], references: [id])
+    achievementId Int
+    achievement   Achievement @relation(fields: [achievementId], references: [id])
+    unlockedAt    DateTime    @default(now())
+
+    @@unique([userId, achievementId])
 }
