@@ -18,7 +18,7 @@
                         </v-list-item-content>
                     </v-list-item>
 
-                    <v-list-item @click="router.push('/admin')" class="menu-item">
+                    <v-list-item @click="router.push('/admin/maintenance/themes')" class="menu-item">
                         <template v-slot:prepend>
                             <v-icon>mdi-book-open-variant-outline</v-icon>
                         </template>
