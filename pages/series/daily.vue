@@ -33,7 +33,7 @@
             @next-question="nextQuestion"
           ></QuestionSeries>
           <v-btn v-else @click="startSeries" color="green" :loading="loading"
-            >{{ questionId > 0 ? "Reprendre" : "Démarer" }} la série</v-btn
+            >{{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série</v-btn
           >
         </template>
         <template v-else>
