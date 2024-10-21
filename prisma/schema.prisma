@@ -120,14 +120,14 @@ model QuestionSeriesResponse {
 }
 
 model Achievement {
-    id          Int               @id @default(autoincrement())
-    title       String
-    description String
-    createdAt   DateTime          @default(now())
-    type        String
-    condition   Int
-    xpEarned    Int
-    users       UserAchievement[]
+    id             Int               @id @default(autoincrement())
+    title          String
+    description    String
+    createdAt      DateTime          @default(now())
+    conditionType  String
+    conditionValue Int
+    xpEarned       Int
+    users          UserAchievement[]
 }
 
 model UserAchievement {
