@@ -311,6 +311,8 @@ const isSaveDisabled = computed(() => {
 });
 
 async function save() {
+  editedItem.value.data.difficulty = editedItem.value.difficulty = Number(editedItem.value.difficulty);
+
   editedItem.value.data.theme = selectedThemeNames.value.map(themeName => {
     const theme = themes?.value?.find(t => t.name === themeName);
     return theme ? theme.slug : null;
