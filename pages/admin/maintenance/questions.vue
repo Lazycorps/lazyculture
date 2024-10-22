@@ -60,7 +60,7 @@
               <v-combobox v-model="selectedThemeNames" :items="themes?.map(theme => theme.name) ?? []" label="Thèmes"
                 multiple hide-selected chips closable-chips density="compact" />
               <v-text-field v-model="editedItem.data.img" label="URL de l'image" density="compact" />
-              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" />
+              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" type="number" />
               <v-switch color="red" label="Supprimée" v-model="editedItem.deleted"></v-switch>
             </v-col>
           </v-row>
@@ -318,10 +318,6 @@ async function save() {
 
   if(editedItem.value.data.theme.length === 0)
     editedItem.value.data.theme = ["culture_generale"];
-  
-  const difficultyInt = parseInt(editedItem.value.difficulty, 10);
-  editedItem.value.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
-  editedItem.value.data.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
 
   editedItem.value.data.type = "choix";
 

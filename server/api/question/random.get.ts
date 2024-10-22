@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   );
   if (ids.length == 0) ids = await getRandomQuestionsIds(query.theme as string);
   const id = getRandomId(ids);
-  const question = await prisma.question.findFirst({ where: { id: id, deleted: false } });
+  const question = await prisma.question.findFirst({ where: { id: id } });
   if (question) {
     const questionData = question.data as any as QuestionDataDTO;
     questionData.propositions = shuffleArray(questionData.propositions);
@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
 const getRandomQuestionsIds = async (theme?: string, userId?: string) => {
   return await prisma.question.findMany({
     where: {
+      deleted: false,
       ...(theme && {
         data: {
           path: ["theme"],
