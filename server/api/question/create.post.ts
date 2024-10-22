@@ -33,7 +33,8 @@ export default defineEventHandler(async (event) => {
 
         return { newQuestion };
     } catch (error) {
+        const err = error as Error;
         setResponseStatus(event, 400);
-        return { error: 'Erreur lors de la création de la question.' };
+        return { error: `Erreur lors de la création de la question: ${err.message}` };
     }
 });
