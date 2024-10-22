@@ -320,6 +320,7 @@ async function save() {
     editedItem.value.data.theme = ["culture_generale"];
   
   const difficultyInt = parseInt(editedItem.value.difficulty, 10);
+  editedItem.value.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
   editedItem.value.data.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
 
   if (editedIndex.value > -1) {
