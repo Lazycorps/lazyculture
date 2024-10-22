@@ -319,7 +319,8 @@ async function save() {
   if(editedItem.value.data.theme.length === 0)
     editedItem.value.data.theme = ["culture_generale"];
   
-  editedItem.value.data.difficulty = editedItem.value.difficulty;
+  const difficultyInt = parseInt(editedItem.value.difficulty, 10);
+  editedItem.value.data.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
 
   if (editedIndex.value > -1) {
     Object.assign(questions?.value ? [editedIndex.value] : defaultItem, editedItem.value);
