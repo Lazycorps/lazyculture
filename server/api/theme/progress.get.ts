@@ -8,8 +8,8 @@ export default defineEventHandler(async (event) => {
   const isNotRandom = query.theme != "random";
   const questionCount = await prisma.question.count({
     where: {
+      deleted: false,
       ...(isNotRandom && {
-        deleted: false,
         data: {
           path: ["theme"],
           array_contains: query.theme as string,
@@ -49,6 +49,9 @@ async function getAllSuccessResponses(userConnected: string, theme: string) {
       question: true, // Inclure les questions pour accéder au champ JSON 'data'
     },
     where: {
+      question: {
+        deleted: false
+      },
       ...(isNotRandom && {
         question: {
           deleted: false,
