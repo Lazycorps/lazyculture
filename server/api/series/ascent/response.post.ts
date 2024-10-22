@@ -50,6 +50,8 @@ export default defineEventHandler(async (event) => {
       data: {
         seriesId: body.seriesId,
         userId: userConnected.id,
+        result: 0,
+        seriesType: "ascend",
         data: {
           responses: [seriesResponseToAdd as any],
           healthPoint: currentHealthPoint,
@@ -84,11 +86,7 @@ export default defineEventHandler(async (event) => {
 
     let xpEarned = 0;
     if (responseData.ended) {
-      xpEarned = await calculUserXP(
-        countSeriesQuestions,
-        countSuccessResponse,
-        userConnected.id
-      );
+      xpEarned = await calculUserXP(countSuccessResponse, userConnected.id);
     }
 
     responseData.xpEarned = xpEarned;
@@ -103,16 +101,14 @@ export default defineEventHandler(async (event) => {
       data: {
         data: responseData as any,
         updateDate: new Date(),
+        result: countSuccessResponse,
+        seriesType: "ascend",
       },
     });
   }
 });
 
-const calculUserXP = async (
-  countSeriesQuestions: number,
-  countSuccessResponse: number,
-  userId: string
-) => {
+const calculUserXP = async (countSuccessResponse: number, userId: string) => {
   const fiveXp = Math.floor(countSuccessResponse / 5) * 20;
   const tenXp = Math.floor(countSuccessResponse / 10) * 40;
   const twentyFiveXp = Math.floor(countSuccessResponse / 25) * 100;

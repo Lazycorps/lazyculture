@@ -44,6 +44,7 @@ export default defineEventHandler(async (event) => {
       data: {
         seriesId: body.seriesId,
         userId: userConnected.id,
+        seriesType: "daily",
         data: {
           responses: [seriesResponseToAdd as any],
           nextQuestion: (series.data as any as QuestionSeriesData)
@@ -92,6 +93,7 @@ export default defineEventHandler(async (event) => {
       data: {
         data: responseData as any,
         updateDate: new Date(),
+        result: responseData.score,
       },
     });
   }
