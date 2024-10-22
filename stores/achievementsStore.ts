@@ -19,6 +19,20 @@ export const useAchievementStore = defineStore("achivements", {
         this.notify(a);
       });
     },
+    async answerDailyQuestion() {
+      const result = await $fetch("/api/achievement/daily");
+      result?.forEach((a) => {
+        this.userAchievements.push(a);
+        this.notify(a);
+      });
+    },
+    async answerAscendQuestion() {
+      const result = await $fetch("/api/achievement/ascend");
+      result?.forEach((a) => {
+        this.userAchievements.push(a);
+        this.notify(a);
+      });
+    },
     notify(achievement: UserAchievementDTO) {
       toast(({ toastProps }) => h(AchievementToast, { achievement }), {
         closeOnClick: false,

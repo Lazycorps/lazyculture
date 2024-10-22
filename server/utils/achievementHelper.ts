@@ -1,14 +1,21 @@
 import { User } from "@supabase/auth-js";
 import { PrismaClient } from "@prisma/client";
 import { UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import prisma from "~/lib/prisma";
+import { updateUserProgress } from "./userProgressHelper";
 
 type ActionType =
   | "answer"
   | "answerCorrect"
-  | "answerBad"
+  | "answerCorrectStreak"
+  | "answerFailed"
+  | "answerFailedStreak"
   | "reachLevel"
   | "completeSeries"
-  | "dailySeriesChain"
+  | "dailySeries"
+  | "dailySeriesStreak"
+  | "ascend"
+  | "ascendMaxScore"
   | "changePseudo";
 
 // Conditions d'achievement
@@ -25,7 +32,6 @@ interface Achievement {
 }
 
 export async function checkAndAwardAchievements(
-  prisma: PrismaClient,
   userId: string,
   action: ActionType,
   actionValue: number
@@ -65,6 +71,11 @@ export async function checkAndAwardAchievements(
       });
     }
   }
+
+  let xpEarned = 0;
+  newAchievements.forEach((a) => (xpEarned += a.xpEarned));
+  await updateUserProgress(userId, xpEarned);
+
   return newAchievements;
 }
 

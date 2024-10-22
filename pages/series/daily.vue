@@ -73,6 +73,7 @@ import { QuestionDTO } from "~/models/question";
 import type { UserSeriesDTO } from "~/models/series";
 
 const supabase = useSupabaseClient();
+const achievementStore = useAchievementStore();
 const {
   data: { user },
 } = await supabase.auth.getUser();
@@ -128,6 +129,7 @@ async function validateResponse(response: ResponseDTO) {
       method: "post",
       body: seriesResponse,
     });
+    achievementStore.answerDailyQuestion();
   } finally {
     loading.value = false;
   }

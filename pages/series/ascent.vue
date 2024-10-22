@@ -83,6 +83,7 @@ import { QuestionDTO } from "~/models/question";
 import type { UserAscentSeriesDTO } from "~/models/series/seriesAscension";
 
 const supabase = useSupabaseClient();
+const achievementStore = useAchievementStore();
 const {
   data: { user },
 } = await supabase.auth.getUser();
@@ -162,6 +163,7 @@ async function validateResponse(response: ResponseDTO) {
         body: seriesResponse,
       }
     );
+    achievementStore.answerAscendQuestion();
   } finally {
     loading.value = false;
   }
