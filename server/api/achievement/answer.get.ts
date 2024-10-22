@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
       userId: userConnected.id,
     },
   });
-  await checkAndAwardAchievements(
+  const answerAchievement = await checkAndAwardAchievements(
     prisma,
     userConnected.id,
     "answer",
@@ -25,10 +25,10 @@ export default defineEventHandler(async (event) => {
       userId: userConnected.id,
     },
   });
-  await checkAndAwardAchievements(
+  const answerCorrectAchievement = await checkAndAwardAchievements(
     prisma,
     userConnected.id,
-    "answerCorret",
+    "answerCorrect",
     reponseSuccessCount
   );
   const reponseBadCount = await prisma.questionResponse.count({
@@ -36,10 +36,16 @@ export default defineEventHandler(async (event) => {
       userId: userConnected.id,
     },
   });
-  await checkAndAwardAchievements(
+  const answerBadAchievement = await checkAndAwardAchievements(
     prisma,
     userConnected.id,
     "answerBad",
     reponseBadCount
   );
+
+  return [
+    ...answerAchievement,
+    ...answerCorrectAchievement,
+    ...answerBadAchievement,
+  ];
 });

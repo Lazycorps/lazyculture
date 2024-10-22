@@ -1,11 +1,15 @@
+import { User } from "@supabase/auth-js";
 import { PrismaClient } from "@prisma/client";
+import { UserAchievementDTO } from "~/models/DTO/achievementDTO";
 
 type ActionType =
   | "answer"
-  | "answerCorret"
+  | "answerCorrect"
   | "answerBad"
   | "reachLevel"
-  | "completeSeries";
+  | "completeSeries"
+  | "dailySeriesChain"
+  | "changePseudo";
 
 // Conditions d'achievement
 interface AchievementCondition {
@@ -28,7 +32,7 @@ export async function checkAndAwardAchievements(
 ) {
   // Récupérer tous les achievements
   const achievements = await prisma.achievement.findMany();
-
+  const newAchievements: UserAchievementDTO[] = [];
   for (const achievement of achievements) {
     // Vérifier si l'utilisateur a déjà cet achievement
     const userHasAchievement = await prisma.userAchievement.findUnique({
@@ -50,12 +54,18 @@ export async function checkAndAwardAchievements(
           unlockedAt: new Date(),
         },
       });
-
-      console.log(
-        `Achievement "${achievement.title}" unlocked for user ${userId}`
-      );
+      newAchievements.push({
+        createdAt: "",
+        achievementId: achievement.id,
+        description: achievement.description,
+        title: achievement.title,
+        userId: userId,
+        xpEarned: achievement.xpEarned,
+        icon: "",
+      });
     }
   }
+  return newAchievements;
 }
 
 // Fonction pour vérifier si les conditions d'un achievement sont remplies

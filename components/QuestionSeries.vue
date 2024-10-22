@@ -86,6 +86,7 @@ const props = defineProps<{
   question?: QuestionDTO | null;
   parentLoading: boolean;
 }>();
+const achievementStore = useAchievementStore();
 const loading = ref(true);
 const loadingReporting = ref(false);
 const commentaire = ref("");
@@ -127,6 +128,7 @@ async function validateResponse() {
       method: "post",
       body: { ...reponseDTO },
     });
+    achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
     emit("validateResponse", reponseDTO);
   } finally {

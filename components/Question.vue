@@ -87,6 +87,7 @@ import { QuestionDTO } from "~/models/question";
 import QuestionReporting from "./QuestionReporting.vue";
 
 const props = defineProps<{ theme?: string }>();
+const achievementStore = useAchievementStore();
 const firstLoading = ref(true);
 const loading = ref(true);
 const commentaire = ref("");
@@ -128,6 +129,7 @@ async function validateResponse() {
       method: "post",
       body: { ...reponseDTO },
     });
+    achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
   } finally {
     loading.value = false;
