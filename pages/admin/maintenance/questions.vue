@@ -323,6 +323,8 @@ async function save() {
   editedItem.value.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
   editedItem.value.data.difficulty = isNaN(difficultyInt) ? 1 : difficultyInt;
 
+  editedItem.value.data.type = "choix";
+
   if (editedIndex.value > -1) {
     Object.assign(questions?.value ? [editedIndex.value] : defaultItem, editedItem.value);
     {

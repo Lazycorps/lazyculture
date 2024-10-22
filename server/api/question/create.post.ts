@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     try {
         const questionPrisma: Prisma.QuestionCreateInput = {
             difficulty: question.difficulty,
-            data: question as any,
+            data: question.data as any,
             source: "Maintenance",
             language: "fr",
             createDate: new Date(),
