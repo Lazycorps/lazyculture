@@ -60,7 +60,7 @@
               <v-combobox v-model="selectedThemeNames" :items="themes?.map(theme => theme.name) ?? []" label="Thèmes"
                 multiple hide-selected chips closable-chips density="compact" />
               <v-text-field v-model="editedItem.data.img" label="URL de l'image" density="compact" />
-              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" />
+              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" type="number" />
               <v-switch color="red" label="Supprimée" v-model="editedItem.deleted"></v-switch>
             </v-col>
           </v-row>
@@ -311,6 +311,8 @@ const isSaveDisabled = computed(() => {
 });
 
 async function save() {
+  editedItem.value.data.difficulty = editedItem.value.difficulty = Number(editedItem.value.difficulty);
+
   editedItem.value.data.theme = selectedThemeNames.value.map(themeName => {
     const theme = themes?.value?.find(t => t.name === themeName);
     return theme ? theme.slug : null;
@@ -318,8 +320,8 @@ async function save() {
 
   if(editedItem.value.data.theme.length === 0)
     editedItem.value.data.theme = ["culture_generale"];
-  
-  editedItem.value.data.difficulty = editedItem.value.difficulty;
+
+  editedItem.value.data.type = "choix";
 
   if (editedIndex.value > -1) {
     Object.assign(questions?.value ? [editedIndex.value] : defaultItem, editedItem.value);
