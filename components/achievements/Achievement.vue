@@ -4,6 +4,8 @@
       v-for="achievement in achievementsStore.achievements.filter(
         (a) => !a.hidden
       )"
+      open-on-click
+      close-on-content-click
     >
       <template v-slot:activator="{ props }">
         <div
