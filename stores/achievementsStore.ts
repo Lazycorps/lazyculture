@@ -12,6 +12,11 @@ export const useAchievementStore = defineStore("achivements", {
     userAchievements: [] as UserAchievementDTO[],
   }),
   actions: {
+    async loadData() {
+      const result = await $fetch("/api/achievement");
+      this.achievements = result?.achivements ?? [];
+      this.userAchievements = result?.userAchievements ?? [];
+    },
     async answerQuestion() {
       const result = await $fetch("/api/achievement/answer");
       result?.forEach((a) => {

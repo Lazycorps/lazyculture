@@ -1,57 +1,33 @@
 <template>
-  <v-card
-    flat
-    rounded
-    class="mx-auto my-auto pa-5"
-    style="max-width: 500px; width: 100%"
-  >
+  <v-card flat rounded class="mx-auto my-auto pa-5" style="max-width: 500px; width: 100%">
     <div>
-      <v-card
-        class="mx-auto ma-0"
-        :title="username"
-        :subtitle="`Level ${level}`"
-      >
+      <v-card class="mx-auto ma-0" :title="username" :subtitle="`Level ${level}`">
         <template v-slot:prepend>
           <v-avatar color="blue-darken-2">
             <v-icon icon="mdi-account"></v-icon>
           </v-avatar>
         </template>
         <v-card-text>
-          <v-progress-linear
-            :model-value="xp"
-            :max="xpMax"
-            :min="xpMin"
-            color="primary"
-            height="10"
-            rounded=""
-          ></v-progress-linear>
+          <v-progress-linear :model-value="xp" :max="xpMax" :min="xpMin" color="primary" height="10"
+            rounded=""></v-progress-linear>
+        </v-card-text>
+        <v-card-text>
+          <v-text-field label="Email" v-model="email" readonly></v-text-field>
+          <v-text-field label="Username" v-model="username" :rules="[rules.required, rules.min, rules.max]"
+            @update:model-value="userNameChanged = true">
+            <template v-slot:append-inner>
+              <v-avatar :loading="loadingUpdateUser" v-if="userNameChanged">
+                <v-icon icon="mdi-floppy" @click="updateUsername"></v-icon>
+              </v-avatar>
+            </template>
+          </v-text-field>
+          <h1>Achievements</h1>
+          <Achievement></Achievement>
         </v-card-text>
       </v-card>
     </div>
-    <div>
-      <v-text-field label="Email" v-model="email" readonly></v-text-field>
-    </div>
-    <div>
-      <v-text-field
-        label="Username"
-        v-model="username"
-        :rules="[rules.required, rules.min, rules.max]"
-        @update:model-value="userNameChanged = true"
-      >
-        <template v-slot:append-inner>
-          <v-avatar :loading="loadingUpdateUser" v-if="userNameChanged">
-            <v-icon icon="mdi-floppy" @click="updateUsername"></v-icon>
-          </v-avatar>
-        </template>
-      </v-text-field>
-    </div>
     <div class="d-flex justify-end">
-      <v-btn
-        @click="signOut"
-        :disabled="loading"
-        prepend-icon="mdi-logout"
-        color="red"
-      >
+      <v-btn @click="signOut" :disabled="loading" prepend-icon="mdi-logout" color="red">
         Logout
       </v-btn>
     </div>
@@ -59,9 +35,11 @@
 </template>
 
 <script setup lang="ts">
+import Achievement from "@/components/achievements/Achievement.vue"
+
 const supabase = useSupabaseClient();
 const router = useRouter();
-
+const achievementStore = useAchievementStore();
 const loading = ref(true);
 const username = ref("");
 const email = ref("");
@@ -84,6 +62,7 @@ const rules = {
 const loadingUpdateUser = ref(false);
 onMounted(async () => {
   await fetchUser();
+  achievementStore.loadData();
 });
 
 async function fetchUser() {
