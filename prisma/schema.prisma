@@ -127,6 +127,8 @@ model Achievement {
     conditionType  String
     conditionValue Int
     xpEarned       Int
+    icon           String            @default("")
+    hidden         Boolean           @default(false)
     users          UserAchievement[]
 }
 
