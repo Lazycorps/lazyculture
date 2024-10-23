@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
       id: a.id,
       title: a.title,
       description: a.description,
-      icon: "",
+      icon: a.icon,
       createdAt: "",
       xpEarned: a.xpEarned,
     } as AchievementDTO;

@@ -31,4 +31,9 @@ function userHasAchievment(achievementId: number) {
     margin: 3px;
     cursor: default;
 }
+
+.achievement-icon img{
+    width: 80px;
+    height: 80px;
+}
 </style>
