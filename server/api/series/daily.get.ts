@@ -104,13 +104,16 @@ async function getRandomQuestionsIds() {
   const { minId, maxId } = await getMinMaxId();
   const uniqueIds = new Set<number>();
   const previousSeries = await prisma.questionSeries.findMany({
+    where: {
+      type: "daily"
+    },
     orderBy: { id: "desc" },
     take: 10,
   });
 
-  const questionIdsToIgnore: number[] = [];
+  let questionIdsToIgnore: number[] = [];
   previousSeries.forEach((p) =>
-    questionIdsToIgnore.concat(
+    questionIdsToIgnore = questionIdsToIgnore.concat(
       (p.data as any as QuestionSeriesData).questionsIds
     )
   );
