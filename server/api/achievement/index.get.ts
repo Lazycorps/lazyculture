@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
       icon: a.icon,
       createdAt: "",
       xpEarned: a.xpEarned,
+      hidden: a.hidden,
     } as AchievementDTO;
   });
 

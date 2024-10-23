@@ -2,7 +2,7 @@
   <v-layout>
     <v-main class="page-content">
       <slot />
-      <!-- <v-btn @click="notify">PUSH</v-btn> -->
+      <v-btn @click="notify">PUSH</v-btn>
     </v-main>
     <v-bottom-navigation fixed app>
       <v-btn value="Themes" @click="router.push('/themes')" width="90">
@@ -36,19 +36,20 @@
 
 <script setup lang="ts">
 const router = useRouter();
-import { toast, type ToastOptions } from 'vue3-toastify';
+import { toast, type ToastOptions } from "vue3-toastify";
 
-// const notify = () => {
-//   const achivementStore = useAchievementStore();
-//   achivementStore.notify({
-//     achievementId: 1,
-//     title: "Test",
-//     description: "Ceci est un test",
-//     userId: "aaa",
-//     createdAt: "",
-//     xpEarned: 500
-//   })
-// }
+const notify = () => {
+  const achivementStore = useAchievementStore();
+  achivementStore.notify({
+    achievementId: 1,
+    title: "Test",
+    description: "Ceci est un test",
+    userId: "aaa",
+    createdAt: "",
+    xpEarned: 500,
+    icon: "https://osyurrvwveoeevfsshhz.supabase.co/storage/v1/object/public/images/achievements/addiction.webp",
+  });
+};
 function goUserPage() {
   const user = useSupabaseUser();
   if (user.value == null) router.push("/login");

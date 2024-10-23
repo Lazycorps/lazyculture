@@ -5,6 +5,7 @@ export class AchievementDTO {
   createdAt = "";
   xpEarned = 0;
   icon = "";
+  hidden = false;
 }
 
 export class UserAchievementDTO {
