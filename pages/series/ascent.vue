@@ -163,7 +163,7 @@ async function validateResponse(response: ResponseDTO) {
         body: seriesResponse,
       }
     );
-    achievementStore.answerAscendQuestion();
+    achievementStore.answerAscentQuestion();
   } finally {
     loading.value = false;
   }

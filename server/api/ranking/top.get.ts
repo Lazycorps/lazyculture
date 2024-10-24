@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     take: 20,
   });
 
-  const topUsersAscend = await prisma.questionSeriesResponse.groupBy({
+  const topUsersAscent = await prisma.questionSeriesResponse.groupBy({
     by: ["userId"], // Grouper par utilisateur
     where: {
       userId: { in: userProgress.map((up) => up.userId) },
@@ -33,8 +33,8 @@ export default defineEventHandler(async (event) => {
       name: u.user.name,
       userId: u.userId,
       xp: u.xp,
-      bestAscend:
-        topUsersAscend
+      bestAscent:
+        topUsersAscent
           ?.filter((user) => user.userId == u.userId)[0]
           ?._max.result?.toNumber() ?? 0,
     });

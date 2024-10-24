@@ -31,8 +31,8 @@ export const useAchievementStore = defineStore("achivements", {
         this.notify(a);
       });
     },
-    async answerAscendQuestion() {
-      const result = await $fetch("/api/achievement/ascend");
+    async answerAscentQuestion() {
+      const result = await $fetch("/api/achievement/ascent");
       result?.forEach((a) => {
         this.userAchievements.push(a);
         this.notify(a);

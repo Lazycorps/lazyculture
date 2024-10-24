@@ -29,12 +29,14 @@ async function checkDailySeriesStreak(
   userId: string
 ): Promise<UserAchievementDTO[]> {
   const seriesList = await prisma.questionSeries.findMany({
+    where: { type: "daily" },
     orderBy: { createDate: "desc" },
     take: 360,
     select: {
       id: true,
     },
   });
+  console.log(seriesList)
   const userSeries = await prisma.questionSeriesResponse.findMany({
     where: { userId, seriesType: "daily" },
     orderBy: { createDate: "desc" },
@@ -44,7 +46,7 @@ async function checkDailySeriesStreak(
       seriesId: true,
     },
   });
-
+  console.log(userSeries)
   let currentStreak = 0;
 
   for (const series of seriesList) {
@@ -54,7 +56,7 @@ async function checkDailySeriesStreak(
       break;
     }
   }
-
+  console.log(currentStreak);
   return await checkAndAwardAchievements(
     userId,
     "dailySeriesStreak",

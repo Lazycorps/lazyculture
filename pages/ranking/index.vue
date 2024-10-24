@@ -21,7 +21,7 @@
           <div class="mr-5" style="width: 100px; text-align: end">
             {{ user.xp }}
           </div>
-          <div style="width: 50px; text-align: end">{{ user.bestAscend }}</div>
+          <div style="width: 50px; text-align: end">{{ user.bestAscent }}</div>
         </template>
       </v-list-item>
     </v-list>

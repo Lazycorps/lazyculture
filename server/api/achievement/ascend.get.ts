@@ -7,22 +7,22 @@ export default defineEventHandler(async (event) => {
   const userConnected = (await client.auth.getUser())?.data?.user;
   if (!userConnected?.id) return;
 
-  const ascendSeriesCount = await prisma.questionSeriesResponse.count({
+  const ascentSeriesCount = await prisma.questionSeriesResponse.count({
     where: {
       userId: userConnected.id,
-      seriesType: "ascend",
+      seriesType: "ascent",
     },
   });
-  const ascendsAchievement = await checkAndAwardAchievements(
+  const ascentsAchievement = await checkAndAwardAchievements(
     userConnected.id,
-    "ascend",
-    ascendSeriesCount
+    "ascent",
+    ascentSeriesCount
   );
 
-  const ascendMaxScore = await prisma.questionSeriesResponse.findMany({
+  const ascentMaxScore = await prisma.questionSeriesResponse.findMany({
     where: {
       userId: userConnected.id,
-      seriesType: "ascend",
+      seriesType: "ascent",
     },
     orderBy: {
       result: "desc",
@@ -32,11 +32,11 @@ export default defineEventHandler(async (event) => {
     },
     take: 1,
   });
-  const ascendsMaxScoreAchievement = await checkAndAwardAchievements(
+  const ascentsMaxScoreAchievement = await checkAndAwardAchievements(
     userConnected.id,
-    "ascendMaxScore",
-    ascendMaxScore[0].result?.toNumber()
+    "ascentMaxScore",
+    ascentMaxScore[0].result?.toNumber()
   );
 
-  return [...ascendsAchievement, ...ascendsMaxScoreAchievement];
+  return [...ascentsAchievement, ...ascentsMaxScoreAchievement];
 });

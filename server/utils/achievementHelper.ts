@@ -14,8 +14,8 @@ type ActionType =
   | "completeSeries"
   | "dailySeries"
   | "dailySeriesStreak"
-  | "ascend"
-  | "ascendMaxScore"
+  | "ascent"
+  | "ascentMaxScore"
   | "changePseudo";
 
 // Conditions d'achievement

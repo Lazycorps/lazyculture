@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
         seriesId: body.seriesId,
         userId: userConnected.id,
         result: 0,
-        seriesType: "ascend",
+        seriesType: "ascent",
         data: {
           responses: [seriesResponseToAdd as any],
           healthPoint: currentHealthPoint,
@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
         data: responseData as any,
         updateDate: new Date(),
         result: countSuccessResponse,
-        seriesType: "ascend",
+        seriesType: "ascent",
       },
     });
   }
