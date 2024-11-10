@@ -1,0 +1,32 @@
+# Ignorer les dossiers Node.js
+node_modules
+npm-debug.log
+yarn-error.log
+.pnpm-debug.log
+
+# Ignorer les fichiers de logs
+*.log
+
+# Ignorer les fichiers de configuration de l'environnement de développement
+.env
+.env.*
+!.env.production  # Inclure .env.production si nécessaire
+
+# Ignorer les dossiers de build locaux
+.nuxt
+output
+dist
+
+# Ignorer les fichiers et dossiers spécifiques au système
+.DS_Store
+Thumbs.db
+
+# Ignorer les fichiers de contrôle de version
+.git
+.gitignore
+
+# Ignorer les configurations locales
+.vscode
+.idea
+*.swp
+*.swo
