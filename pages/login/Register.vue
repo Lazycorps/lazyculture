@@ -14,7 +14,7 @@
 
       <form @submit.prevent="register" class="space-y-4">
         <!-- Email Field -->
-        <UFormGroup
+        <UFormField
           label="Adresse Email"
           name="email"
           :ui="{
@@ -29,12 +29,13 @@
             placeholder="nom@exemple.com"
             icon="i-heroicons-envelope"
             required
+            class="w-full"
             :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
           />
-        </UFormGroup>
+        </UFormField>
 
         <!-- Password Field with eye toggle -->
-        <UFormGroup
+        <UFormField
           label="Mot de passe"
           name="password"
           :ui="{
@@ -49,6 +50,7 @@
             placeholder="Min 8 caractères, 1 Maj, 1 Chiffre"
             icon="i-heroicons-lock-closed"
             required
+            class="w-full"
             :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
           >
             <template #trailing>
@@ -61,7 +63,7 @@
               />
             </template>
           </UInput>
-        </UFormGroup>
+        </UFormField>
 
         <!-- Validation Error Message Alert -->
         <div class="pt-2" v-if="errorDisplay">

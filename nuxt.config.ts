@@ -25,6 +25,9 @@ export default defineNuxtConfig({
     databaseUrl: process.env.DATABASE_URL,
     directUrl: process.env.DIRECT_URL,
     shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
+    public: {
+      baseUrl: process.env.BASE_URL || "http://localhost:3000",
+    },
   },
   supabase: {
     redirect: false,

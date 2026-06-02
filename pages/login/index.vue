@@ -14,7 +14,7 @@
 
       <form @submit.prevent="signIn" class="space-y-4">
         <!-- Email Field -->
-        <UFormGroup
+        <UFormField
           label="Adresse Email"
           name="email"
           :ui="{
@@ -29,12 +29,13 @@
             placeholder="nom@exemple.com"
             icon="i-heroicons-envelope"
             required
+            class="w-full"
             :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
           />
-        </UFormGroup>
+        </UFormField>
 
         <!-- Password Field with view toggle -->
-        <UFormGroup
+        <UFormField
           label="Mot de passe"
           name="password"
           :ui="{
@@ -49,6 +50,7 @@
             placeholder="••••••••"
             icon="i-heroicons-lock-closed"
             required
+            class="w-full"
             :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
           >
             <template #trailing>
@@ -61,7 +63,15 @@
               />
             </template>
           </UInput>
-        </UFormGroup>
+          <div class="flex justify-end mt-1 px-1">
+            <NuxtLink
+              to="/login/forgotpassword"
+              class="text-[10px] font-bold font-display text-violet-400 hover:text-violet-300 hover:underline transition-colors"
+            >
+              Mot de passe oublié ?
+            </NuxtLink>
+          </div>
+        </UFormField>
 
         <!-- Alerts -->
         <div class="pt-2">
@@ -97,6 +107,7 @@
             type="submit"
             color="primary"
             size="md"
+            :loading="loading"
             class="font-black font-display uppercase tracking-widest px-6"
           >
             Se connecter
@@ -114,6 +125,7 @@ const router = useRouter();
 const passwordType = ref<"password" | "text">("password");
 const email = ref("");
 const password = ref("");
+const loading = ref(false);
 
 const successMessage = ref("");
 const displayError = ref("");
@@ -130,6 +142,7 @@ async function signIn() {
     return;
   }
   try {
+    loading.value = true;
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
@@ -149,6 +162,8 @@ async function signIn() {
     }
   } catch (err: any) {
     displayError.value = "Identifiants invalides.";
+  } finally {
+    loading.value = false;
   }
 }
 </script>

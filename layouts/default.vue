@@ -43,19 +43,26 @@
         class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-glass"
         v-if="user"
       >
-        <div class="flex items-center space-x-3">
+        <NuxtLink
+          to="/user/profil"
+          class="flex items-center space-x-3 cursor-pointer group/profile -mx-2 -my-1 p-2 rounded-xl hover:bg-white/5 transition-all"
+        >
           <UAvatar
             icon="i-heroicons-user"
             size="md"
-            class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
+            class="bg-violet-600/20 text-violet-300 border border-violet-500/30 group-hover/profile:border-violet-500/60 transition-colors"
           />
           <div class="overflow-hidden">
-            <p class="font-bold text-sm truncate text-white">{{ userProfile?.name || "Joueur" }}</p>
+            <p
+              class="font-bold text-sm truncate text-white group-hover/profile:text-violet-400 transition-colors"
+            >
+              {{ userProfile?.name || "Joueur" }}
+            </p>
             <p class="text-xs text-violet-400 font-semibold font-display">
               Niveau {{ userProfile?.level || 1 }}
             </p>
           </div>
-        </div>
+        </NuxtLink>
 
         <!-- Level Progress Jauge -->
         <div class="space-y-1">
@@ -99,14 +106,31 @@
       </div>
 
       <!-- Mini stats for mobile header -->
-      <div
-        class="flex items-center space-x-3 text-xs bg-white/5 px-3 py-1.5 rounded-full border border-white/10"
-        v-if="user"
-      >
-        <span class="flex items-center text-amber-400 font-extrabold font-display">
-          <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-sm animate-pulse" />
-          {{ userProfile?.xp || 0 }} XP
-        </span>
+      <div v-if="user" class="flex items-center space-x-2">
+        <NuxtLink
+          to="/user/profil"
+          class="flex items-center space-x-2 text-xs bg-white/5 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 active:scale-95 transition-all"
+        >
+          <span class="flex items-center text-amber-400 font-extrabold font-display">
+            <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-sm animate-pulse" />
+            {{ userProfile?.xp || 0 }} XP
+          </span>
+          <div class="w-px h-3 bg-white/20"></div>
+          <span class="text-white font-bold truncate max-w-[80px]">{{
+            userProfile?.name || "Joueur"
+          }}</span>
+        </NuxtLink>
+      </div>
+      <div v-else>
+        <UButton
+          to="/login"
+          color="primary"
+          variant="solid"
+          size="xs"
+          class="rounded-full px-3 py-1 font-bold"
+        >
+          Connexion
+        </UButton>
       </div>
     </header>
 
@@ -155,7 +179,6 @@ const navItems = computed(() => [
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
   { label: "Classement", path: "/ranking", icon: "i-heroicons-chart-bar" },
-  { label: "Profil", path: user.value ? "/user/profil" : "/login", icon: "i-heroicons-user" },
 ]);
 
 onMounted(async () => {
