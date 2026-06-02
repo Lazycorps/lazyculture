@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.14.0
+ARG NODE_VERSION=26.3.0
 
 # Create build stage
 FROM node:${NODE_VERSION}-slim AS build
