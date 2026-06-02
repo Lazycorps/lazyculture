@@ -34,41 +34,51 @@
         {{ question.data.libelle }}
       </h3>
 
-      <!-- Question Image (if exists) -->
+      <!-- Image + Options Layout (Vertical vs Horizontal layout) -->
       <div
-        v-if="question.data.img"
-        class="relative h-20 md:h-28 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-inner"
+        :class="
+          isVerticalImage
+            ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-center'
+            : 'flex flex-col space-y-2.5 md:space-y-3.5'
+        "
       >
-        <img :src="question.data.img" alt="Question image" class="w-full h-full object-contain" />
-      </div>
-
-      <!-- Options List -->
-      <div class="flex flex-col gap-1.5 py-0.5">
-        <button
-          v-for="(proposition, index) in question.data.propositions"
-          :key="proposition.id"
-          :disabled="responded"
-          class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
-          :class="getOptionClass(index, proposition.id)"
-          @click="selectOption(index)"
+        <!-- Question Image (if exists) -->
+        <div
+          v-if="question.data.img"
+          class="relative w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-inner"
+          :class="isVerticalImage ? 'h-44 md:h-56' : 'h-36 md:h-48'"
         >
-          <div class="flex items-center justify-between">
-            <span>{{ proposition.value }}</span>
+          <img :src="question.data.img" alt="Question image" class="w-full h-full object-contain" />
+        </div>
 
-            <span v-if="responded && (greenResponse === index + 1 || redResponse === index + 1)">
-              <UIcon
-                v-if="greenResponse === index + 1"
-                name="i-heroicons-check-circle-20-solid"
-                class="text-xl text-emerald-400"
-              />
-              <UIcon
-                v-else-if="redResponse === index + 1"
-                name="i-heroicons-x-circle-20-solid"
-                class="text-xl text-rose-500 animate-shake"
-              />
-            </span>
-          </div>
-        </button>
+        <!-- Options List -->
+        <div class="flex flex-col gap-1.5 py-0.5 w-full">
+          <button
+            v-for="(proposition, index) in question.data.propositions"
+            :key="proposition.id"
+            :disabled="responded"
+            class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
+            :class="getOptionClass(index, proposition.id)"
+            @click="selectOption(index)"
+          >
+            <div class="flex items-center justify-between">
+              <span>{{ proposition.value }}</span>
+
+              <span v-if="responded && (greenResponse === index + 1 || redResponse === index + 1)">
+                <UIcon
+                  v-if="greenResponse === index + 1"
+                  name="i-heroicons-check-circle-20-solid"
+                  class="text-xl text-emerald-400"
+                />
+                <UIcon
+                  v-else-if="redResponse === index + 1"
+                  name="i-heroicons-x-circle-20-solid"
+                  class="text-xl text-rose-500 animate-shake"
+                />
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -182,6 +192,23 @@ const xpWin = ref(0);
 const showXP = ref(false);
 const reported = ref(false);
 const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
+const isVerticalImage = ref(false);
+
+watch(
+  () => props.question?.data?.img,
+  (newImgUrl) => {
+    isVerticalImage.value = false;
+    if (!newImgUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalHeight > img.naturalWidth) {
+        isVerticalImage.value = true;
+      }
+    };
+    img.src = newImgUrl;
+  },
+  { immediate: true },
+);
 
 const emit = defineEmits<{
   validateResponse: [response: ResponseDTO];
@@ -265,6 +292,7 @@ async function NextQuestion() {
     greenResponse.value = null;
     reported.value = false;
     loadingReporting.value = false;
+    isVerticalImage.value = false;
 
     if (questionReporting.value) {
       questionReporting.value.reported = false;
