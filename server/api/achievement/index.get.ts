@@ -1,12 +1,10 @@
 import prisma from "~/lib/prisma";
-import { serverSupabaseClient } from "#supabase/server";
 import { checkAndAwardAchievements } from "~/server/utils/achievementHelper";
 import { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  if (!userConnected?.id) return;
+  const userConnected = getAuthenticatedUser(event);
 
   const achivements = await prisma.achievement.findMany();
   const userAchievement = await prisma.userAchievement.findMany({

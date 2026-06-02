@@ -1,10 +1,9 @@
-import { serverSupabaseUser } from "#supabase/server";
 import prisma from "~/lib/prisma";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const userConnected = await serverSupabaseUser(event);
+  const userConnected = getAuthenticatedUser(event);
   const body = await readBody(event);
-  if (userConnected == null) return;
 
   const userInDb = await prisma.user.findFirst({
     where: { id: userConnected.id },

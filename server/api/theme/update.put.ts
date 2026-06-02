@@ -1,13 +1,12 @@
-import { serverSupabaseClient } from "#supabase/server";
 import { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
 import { Theme } from "~/models/theme";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 const runtimeConfig = useRuntimeConfig();
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
+  const userConnected = getAuthenticatedUser(event);
   const user = await prisma.user.findUnique({ where: { id: userConnected?.id } });
   if (!user?.admin) {
     setResponseStatus(event, 403);

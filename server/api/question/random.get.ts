@@ -1,11 +1,9 @@
 import { PrismaClient } from "@prisma/client";
-import { serverSupabaseClient } from "#supabase/server";
 import { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
+  const userConnected = event.context.user;
   const query = getQuery(event);
   let ids = await getRandomQuestionsIds(query.theme as string, userConnected?.id);
   if (ids.length == 0) ids = await getRandomQuestionsIds(query.theme as string);

@@ -182,6 +182,7 @@ const props = defineProps<{
 }>();
 
 const achievementStore = useAchievementStore();
+const showBottomNav = useState("showBottomNav", () => true);
 const loading = ref(false);
 const loadingReporting = ref(false);
 const commentaire = ref("");
@@ -220,6 +221,14 @@ const isCorrect = computed(() => {
   return greenResponse.value === redResponse.value
     ? false
     : greenResponse.value !== null && redResponse.value === null;
+});
+
+onMounted(() => {
+  showBottomNav.value = false;
+});
+
+onBeforeUnmount(() => {
+  showBottomNav.value = true;
 });
 
 function selectOption(index: number) {

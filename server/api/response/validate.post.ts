@@ -1,12 +1,10 @@
-import { serverSupabaseClient, serverSupabaseUser } from "#supabase/server";
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  if (!userConnected) return;
+  const userConnected = getAuthenticatedUser(event);
   const body = await readBody<ResponseDTO>(event);
   const question = await prisma.question.findFirst({
     where: { id: body.questionId },

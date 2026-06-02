@@ -201,6 +201,7 @@ import QuestionReporting from "./QuestionReporting.vue";
 
 const props = defineProps<{ theme?: string }>();
 const achievementStore = useAchievementStore();
+const showBottomNav = useState("showBottomNav", () => true);
 
 const firstLoading = ref(true);
 const loading = ref(true);
@@ -241,6 +242,11 @@ onMounted(() => {
   try {
     NextQuestion();
   } catch (err) {}
+  showBottomNav.value = false;
+});
+
+onBeforeUnmount(() => {
+  showBottomNav.value = true;
 });
 
 function selectOption(id: any) {

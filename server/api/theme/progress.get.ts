@@ -1,10 +1,8 @@
-import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   try {
-    const client = await serverSupabaseClient(event);
-    const userConnected = (await client.auth.getUser())?.data?.user;
+    const userConnected = event.context.user;
     const query = getQuery(event);
     const isNotRandom = query.theme != "random";
     const questionCount = await prisma.question.count({

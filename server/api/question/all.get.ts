@@ -1,10 +1,9 @@
-import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 import { QuestionDataDTO, QuestionDTO, QuestionReportingDTO } from "~/models/question";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
+  const userConnected = getAuthenticatedUser(event);
   const user = await prisma.user.findUnique({ where: { id: userConnected?.id } });
   if (!user?.admin) {
     setResponseStatus(event, 403);

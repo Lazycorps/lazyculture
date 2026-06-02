@@ -1,5 +1,4 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 import {
   QuestionSeriesData,
@@ -7,13 +6,12 @@ import {
   QuestionSeriesResponseDTO,
   UserSeriesDTO,
 } from "~/models/series";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
+  const userConnected = getAuthenticatedUser(event);
 
   const today = new Date().toJSON().slice(0, 10);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  if (!userConnected) return;
 
   let currentDailySeries = await prisma.questionSeries.findFirst({
     where: { date: new Date(today) },

@@ -1,6 +1,4 @@
-import { QuestionSeries } from "../../../../.nuxt/components";
 import { Prisma } from "@prisma/client";
-import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 import {
   QuestionSeriesData,
@@ -10,11 +8,10 @@ import {
 } from "~/models/series";
 import { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
 import { User } from "@supabase/auth-js";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  if (!userConnected) return;
+  const userConnected = getAuthenticatedUser(event);
   const userSeriesDTO = {} as UserSeriesDTO;
   let lastUserAscent = await getLastUserAscent(userConnected);
   if (lastUserAscent) {

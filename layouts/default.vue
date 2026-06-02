@@ -135,7 +135,12 @@
     </header>
 
     <!-- Main Page Content -->
-    <main class="flex-1 overflow-y-auto px-4 py-6 md:p-8 pb-28 md:pb-8 flex flex-col min-h-0">
+    <main
+      ref="mainElement"
+      class="flex-1 overflow-y-auto px-4 py-6 md:p-8 flex flex-col min-h-0"
+      :class="showBottomNav ? 'pb-28 md:pb-8' : 'pb-8'"
+      @scroll="handleScroll"
+    >
       <div class="max-w-6xl mx-auto w-full h-full flex flex-col">
         <slot />
       </div>
@@ -143,7 +148,9 @@
 
     <!-- Mobile Glass Bottom Bar -->
     <nav
-      class="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass flex justify-around py-3 px-2"
+      v-if="showBottomNav"
+      class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-xl border-t border-white/10 shadow-glass flex justify-around py-3 px-2 transition-transform duration-300"
+      :class="{ 'translate-y-full': isNavHiddenByScroll }"
     >
       <NuxtLink
         v-for="item in navItems"
@@ -162,6 +169,7 @@
 <script setup lang="ts">
 const router = useRouter();
 const user = useSupabaseUser();
+const showBottomNav = useState("showBottomNav", () => true);
 const userProfile = ref<any>(null);
 
 const xpProgress = computed(() => {
@@ -217,6 +225,43 @@ async function fetchProfile() {
     }
   }
 }
+
+const route = useRoute();
+const mainElement = ref<HTMLElement | null>(null);
+const isNavHiddenByScroll = ref(false);
+let lastScrollTop = 0;
+
+function handleScroll() {
+  if (!mainElement.value) return;
+  const el = mainElement.value;
+  const scrollTop = el.scrollTop;
+  const scrollHeight = el.scrollHeight;
+  const clientHeight = el.clientHeight;
+
+  // Check if there is a scrollbar
+  if (scrollHeight <= clientHeight) {
+    isNavHiddenByScroll.value = false;
+    return;
+  }
+
+  const delta = scrollTop - lastScrollTop;
+  if (Math.abs(delta) < 5) return;
+
+  if (delta > 0 && scrollTop > 50) {
+    isNavHiddenByScroll.value = true;
+  } else if (delta < 0) {
+    isNavHiddenByScroll.value = false;
+  }
+  lastScrollTop = scrollTop;
+}
+
+watch(
+  () => route.path,
+  () => {
+    isNavHiddenByScroll.value = false;
+    lastScrollTop = 0;
+  },
+);
 </script>
 
 <style>

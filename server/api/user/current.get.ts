@@ -1,12 +1,10 @@
-import { serverSupabaseUser } from "#supabase/server";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
-  const userConnected = await serverSupabaseUser(event);
+  const userConnected = event.context.user;
   if (userConnected == null) return null;
-
   let user = await prisma.user.findFirst({
-    where: { id: userConnected.id },
+    where: { id: userConnected?.id },
     include: { UserProgress: { include: { level: true } } },
   });
 

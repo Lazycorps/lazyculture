@@ -1,11 +1,9 @@
 import prisma from "~/lib/prisma";
-import { serverSupabaseClient } from "#supabase/server";
 import { checkAndAwardAchievements } from "~/server/utils/achievementHelper";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  if (!userConnected?.id) return;
+  const userConnected = getAuthenticatedUser(event);
 
   const ascentSeriesCount = await prisma.questionSeriesResponse.count({
     where: {
