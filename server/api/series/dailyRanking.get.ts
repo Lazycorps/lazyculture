@@ -48,9 +48,7 @@ export default defineEventHandler(async (event) => {
       userId: r.userId,
       userName: r.user.name ?? "Anonymous",
       score: data.score,
-      elapsedTime: millisToMinutesAndSeconds(
-        r.updateDate.getTime() - r.createDate.getTime()
-      ),
+      elapsedTime: millisToMinutesAndSeconds(r.updateDate.getTime() - r.createDate.getTime()),
     } as DailySeriesRankingDTO;
   });
 });

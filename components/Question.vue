@@ -12,11 +12,7 @@
         <QuestionReporting ref="questionReporting" :questionId="question.id" />
       </div>
       <h3>{{ question.data.libelle }}</h3>
-      <v-img
-        v-if="question.data.img"
-        :src="question.data.img"
-        height="200"
-      ></v-img>
+      <v-img v-if="question.data.img" :src="question.data.img" height="200"></v-img>
       <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
         <v-item
           v-for="proposition in question.data.propositions"
@@ -32,10 +28,10 @@
               redResponse == proposition.id
                 ? 'red'
                 : greenResponse == proposition.id
-                ? 'green'
-                : isSelected
-                ? 'green'
-                : 'white'
+                  ? 'green'
+                  : isSelected
+                    ? 'green'
+                    : 'white'
             "
             @click="toggle"
           >
@@ -44,11 +40,7 @@
         </v-item>
       </v-item-group>
       <span class="mb-5">{{ commentaire }}</span>
-      <span
-        v-if="responded"
-        class="d-flex justify-center align-center"
-        style="position: relative"
-      >
+      <span v-if="responded" class="d-flex justify-center align-center" style="position: relative">
         <v-btn
           @click="NextQuestion()"
           :loading="loading"
@@ -59,11 +51,7 @@
           Continuer
         </v-btn>
         <transition name="fade">
-          <p
-            v-if="showXP"
-            class="xp-text"
-            style="position: absolute; left: 85%"
-          >
+          <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
             + {{ xpWin }} xp
           </p>
         </transition>
@@ -98,9 +86,7 @@ const greenResponse = ref();
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(
-  null
-);
+const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
 
 onMounted(() => {
   try {
@@ -169,8 +155,7 @@ function gainXP(amount: number) {
 }
 
 async function getNewQuestion() {
-  if (props.theme)
-    return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
+  if (props.theme) return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
   else return $fetch<QuestionDTO>("/api/question/random");
 }
 </script>

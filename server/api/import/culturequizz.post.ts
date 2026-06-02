@@ -25,11 +25,7 @@ export default defineEventHandler(async (event) => {
   for (const question of questions) {
     if (question.img) {
       const imageName = crypto.randomUUID();
-      question.img = await downloadAndUploadImage(
-        supabase,
-        question.img,
-        imageName
-      );
+      question.img = await downloadAndUploadImage(supabase, question.img, imageName);
     }
   }
 
@@ -52,17 +48,13 @@ export default defineEventHandler(async (event) => {
 });
 
 // Fonction pour extraire plusieurs questions d'une chaîne HTML
-async function extractQuestionsData(
-  request: QuizzCultureRequestDTO
-): Promise<QuestionDataDTO[]> {
+async function extractQuestionsData(request: QuizzCultureRequestDTO): Promise<QuestionDataDTO[]> {
   const response = await fetch(request.url);
   const dom = new JSDOM(await response.text());
   const document = dom.window.document;
 
   // Trouver tous les éléments de type question
-  const questionSlides = document.querySelectorAll(
-    ".culturequizz__slide--question"
-  );
+  const questionSlides = document.querySelectorAll(".culturequizz__slide--question");
 
   const questions: QuestionDataDTO[] = [];
 
@@ -72,9 +64,7 @@ async function extractQuestionsData(
     questionData.theme = request.themes;
     questionData.difficulty = request.difficulty;
     // Extraire la question (libelle)
-    const questionElement = slideElement.querySelector(
-      ".culturequizz__slide__question"
-    );
+    const questionElement = slideElement.querySelector(".culturequizz__slide__question");
     if (questionElement) {
       questionData.libelle = questionElement.textContent?.trim() || "";
     }
@@ -94,12 +84,12 @@ async function extractQuestionsData(
 
     // Trouver la bonne réponse en fonction de l'ID
     const correctAnswerElement = slideElement.querySelector(
-      `input[value="${correctAnswerIdArray[0]}"]`
+      `input[value="${correctAnswerIdArray[0]}"]`,
     );
     if (correctAnswerElement) {
-      const correctAnswerIndex = Array.from(
-        slideElement.querySelectorAll("input")
-      ).indexOf(correctAnswerElement as any);
+      const correctAnswerIndex = Array.from(slideElement.querySelectorAll("input")).indexOf(
+        correctAnswerElement as any,
+      );
       questionData.response = correctAnswerIndex + 1;
     }
 
@@ -128,7 +118,7 @@ async function extractQuestionsData(
 async function downloadAndUploadImage(
   supabase: any,
   imageUrl: string,
-  imageName: string
+  imageName: string,
 ): Promise<string> {
   const response = await fetch(imageUrl);
   const imageBuffer = await response.arrayBuffer();
@@ -146,6 +136,6 @@ async function downloadAndUploadImage(
 
   return `${runtimeConfig.supabaseUrl.replace(
     /\/$/,
-    ""
+    "",
   )}/storage/v1/object/public/${data.fullPath}`;
 }

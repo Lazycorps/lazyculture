@@ -1,17 +1,7 @@
 <template>
-  <v-card
-    flat
-    rounded
-    class="mx-auto my-auto pa-5"
-    style="max-width: 500px; width: 100%"
-  >
+  <v-card flat rounded class="mx-auto my-auto pa-5" style="max-width: 500px; width: 100%">
     <div>
-      <v-card
-        class="mx-auto ma-0"
-        :title="username"
-        :subtitle="`Level ${level}`"
-        flat
-      >
+      <v-card class="mx-auto ma-0" :title="username" :subtitle="`Level ${level}`" flat>
         <template v-slot:prepend>
           <v-avatar color="blue-darken-2">
             <v-icon icon="mdi-account"></v-icon>
@@ -46,12 +36,7 @@
       </v-card>
     </div>
     <div class="d-flex justify-end">
-      <v-btn
-        @click="signOut"
-        :disabled="loading"
-        prepend-icon="mdi-logout"
-        color="red"
-      >
+      <v-btn @click="signOut" :disabled="loading" prepend-icon="mdi-logout" color="red">
         Logout
       </v-btn>
     </div>
@@ -79,9 +64,8 @@ const rules = {
   max: (v: string) => v.length <= 16 || "Max 16 characters",
   email: (v: string) => /.+@.+\..+/.test(v) || "Must be a valid email",
   passwordComplexity: (v: string) =>
-    /^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(
-      v
-    ) || "Minimum eight characters, at least uppercase letter and one number:",
+    /^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(v) ||
+    "Minimum eight characters, at least uppercase letter and one number:",
 };
 const loadingUpdateUser = ref(false);
 onMounted(async () => {

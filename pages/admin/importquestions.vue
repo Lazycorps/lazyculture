@@ -9,27 +9,15 @@
       class="d-flex flex-shrink-1 flex-column"
     >
       <h2>{{ questionsfromJson.length }} questions</h2>
-      <v-checkbox
-        v-model="hideAnswers"
-        label="Cacher la bonne réponse (et le commentaire)"
-      />
+      <v-checkbox v-model="hideAnswers" label="Cacher la bonne réponse (et le commentaire)" />
       <div v-for="(question, index) in questionsfromJson">
         <span class="d-flex justify-space-between"
           ><h3>{{ index + 1 }}.</h3>
-          <v-btn
-            density="compact"
-            @click="removeFromQuestions(index)"
-            color="red"
-            text="Supprimer"
+          <v-btn density="compact" @click="removeFromQuestions(index)" color="red" text="Supprimer"
         /></span>
         <QuestionForm :question="question" :hide-answers="hideAnswers" />
       </div>
-      <v-btn
-        color="blue"
-        text="Importer les questions"
-        :loading
-        @click="sendToApi"
-      />
+      <v-btn color="blue" text="Importer les questions" :loading @click="sendToApi" />
     </span>
   </v-card>
 </template>

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const dailySeriesAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "dailySeries",
-    dailySeriesCount
+    dailySeriesCount,
   );
 
   const dailySeriesStreak = await checkDailySeriesStreak(userConnected.id);
@@ -25,9 +25,7 @@ export default defineEventHandler(async (event) => {
   return [...dailySeriesAchievement, ...dailySeriesStreak];
 });
 
-async function checkDailySeriesStreak(
-  userId: string
-): Promise<UserAchievementDTO[]> {
+async function checkDailySeriesStreak(userId: string): Promise<UserAchievementDTO[]> {
   const seriesList = await prisma.questionSeries.findMany({
     where: { type: "daily" },
     orderBy: { createDate: "desc" },
@@ -36,7 +34,7 @@ async function checkDailySeriesStreak(
       id: true,
     },
   });
-  console.log(seriesList)
+  console.log(seriesList);
   const userSeries = await prisma.questionSeriesResponse.findMany({
     where: { userId, seriesType: "daily" },
     orderBy: { createDate: "desc" },
@@ -46,7 +44,7 @@ async function checkDailySeriesStreak(
       seriesId: true,
     },
   });
-  console.log(userSeries)
+  console.log(userSeries);
   let currentStreak = 0;
 
   for (const series of seriesList) {
@@ -57,9 +55,5 @@ async function checkDailySeriesStreak(
     }
   }
   console.log(currentStreak);
-  return await checkAndAwardAchievements(
-    userId,
-    "dailySeriesStreak",
-    currentStreak
-  );
+  return await checkAndAwardAchievements(userId, "dailySeriesStreak", currentStreak);
 }

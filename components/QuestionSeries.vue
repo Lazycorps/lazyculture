@@ -1,29 +1,17 @@
 3
 <template>
-  <div
-    class="d-flex flex-column justify-center"
-    style="max-width: 500px; min-width: 400px"
-  >
-    <div
-      class="d-flex flex-row justify-center mb-5"
-      style="max-width: 500px; min-width: 400px"
-    >
+  <div class="d-flex flex-column justify-center" style="max-width: 500px; min-width: 400px">
+    <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px; min-width: 400px">
       <v-icon class="mr-2" height="200">mdi-help-box-multiple-outline</v-icon>
       {{ question?.themes.join(", ") }}
       <v-spacer></v-spacer>
       <v-spacer></v-spacer>
-      <QuestionReporting
-        ref="questionReporting"
-        :questionId="question?.id ?? 0"
-      />
+      <QuestionReporting ref="questionReporting" :questionId="question?.id ?? 0" />
     </div>
     <h3>{{ question?.data.libelle }}</h3>
     <v-img v-if="question?.data.img" :src="question?.data.img" height="200"></v-img>
     <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-      <v-item
-        v-for="proposition in question?.data.propositions"
-        v-slot="{ isSelected, toggle }"
-      >
+      <v-item v-for="proposition in question?.data.propositions" v-slot="{ isSelected, toggle }">
         <v-btn
           style="min-width: 250px; margin-bottom: 5px; display: block"
           class="mx-auto"
@@ -33,10 +21,10 @@
             redResponse == proposition.id
               ? 'red'
               : greenResponse == proposition.id
-              ? 'green'
-              : isSelected
-              ? 'green'
-              : 'white'
+                ? 'green'
+                : isSelected
+                  ? 'green'
+                  : 'white'
           "
           @click="toggle"
         >
@@ -45,11 +33,7 @@
       </v-item>
     </v-item-group>
     <span class="mb-5">{{ commentaire }}</span>
-    <span
-      v-if="responded"
-      class="d-flex justify-center align-center"
-      style="position: relative"
-    >
+    <span v-if="responded" class="d-flex justify-center align-center" style="position: relative">
       <v-btn
         @click="NextQuestion()"
         :loading="loading || parentLoading"
@@ -60,9 +44,7 @@
         Continuer
       </v-btn>
       <transition name="fade">
-        <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
-          + {{ xpWin }} xp
-        </p>
+        <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">+ {{ xpWin }} xp</p>
       </transition>
     </span>
     <v-btn
@@ -113,8 +95,7 @@ async function validateResponse() {
     reponseDTO.questionId = props.question?.id;
     reponseDTO.userResponseId = selectedResponse.value + 1;
     if (
-      props.question.data.propositions[selectedResponse.value].id ==
-      props.question.data.response
+      props.question.data.propositions[selectedResponse.value].id == props.question.data.response
     ) {
       greenResponse.value = selectedResponse.value + 1;
       selectedResponse.value = null;

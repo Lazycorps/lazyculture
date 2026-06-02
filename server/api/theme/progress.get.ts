@@ -22,21 +22,15 @@ export default defineEventHandler(async (event) => {
   let responseCount = 0;
   let mastery = 0;
   if (userConnected != null) {
-    const responses = await getAllSuccessResponses(
-      userConnected?.id,
-      query.theme as string
-    );
+    const responses = await getAllSuccessResponses(userConnected?.id, query.theme as string);
     const lastResponse = await getLastResponses(
       userConnected?.id,
       query.theme as string,
-      isNotRandom ? 50 : 1000
+      isNotRandom ? 50 : 1000,
     );
     responseCount = responses.length;
     const goodResponseCount = lastResponse.filter((r) => r.success).length;
-    mastery =
-      lastResponse.length > 20
-        ? (goodResponseCount / lastResponse.length) * 10
-        : 0;
+    mastery = lastResponse.length > 20 ? (goodResponseCount / lastResponse.length) * 10 : 0;
   }
 
   return { questionCount, responseCount, mastery };
@@ -50,7 +44,7 @@ async function getAllSuccessResponses(userConnected: string, theme: string) {
     },
     where: {
       question: {
-        deleted: false
+        deleted: false,
       },
       ...(isNotRandom && {
         question: {
@@ -67,11 +61,7 @@ async function getAllSuccessResponses(userConnected: string, theme: string) {
     distinct: ["questionId"],
   });
 }
-async function getLastResponses(
-  userConnected: string,
-  theme: string,
-  take: number
-) {
+async function getLastResponses(userConnected: string, theme: string, take: number) {
   const isNotRandom = theme != "random";
   return await prisma.questionResponse.findMany({
     include: {

@@ -1,8 +1,5 @@
 import { defineStore } from "pinia";
-import type {
-  AchievementDTO,
-  UserAchievementDTO,
-} from "~/models/DTO/achievementDTO";
+import type { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
 import { toast, type ToastOptions } from "vue3-toastify";
 import AchievementToast from "~/components/achievements/AchievementToast.vue";
 
@@ -32,14 +29,14 @@ export const useAchievementStore = defineStore("achivements", {
       });
     },
     async answerAscentQuestion() {
-      const result = await $fetch("/api/achievement/ascent");
-      result?.forEach((a) => {
+      const result = await $fetch("/api/achievement/ascend");
+      result?.forEach((a: UserAchievementDTO) => {
         this.userAchievements.push(a);
         this.notify(a);
       });
     },
     notify(achievement: UserAchievementDTO) {
-      toast(({ toastProps }) => h(AchievementToast, { achievement }), {
+      toast(() => h(AchievementToast, { achievement }), {
         closeOnClick: false,
         autoClose: 4000,
         limit: 1,

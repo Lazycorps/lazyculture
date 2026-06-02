@@ -1,11 +1,7 @@
 <template>
   <div class="achievement-notification">
     <div class="achievement-icon">
-      <img
-        v-if="achievement?.icon"
-        :src="achievement.icon"
-        alt="Achievement Icon"
-      />
+      <img v-if="achievement?.icon" :src="achievement.icon" alt="Achievement Icon" />
       <div v-else class="achievement-icon">🏆</div>
     </div>
     <div class="achievement-content">

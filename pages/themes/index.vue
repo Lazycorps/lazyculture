@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="my-auto mx-auto d-flex flex-wrap justify-center"
-    style="max-width: 1500px"
-  >
+  <div class="my-auto mx-auto d-flex flex-wrap justify-center" style="max-width: 1500px">
     <Theme :style="{ width: xs ? '45%' : '20%' }" :theme="randomTheme"></Theme>
     <template v-for="theme in themes">
       <Theme :style="{ width: xs ? '45%' : '20%' }" :theme="theme"></Theme>

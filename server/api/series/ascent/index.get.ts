@@ -18,17 +18,14 @@ export default defineEventHandler(async (event) => {
   const userSeriesDTO = {} as UserSeriesDTO;
   let lastUserAscent = await getLastUserAscent(userConnected);
   if (lastUserAscent) {
-    const lastUserAscentData =
-      lastUserAscent.data as QuestionSeriesAscensionResponseData;
+    const lastUserAscentData = lastUserAscent.data as QuestionSeriesAscensionResponseData;
     if (!lastUserAscentData.ended) {
       userSeriesDTO.series = lastUserAscent.series as QuestionSeriesDTO;
-      userSeriesDTO.userResponse =
-        lastUserAscent as any as QuestionSeriesResponseDTO;
+      userSeriesDTO.userResponse = lastUserAscent as any as QuestionSeriesResponseDTO;
     } else {
-      var { nextUserAscentSeries, nextAscentId } =
-        await getNextUserAscentSeries(
-          lastUserAscent.series.data as any as QuestionSeriesData
-        );
+      var { nextUserAscentSeries, nextAscentId } = await getNextUserAscentSeries(
+        lastUserAscent.series.data as any as QuestionSeriesData,
+      );
       if (nextUserAscentSeries) {
         userSeriesDTO.series = nextUserAscentSeries as any as QuestionSeriesDTO;
       } else {
@@ -37,8 +34,7 @@ export default defineEventHandler(async (event) => {
     }
   } else {
     var firstAscentSeries = await getFirstAscentSeries();
-    if (firstAscentSeries)
-      userSeriesDTO.series = firstAscentSeries as QuestionSeriesDTO;
+    if (firstAscentSeries) userSeriesDTO.series = firstAscentSeries as QuestionSeriesDTO;
     else userSeriesDTO.series = await generateNewAscentSeries(1);
   }
 
@@ -124,9 +120,7 @@ async function generateNewAscentSeries(seriesId: number) {
   })) as any as QuestionSeriesDTO;
 }
 
-async function getNextUserAscentSeries(
-  lastUserAscentSeries: QuestionSeriesData
-) {
+async function getNextUserAscentSeries(lastUserAscentSeries: QuestionSeriesData) {
   const nextAscentId = lastUserAscentSeries.id + 1;
   let nextUserAscentSeries = await prisma.questionSeries.findFirst({
     where: {

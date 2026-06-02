@@ -1,4 +1,9 @@
-import type { QuestionSeriesData, QuestionSeriesDTO, QuestionSeriesResponseData, QuestionSeriesResponseDTO } from "../series";
+import type {
+  QuestionSeriesData,
+  QuestionSeriesDTO,
+  QuestionSeriesResponseData,
+  QuestionSeriesResponseDTO,
+} from "../series";
 
 export type UserAscentSeriesDTO = {
   series: QuestionSeriesDTO;

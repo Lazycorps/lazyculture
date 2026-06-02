@@ -1,9 +1,7 @@
 <template>
   <div class="d-flex flex-wrap">
     <v-tooltip
-      v-for="achievement in achievementsStore.achievements.filter(
-        (a) => !a.hidden
-      )"
+      v-for="achievement in achievementsStore.achievements.filter((a) => !a.hidden)"
       open-on-click
       close-on-content-click
     >
@@ -11,16 +9,10 @@
         <div
           v-bind="props"
           :class="
-            userHasAchievment(achievement.id)
-              ? 'achievement-icon'
-              : 'achievement-icon-disabled'
+            userHasAchievment(achievement.id) ? 'achievement-icon' : 'achievement-icon-disabled'
           "
         >
-          <img
-            v-if="achievement?.icon"
-            :src="achievement.icon"
-            alt="Achievement Icon"
-          />
+          <img v-if="achievement?.icon" :src="achievement.icon" alt="Achievement Icon" />
           <div v-else>🏆</div>
         </div>
       </template>
@@ -36,9 +28,7 @@
 const achievementsStore = useAchievementStore();
 
 function userHasAchievment(achievementId: number) {
-  return achievementsStore.userAchievements.some(
-    (a) => a.achievementId == achievementId
-  );
+  return achievementsStore.userAchievements.some((a) => a.achievementId == achievementId);
 }
 </script>
 

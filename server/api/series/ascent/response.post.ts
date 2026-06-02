@@ -20,9 +20,7 @@ export default defineEventHandler(async (event) => {
 
   if (!question?.data) return;
 
-  const success =
-    (question.data as unknown as QuestionDataDTO).response ==
-    body.userResponseId;
+  const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
 
   const series = (await prisma.questionSeries.findFirst({
     where: { id: body.seriesId },
@@ -42,9 +40,7 @@ export default defineEventHandler(async (event) => {
 
   if (!seriesResponse) {
     const seriesHealtPoint = (series.data as QuestionSeriesData).healthPoint;
-    const currentHealthPoint = success
-      ? seriesHealtPoint
-      : seriesHealtPoint - 1;
+    const currentHealthPoint = success ? seriesHealtPoint : seriesHealtPoint - 1;
     const seriesEnded = currentHealthPoint == 0;
     return await prisma.questionSeriesResponse.create({
       data: {
@@ -56,29 +52,24 @@ export default defineEventHandler(async (event) => {
           responses: [seriesResponseToAdd as any],
           healthPoint: currentHealthPoint,
           ended: seriesEnded,
-          nextQuestion: (series.data as any as QuestionSeriesData)
-            .questionsIds[1],
+          nextQuestion: (series.data as any as QuestionSeriesData).questionsIds[1],
           seriesType: "ascent",
         },
       },
     });
   } else {
-    const responseData =
-      seriesResponse.data as any as QuestionSeriesAscensionResponseData;
+    const responseData = seriesResponse.data as any as QuestionSeriesAscensionResponseData;
     //Si la question envoyé est != de la question suivante pas normal ! CHEAT !
     if (body.questionId != responseData.nextQuestion) return seriesResponse;
     const userHealthPoint = responseData.healthPoint;
     responseData.healthPoint = success ? userHealthPoint : userHealthPoint - 1;
     const countSeriesQuestions = series.data.questionsIds.length;
-    const seriesAlreadyEnded =
-      responseData.responses.length == countSeriesQuestions;
+    const seriesAlreadyEnded = responseData.responses.length == countSeriesQuestions;
     if (seriesAlreadyEnded) return;
 
     responseData.responses.push(seriesResponseToAdd);
     const countResponse = responseData.responses.length;
-    const countSuccessResponse = responseData.responses.filter(
-      (c) => c.success
-    ).length;
+    const countSuccessResponse = responseData.responses.filter((c) => c.success).length;
 
     responseData.ended =
       responseData.healthPoint == 0 ||
@@ -92,9 +83,8 @@ export default defineEventHandler(async (event) => {
     responseData.xpEarned = xpEarned;
     responseData.score = countSuccessResponse;
 
-    responseData.nextQuestion = (
-      series.data as any as QuestionSeriesData
-    ).questionsIds[countResponse];
+    responseData.nextQuestion =
+      (series.data as any as QuestionSeriesData).questionsIds[countResponse] ?? 0;
 
     return await prisma.questionSeriesResponse.update({
       where: { id: seriesResponse.id },

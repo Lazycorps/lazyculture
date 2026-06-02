@@ -4,9 +4,7 @@
       <template v-if="!user">
         <h2>Ascent Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary"
-          >Please login to play</v-btn
-        >
+        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
       </template>
       <template v-else>
         <div class="d-flex justify-space-between align-center">
@@ -30,9 +28,7 @@
             height="10"
             rounded
           ></v-progress-linear>
-          <div style="min-width: 60px" class="ml-5">
-            {{ questionId }} / {{ nbrQuestion }}
-          </div>
+          <div style="min-width: 60px" class="ml-5">{{ questionId }} / {{ nbrQuestion }}</div>
         </div>
         <v-divider class="my-5"></v-divider>
         <template v-if="!userSeries?.userResponse?.data?.ended">
@@ -49,11 +45,7 @@
         </template>
         <template v-else>
           <div class="d-flex flex-column align-center">
-            <v-icon
-              color="green"
-              icon="mdi-image-filter-hdr"
-              size="120"
-            ></v-icon>
+            <v-icon color="green" icon="mdi-image-filter-hdr" size="120"></v-icon>
             <div>
               Résultat :
               {{ userSeries?.userResponse?.data?.responses?.length }} /
@@ -63,11 +55,7 @@
               Expérience gagnée :
               {{ userSeries?.userResponse?.data?.xpEarned }}
             </div>
-            <v-btn
-              @click="startNewSeries"
-              class="mt-5"
-              color="primary"
-              :loading="loading"
+            <v-btn @click="startNewSeries" class="mt-5" color="primary" :loading="loading"
               >Nouvelle ascension</v-btn
             >
           </div>
@@ -91,17 +79,13 @@ const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
-const { data: userSeries } = await useFetch<UserAscentSeriesDTO>(
-  "/api/series/ascent"
-);
+const { data: userSeries } = await useFetch<UserAscentSeriesDTO>("/api/series/ascent");
 
 const seriesHealthPoint = computed(() => {
   return userSeries.value?.series?.data?.healthPoint ?? 1;
 });
 const userHealthPoint = computed(() => {
-  return (
-    userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value
-  );
+  return userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value;
 });
 const nbrQuestion = computed(() => {
   return userSeries.value?.series?.data?.questionsIds.length;
@@ -156,13 +140,10 @@ async function validateResponse(response: ResponseDTO) {
       userResponseId: response.userResponseId,
     } as SeriesResponseDTO;
 
-    userSeries.value.userResponse = await $fetch(
-      "/api/series/ascent/response",
-      {
-        method: "post",
-        body: seriesResponse,
-      }
-    );
+    userSeries.value.userResponse = await $fetch("/api/series/ascent/response", {
+      method: "post",
+      body: seriesResponse,
+    });
     achievementStore.answerAscentQuestion();
   } finally {
     loading.value = false;

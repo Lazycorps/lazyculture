@@ -1,3 +1,4 @@
+import { defineNuxtConfig } from "nuxt/config";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 export default defineNuxtConfig({
@@ -8,7 +9,6 @@ export default defineNuxtConfig({
   },
   modules: [
     "@nuxtjs/supabase",
-    "@prisma/nuxt",
     "@pinia/nuxt",
     (_options, nuxt) => {
       nuxt.hooks.hook("vite:extendConfig", (config) => {
@@ -25,11 +25,11 @@ export default defineNuxtConfig({
     },
     resolve: {
       alias: {
-        ".prisma/client/index-browser":
-          "./node_modules/.prisma/client/index-browser.js",
+        ".prisma/client/index-browser": "./node_modules/.prisma/client/index-browser.js",
       },
     },
   },
+  // @ts-expect-error
   routeRules: {
     "/": {
       // Temporary redirect using a 307 status code

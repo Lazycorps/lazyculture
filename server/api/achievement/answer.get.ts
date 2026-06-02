@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const answerAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "answer",
-    reponseCount
+    reponseCount,
   );
   const reponseSuccessCount = await prisma.questionResponse.count({
     where: {
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const answerCorrectAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "answerCorrect",
-    reponseSuccessCount
+    reponseSuccessCount,
   );
   const reponseFailedCount = await prisma.questionResponse.count({
     where: {
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   const answerFailedAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "answerFailed",
-    reponseFailedCount
+    reponseFailedCount,
   );
 
   const answerStreak = await checkResponseStreak(userConnected.id);
@@ -51,9 +51,7 @@ export default defineEventHandler(async (event) => {
   ];
 });
 
-async function checkResponseStreak(
-  userId: string
-): Promise<UserAchievementDTO[]> {
+async function checkResponseStreak(userId: string): Promise<UserAchievementDTO[]> {
   const responses = await prisma.questionResponse.findMany({
     where: { userId },
     orderBy: { date: "desc" },
@@ -63,8 +61,10 @@ async function checkResponseStreak(
     take: 100,
   });
 
+  const firstResponse = responses[0];
+  if (!firstResponse) return [];
   let currentStreak = 0;
-  const isSuccessStreak = responses[0].success;
+  const isSuccessStreak = firstResponse.success;
 
   for (const response of responses) {
     if (response.success === isSuccessStreak) {
@@ -77,6 +77,6 @@ async function checkResponseStreak(
   return await checkAndAwardAchievements(
     userId,
     isSuccessStreak ? "answerCorrectStreak" : "answerFailedStreak",
-    currentStreak
+    currentStreak,
   );
 }

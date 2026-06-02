@@ -1,16 +1,7 @@
 <template>
-  <v-card
-    flat
-    rounded
-    class="my-auto mx-auto pa-5"
-    style="max-width: 600px; min-width: 400px"
-  >
+  <v-card flat rounded class="my-auto mx-auto pa-5" style="max-width: 600px; min-width: 400px">
     <v-list>
-      <v-list-item
-        v-for="(user, key) in users"
-        :key="user.userId"
-        class="mx-auto"
-      >
+      <v-list-item v-for="(user, key) in users" :key="user.userId" class="mx-auto">
         <template v-slot:prepend>
           <v-avatar :color="getColorByRank(key + 1)">
             {{ key + 1 }}

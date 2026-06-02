@@ -1,10 +1,7 @@
 import prisma from "~/lib/prisma";
 import { serverSupabaseClient } from "#supabase/server";
 import { checkAndAwardAchievements } from "~/server/utils/achievementHelper";
-import {
-  AchievementDTO,
-  UserAchievementDTO,
-} from "~/models/DTO/achievementDTO";
+import { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
 
 export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);

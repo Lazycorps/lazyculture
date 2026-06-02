@@ -43,7 +43,7 @@ const GetQuestion = (
   question: OpenQuizzDBQuestion,
   difficulty: number,
   language: string,
-  theme?: string
+  theme?: string,
 ): Prisma.QuestionCreateInput | null => {
   const questionData = new QuestionDataDTO();
   questionData.type = "choix";
@@ -54,13 +54,11 @@ const GetQuestion = (
     questionData.propositions.push({
       id: i++,
       value: p,
-      img: ""
+      img: "",
     });
   });
 
-  const responseId = questionData.propositions.find(
-    (p) => p.value == question.réponse
-  )?.id;
+  const responseId = questionData.propositions.find((p) => p.value == question.réponse)?.id;
 
   if (!responseId) return null;
   questionData.commentaire = question.anecdote;

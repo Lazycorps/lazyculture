@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const ascentsAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "ascent",
-    ascentSeriesCount
+    ascentSeriesCount,
   );
 
   const ascentMaxScore = await prisma.questionSeriesResponse.findMany({
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   const ascentsMaxScoreAchievement = await checkAndAwardAchievements(
     userConnected.id,
     "ascentMaxScore",
-    ascentMaxScore[0].result?.toNumber()
+    ascentMaxScore[0]?.result?.toNumber() ?? 0,
   );
 
   return [...ascentsAchievement, ...ascentsMaxScoreAchievement];

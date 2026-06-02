@@ -1,10 +1,5 @@
 <template>
-  <v-card
-    rounded
-    outlined
-    @click="router.push('/themes/' + theme.slug)"
-    class="ma-1"
-  >
+  <v-card rounded outlined @click="router.push('/themes/' + theme.slug)" class="ma-1">
     <v-img :src="theme.picture" height="200px"></v-img>
     <v-card-title>{{ theme.name }}</v-card-title>
     <v-card-actions>

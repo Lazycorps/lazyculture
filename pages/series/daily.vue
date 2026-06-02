@@ -4,9 +4,7 @@
       <template v-if="!user">
         <h2>Daily Quizz</h2>
         <v-divider class="my-5"></v-divider>
-        <v-btn @click="router.push('/login')" color="primary"
-          >Please login to play</v-btn
-        >
+        <v-btn @click="router.push('/login')" color="primary">Please login to play</v-btn>
       </template>
       <template v-else>
         <h2>{{ userSeries?.series.title }}</h2>
@@ -19,9 +17,7 @@
             height="10"
             rounded
           ></v-progress-linear>
-          <div style="min-width: 60px" class="ml-5">
-            {{ questionId }} / {{ nbrQuestion }}
-          </div>
+          <div style="min-width: 60px" class="ml-5">{{ questionId }} / {{ nbrQuestion }}</div>
         </div>
         <v-divider class="my-5"></v-divider>
         <template v-if="questionId != nbrQuestion">
@@ -38,11 +34,7 @@
         </template>
         <template v-else>
           <div class="d-flex flex-column align-center">
-            <v-icon
-              color="green"
-              icon="mdi-check-circle-outline"
-              size="120"
-            ></v-icon>
+            <v-icon color="green" icon="mdi-check-circle-outline" size="120"></v-icon>
             <div>
               Score : {{ userSeries?.userResponse.data.score }} /
               {{ userSeries?.series.data.questionsIds.length }}

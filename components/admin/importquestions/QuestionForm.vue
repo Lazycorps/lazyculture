@@ -4,25 +4,14 @@
       <v-text-field dense label="Intitulé" v-model="question.libelle" />
       <img :src="question.img" alt="img question" v-if="question.img" />
       <span class="d-flex">
-        <v-select
-          dense
-          label="Type"
-          v-model="question.type"
-          :options="questionTypes"
-        />
+        <v-select dense label="Type" v-model="question.type" :options="questionTypes" />
         <v-select
           dense
           label="Difficulté"
           v-model="question.difficulty"
           :options="questionDifficulties"
         />
-        <v-combobox
-          dense
-          multiple
-          chips
-          label="Thème(s)"
-          v-model="question.theme"
-        />
+        <v-combobox dense multiple chips label="Thème(s)" v-model="question.theme" />
       </span>
       <span v-for="(prop, propIndex) in question.propositions" class="d-flex">
         <v-text-field

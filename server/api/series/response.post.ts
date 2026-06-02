@@ -19,9 +19,7 @@ export default defineEventHandler(async (event) => {
 
   if (!question?.data) return;
 
-  const success =
-    (question.data as unknown as QuestionDataDTO).response ==
-    body.userResponseId;
+  const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
 
   const series = await prisma.questionSeries.findFirst({
     where: { id: body.seriesId },
@@ -47,46 +45,32 @@ export default defineEventHandler(async (event) => {
         seriesType: "daily",
         data: {
           responses: [seriesResponseToAdd as any],
-          nextQuestion: (series.data as any as QuestionSeriesData)
-            .questionsIds[1],
+          nextQuestion: (series.data as any as QuestionSeriesData).questionsIds[1],
         },
       },
     });
   } else {
-    const responseData =
-      seriesResponse.data as any as QuestionSeriesResponseData;
+    const responseData = seriesResponse.data as any as QuestionSeriesResponseData;
     //Si la question envoyé est != de la question suivante pas normal ! CHEAT !
     if (body.questionId != responseData.nextQuestion) return seriesResponse;
-    const countSeriesQuestions = (series.data as any as QuestionSeriesData)
-      .questionsIds.length;
-    const seriesAlreadyEnded =
-      responseData.responses.length == countSeriesQuestions;
+    const countSeriesQuestions = (series.data as any as QuestionSeriesData).questionsIds.length;
+    const seriesAlreadyEnded = responseData.responses.length == countSeriesQuestions;
     if (seriesAlreadyEnded) return;
     responseData.responses.push(seriesResponseToAdd);
     const countResponse = responseData.responses.length;
-    const countSuccessResponse = responseData.responses.filter(
-      (c) => c.success
-    ).length;
+    const countSuccessResponse = responseData.responses.filter((c) => c.success).length;
     const seriesEnded = countResponse == countSeriesQuestions;
     let xpEarned = 0;
     if (seriesEnded) {
-      xpEarned = await calculUserXP(
-        countSeriesQuestions,
-        countSuccessResponse,
-        userConnected.id
-      );
+      xpEarned = await calculUserXP(countSeriesQuestions, countSuccessResponse, userConnected.id);
     }
 
     responseData.xpEarned = xpEarned;
     responseData.score =
-      Math.round(
-        ((countSuccessResponse / countSeriesQuestions) * 10 + Number.EPSILON) *
-          100
-      ) / 100;
+      Math.round(((countSuccessResponse / countSeriesQuestions) * 10 + Number.EPSILON) * 100) / 100;
 
-    responseData.nextQuestion = (
-      series.data as any as QuestionSeriesData
-    ).questionsIds[countResponse];
+    responseData.nextQuestion =
+      (series.data as any as QuestionSeriesData).questionsIds[countResponse] ?? 0;
 
     return await prisma.questionSeriesResponse.update({
       where: { id: seriesResponse.id },
@@ -102,7 +86,7 @@ export default defineEventHandler(async (event) => {
 const calculUserXP = async (
   countSeriesQuestions: number,
   countSuccessResponse: number,
-  userId: string
+  userId: string,
 ) => {
   const multiplicator = 10 * (1 + countSuccessResponse / countSeriesQuestions);
   const userXpWin = Math.ceil(countSuccessResponse * multiplicator);

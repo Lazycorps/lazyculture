@@ -18,4 +18,4 @@ export class ThemeDTO {
   updateDate: Date = new Date();
   userCreate: string = "";
   userUpdate: string = "";
-};
+}

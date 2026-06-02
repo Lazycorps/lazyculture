@@ -7,12 +7,10 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event);
   const userConnected = (await client.auth.getUser())?.data?.user;
   const query = getQuery(event);
-  let ids = await getRandomQuestionsIds(
-    query.theme as string,
-    userConnected?.id
-  );
+  let ids = await getRandomQuestionsIds(query.theme as string, userConnected?.id);
   if (ids.length == 0) ids = await getRandomQuestionsIds(query.theme as string);
   const id = getRandomId(ids);
+  if (id === undefined) return null;
   const question = await prisma.question.findFirst({ where: { id: id } });
   if (question) {
     const questionData = question.data as any as QuestionDataDTO;
@@ -54,9 +52,10 @@ const getRandomQuestionsIds = async (theme?: string, userId?: string) => {
   });
 };
 
-const getRandomId = (ids: { id: number }[]) => {
+const getRandomId = (ids: { id: number }[]): number | undefined => {
+  if (ids.length === 0) return undefined;
   const randomIndex = Math.floor(Math.random() * ids.length);
-  return ids[randomIndex].id;
+  return ids[randomIndex]?.id;
 };
 
 function shuffleArray(array: any[]) {

@@ -14,9 +14,7 @@ export default defineEventHandler(async (event) => {
 
   if (!question?.data) return;
 
-  const success =
-    (question.data as unknown as QuestionDataDTO).response ==
-    body.userResponseId;
+  const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
 
   await prisma.questionResponse.create({
     data: {
@@ -42,7 +40,7 @@ export default defineEventHandler(async (event) => {
     const userProgress = await updateUserProgress(
       userConnected.id,
       question.xp_earned,
-      successCount
+      successCount,
     );
     return {
       success,
@@ -54,17 +52,12 @@ export default defineEventHandler(async (event) => {
   } else return;
 });
 
-const updateUserProgress = async (
-  userId: string,
-  xpEarned: number,
-  successCount: number
-) => {
+const updateUserProgress = async (userId: string, xpEarned: number, successCount: number) => {
   const userProgress = await prisma.userProgress.findFirst({
     where: { userId: userId },
   });
 
-  const userXpWin =
-    successCount == 0 ? xpEarned : Math.ceil(xpEarned / successCount);
+  const userXpWin = successCount == 0 ? xpEarned : Math.ceil(xpEarned / successCount);
 
   if (userProgress) {
     const userXpTot = userProgress.xp + userXpWin;

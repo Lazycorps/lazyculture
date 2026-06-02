@@ -9,5 +9,5 @@
 </template>
 <script setup lang="ts">
 const route = useRoute();
-const layout = computed(() => route.path.startsWith('/admin') ? 'admin' : 'default');
+const layout = computed(() => (route.path.startsWith("/admin") ? "admin" : "default"));
 </script>

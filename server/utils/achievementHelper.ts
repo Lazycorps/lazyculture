@@ -34,7 +34,7 @@ interface Achievement {
 export async function checkAndAwardAchievements(
   userId: string,
   action: ActionType,
-  actionValue: number
+  actionValue: number,
 ) {
   // Récupérer tous les achievements
   const achievements = await prisma.achievement.findMany();
@@ -48,10 +48,7 @@ export async function checkAndAwardAchievements(
     });
 
     // Si l'utilisateur n'a pas déjà l'achievement et que les conditions sont remplies
-    if (
-      !userHasAchievement &&
-      checkAchievementCondition(achievement, action, actionValue)
-    ) {
+    if (!userHasAchievement && checkAchievementCondition(achievement, action, actionValue)) {
       // Attribuer l'achievement à l'utilisateur
       await prisma.userAchievement.create({
         data: {
@@ -83,10 +80,7 @@ export async function checkAndAwardAchievements(
 function checkAchievementCondition(
   achievement: any,
   action: ActionType,
-  actionValue: number
+  actionValue: number,
 ): boolean {
-  return (
-    achievement.conditionType === action &&
-    actionValue >= achievement.conditionValue
-  );
+  return achievement.conditionType === action && actionValue >= achievement.conditionValue;
 }

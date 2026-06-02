@@ -1,10 +1,6 @@
 <template>
   <v-container fluid class="fill-height d-flex justify-center align-center">
-    <v-card
-      style="max-width: 500px; width: 100%"
-      class="pa-5 d-flex flex-column"
-      rounded="100"
-    >
+    <v-card style="max-width: 500px; width: 100%" class="pa-5 d-flex flex-column" rounded="100">
       <v-card-title>Sign In </v-card-title>
       <v-text-field v-model="email" label="Email"></v-text-field>
       <v-text-field
@@ -13,9 +9,7 @@
         v-model="password"
         append-inner-icon="mdi-eye"
         @click:append-inner="
-          passwordType == 'password'
-            ? (passwordType = 'text')
-            : (passwordType = 'password')
+          passwordType == 'password' ? (passwordType = 'text') : (passwordType = 'password')
         "
       />
       <!-- <v-alert
@@ -33,20 +27,11 @@
       <v-alert type="error" class="mb-5" variant="tonal" v-if="displayError">
         {{ displayError }}
       </v-alert>
-      <v-alert
-        type="success"
-        class="mb-5"
-        variant="tonal"
-        v-if="successMessage"
-      >
+      <v-alert type="success" class="mb-5" variant="tonal" v-if="successMessage">
         {{ successMessage }}
       </v-alert>
       <div class="align-self-end">
-        <v-btn
-          @click="router.push('/login/register')"
-          class="mr-5"
-          color="primary"
-          variant="text"
+        <v-btn @click="router.push('/login/register')" class="mr-5" color="primary" variant="text"
           >register</v-btn
         >
         <v-btn @click="signIn" color="primary" variant="flat">Sign In</v-btn>

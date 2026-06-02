@@ -34,9 +34,7 @@ export default defineEventHandler(async (event) => {
       userId: u.userId,
       xp: u.xp,
       bestAscent:
-        topUsersAscent
-          ?.filter((user) => user.userId == u.userId)[0]
-          ?._max.result?.toNumber() ?? 0,
+        topUsersAscent?.filter((user) => user.userId == u.userId)[0]?._max.result?.toNumber() ?? 0,
     });
   });
   return usersRanking;

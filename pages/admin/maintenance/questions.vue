@@ -1,19 +1,49 @@
 <template>
-  <v-card flat rounded class="my-auto mx-auto pa-5" style="max-width: 1500px; min-width: 800px;">
-    <v-data-table :headers="computedHeaders" :items="filteredQuestions" :items-per-page="10" fixed-header height="100%"
-      style="max-height: 650px;" class="fill-width">
+  <v-card flat rounded class="my-auto mx-auto pa-5" style="max-width: 1500px; min-width: 800px">
+    <v-data-table
+      :headers="computedHeaders"
+      :items="filteredQuestions"
+      :items-per-page="10"
+      fixed-header
+      height="100%"
+      style="max-height: 650px"
+      class="fill-width"
+    >
       <template v-slot:top>
         <v-toolbar class="pt-4 pl-4">
-          <v-text-field label="Filtre textuel" underlined density="compact" class="mr-10" width="200px"
-            v-model="textFilter" />
-          <v-combobox label="Thèmes" :items="themes?.map(theme => theme.name) ?? []" v-model="selectedTheme"
-            density="compact" width="200px" class="mr-10" clearable></v-combobox>
-            <v-switch color="green" label="Réponses" v-model="showResponse" class="mr-2"></v-switch>
-          <v-switch v-model="showReportedQuestions" color="orange" label="Signalées" class="mr-2"></v-switch>
+          <v-text-field
+            label="Filtre textuel"
+            underlined
+            density="compact"
+            class="mr-10"
+            width="200px"
+            v-model="textFilter"
+          />
+          <v-combobox
+            label="Thèmes"
+            :items="themes?.map((theme) => theme.name) ?? []"
+            v-model="selectedTheme"
+            density="compact"
+            width="200px"
+            class="mr-10"
+            clearable
+          ></v-combobox>
+          <v-switch color="green" label="Réponses" v-model="showResponse" class="mr-2"></v-switch>
+          <v-switch
+            v-model="showReportedQuestions"
+            color="orange"
+            label="Signalées"
+            class="mr-2"
+          ></v-switch>
           <v-switch color="red" label="Supprimées" v-model="showDeleted" class="mr-2"></v-switch>
           <v-spacer></v-spacer>
-          <v-btn icon @click="editItem(defaultItem)" :disabled="false" class="rounded-circle mr-2 ml-2 mb-4"
-            style="background-color: green; color: white;">
+          <v-btn
+            icon
+            @click="editItem(defaultItem)"
+            :disabled="false"
+            class="rounded-circle mr-2 ml-2 mb-4"
+            style="background-color: green; color: white"
+          >
             <v-icon>mdi-plus</v-icon>
           </v-btn>
         </v-toolbar>
@@ -30,47 +60,93 @@
         </div>
       </template>
       <template v-slot:item.actions="{ item }">
-        <v-icon class="me-2" size="small" @click="editItem(item)">
-          mdi-pencil
-        </v-icon>
-        <v-icon size="small" @click="deleteItem(item)">
-          mdi-delete
-        </v-icon>
+        <v-icon class="me-2" size="small" @click="editItem(item)"> mdi-pencil </v-icon>
+        <v-icon size="small" @click="deleteItem(item)"> mdi-delete </v-icon>
       </template>
     </v-data-table>
     <v-dialog v-model="dialog" max-width="800px">
       <v-card>
         <v-card-title>{{ formTitle }}</v-card-title>
         <v-card-text>
-          <v-textarea v-model="editedItem.data.libelle" label="Libellé de la question" rows="2" auto-grow
-            density="compact" />
+          <v-textarea
+            v-model="editedItem.data.libelle"
+            label="Libellé de la question"
+            rows="2"
+            auto-grow
+            density="compact"
+          />
           <v-row>
             <v-col cols="6">
               <v-radio-group v-model="editedItem.data.response">
-                <div v-for="(proposition, index) in paddedPropositions" :key="index" class="d-flex align-center">
-                  <v-text-field v-model="proposition.value" :label="'Proposition ' + (index + 1)"
-                    class="flex-grow-1 mr-4" density="compact" width="260"
-                    @blur="updateProposition(index, proposition.value)" />
-                  <v-radio :value="proposition.id" :disabled="!proposition.value.trim()"
-                    :style="{ color: editedItem.data.response === proposition.id ? 'green' : 'red' }" />
+                <div
+                  v-for="(proposition, index) in paddedPropositions"
+                  :key="index"
+                  class="d-flex align-center"
+                >
+                  <v-text-field
+                    v-model="proposition.value"
+                    :label="'Proposition ' + (index + 1)"
+                    class="flex-grow-1 mr-4"
+                    density="compact"
+                    width="260"
+                    @blur="updateProposition(index, proposition.value)"
+                  />
+                  <v-radio
+                    :value="proposition.id"
+                    :disabled="!proposition.value.trim()"
+                    :style="{
+                      color: editedItem.data.response === proposition.id ? 'green' : 'red',
+                    }"
+                  />
                 </div>
               </v-radio-group>
             </v-col>
             <v-col cols="6">
-              <v-combobox v-model="selectedThemeNames" :items="themes?.map(theme => theme.name) ?? []" label="Thèmes"
-                multiple hide-selected chips closable-chips density="compact" />
-              <v-text-field v-model="editedItem.data.img" label="URL de l'image" density="compact" />
-              <v-text-field v-model="editedItem.difficulty" label="Difficulté" density="compact" type="number" />
+              <v-combobox
+                v-model="selectedThemeNames"
+                :items="themes?.map((theme) => theme.name) ?? []"
+                label="Thèmes"
+                multiple
+                hide-selected
+                chips
+                closable-chips
+                density="compact"
+              />
+              <v-text-field
+                v-model="editedItem.data.img"
+                label="URL de l'image"
+                density="compact"
+              />
+              <v-text-field
+                v-model="editedItem.difficulty"
+                label="Difficulté"
+                density="compact"
+                type="number"
+              />
               <v-switch color="red" label="Supprimée" v-model="editedItem.deleted"></v-switch>
             </v-col>
           </v-row>
-          <v-textarea v-model="editedItem.data.commentaire" label="Commentaire" rows="2" auto-grow density="compact" />
+          <v-textarea
+            v-model="editedItem.data.commentaire"
+            label="Commentaire"
+            rows="2"
+            auto-grow
+            density="compact"
+          />
           <v-divider class="my-1"></v-divider>
           <div v-if="editedItem.reportings.length">
             <h3>Signalements</h3>
-            <div v-for="(reporting, index) in editedItem.reportings" :key="index" class="d-flex align-center mt-2">
-              <v-text-field v-model="reporting.commentaire" :label="'Commentaire ' + (index + 1)" readonly
-                class="flex-grow-1 mr-4" />
+            <div
+              v-for="(reporting, index) in editedItem.reportings"
+              :key="index"
+              class="d-flex align-center mt-2"
+            >
+              <v-text-field
+                v-model="reporting.commentaire"
+                :label="'Commentaire ' + (index + 1)"
+                readonly
+                class="flex-grow-1 mr-4"
+              />
               <v-checkbox v-model="reporting.closed" label="Clôturé" />
             </div>
           </div>
@@ -100,11 +176,16 @@
 // definePageMeta({
 //     middleware: 'admin'
 // });
-import { ref, computed } from 'vue';
-import type { VDataTable } from 'vuetify/components'
-import type { QuestionDataDTO, QuestionDTO, QuestionPropositionDTO, QuestionReportingDTO } from '~/models/question';
+import { ref, computed } from "vue";
+import type { VDataTable } from "vuetify/components";
+import type {
+  QuestionDataDTO,
+  QuestionDTO,
+  QuestionPropositionDTO,
+  QuestionReportingDTO,
+} from "~/models/question";
 import type { Theme, ThemeDTO } from "~/models/theme";
-type ReadonlyHeaders = VDataTable['$props']['headers']
+type ReadonlyHeaders = VDataTable["$props"]["headers"];
 
 const textFilter = ref<string>("");
 const dialog = ref(false);
@@ -134,7 +215,7 @@ const editedItem = ref<QuestionDTO>({
     commentaire: "",
     commentaireImg: "",
   },
-  reportings: []
+  reportings: [],
 });
 const defaultItem = {
   id: 0,
@@ -157,39 +238,35 @@ const defaultItem = {
     commentaire: "",
     commentaireImg: "",
   },
-  reportings: []
+  reportings: [],
 };
 
 const filteredQuestions = computed(() => {
   let filtered = questions?.value ?? [];
 
   if (showReportedQuestions.value) {
-    filtered = filtered.filter(question =>
-      question.reportings.some(report => !report.closed)
-    );
+    filtered = filtered.filter((question) => question.reportings.some((report) => !report.closed));
   }
 
   if (showDeleted.value) {
-    filtered = filtered.filter(question =>
-      question.deleted)
+    filtered = filtered.filter((question) => question.deleted);
   }
 
   if (selectedTheme.value) {
-    const selectedThemeSlug = themes?.value?.find(t => t.name === selectedTheme.value)?.slug;
+    const selectedThemeSlug = themes?.value?.find((t) => t.name === selectedTheme.value)?.slug;
     if (selectedThemeSlug) {
-      filtered = filtered.filter(question =>
-        question.data.theme.includes(selectedThemeSlug)
-      );
+      filtered = filtered.filter((question) => question.data.theme.includes(selectedThemeSlug));
     }
   }
 
   if (textFilter.value) {
     const filterText = textFilter.value.toLowerCase();
-    filtered = filtered.filter(question =>
-      question.data.libelle.toLowerCase().includes(filterText) ||
-      question.data.propositions.some(proposition =>
-        proposition.value.toLowerCase().includes(filterText)
-      )
+    filtered = filtered.filter(
+      (question) =>
+        question.data.libelle.toLowerCase().includes(filterText) ||
+        question.data.propositions.some((proposition) =>
+          proposition.value.toLowerCase().includes(filterText),
+        ),
     );
   }
 
@@ -199,23 +276,23 @@ const computedHeaders = computed(() => {
   if (showResponse.value) {
     return headers;
   } else {
-    return headers?.filter(header => header.value !== 'response') ?? [];
+    return headers?.filter((header) => header.value !== "response") ?? [];
   }
 });
 const selectedThemeNames = computed({
   get() {
-    return editedItem.value.data.theme.map(slug => {
-      const theme = themes?.value?.find(t => t.slug === slug);
+    return editedItem.value.data.theme.map((slug) => {
+      const theme = themes?.value?.find((t) => t.slug === slug);
       return theme ? theme.name : slug;
     });
   },
   set(newThemeNames) {
-    const updatedSlugs = newThemeNames.map(name => {
-      const theme = themes?.value?.find(t => t.name === name);
+    const updatedSlugs = newThemeNames.map((name) => {
+      const theme = themes?.value?.find((t) => t.name === name);
       return theme ? theme.slug : name;
     });
     editedItem.value.data.theme = updatedSlugs;
-  }
+  },
 });
 const paddedPropositions = computed(() => {
   const propositions = [...editedItem.value.data.propositions];
@@ -227,40 +304,42 @@ const paddedPropositions = computed(() => {
   return propositions;
 });
 const { data: questions } = await useFetch<QuestionDTO[]>("/api/question/all");
-const { data: themes } = await useFetch<Theme[]>("/api/theme/all") ?? [];
+const { data: themes } = (await useFetch<Theme[]>("/api/theme/all")) ?? [];
 
 const selectedTheme = ref("");
 
-const formTitle = computed(() => (editedIndex.value === -1 ? 'Nouvelle Question' : `Question ${editedItem.value.id}`));
+const formTitle = computed(() =>
+  editedIndex.value === -1 ? "Nouvelle Question" : `Question ${editedItem.value.id}`,
+);
 const headers: ReadonlyHeaders = [
-  { title: 'Question', value: 'data.libelle', align: 'start', sortable: true },
-  { title: 'Réponse', value: 'response' },
-  { title: 'Thèmes', value: 'themeNames' },
-  { title: 'Signalée', value: 'reported' },
-  { title: 'Actions', value: 'actions' },
+  { title: "Question", value: "data.libelle", align: "start", sortable: true },
+  { title: "Réponse", value: "response" },
+  { title: "Thèmes", value: "themeNames" },
+  { title: "Signalée", value: "reported" },
+  { title: "Actions", value: "actions" },
 ];
 
 function getResponse(data: QuestionDataDTO) {
   const selectedProposition = data.propositions.find(
-    (proposition: QuestionPropositionDTO) => proposition.id === data.response
+    (proposition: QuestionPropositionDTO) => proposition.id === data.response,
   );
-  return selectedProposition ? selectedProposition.value : 'No match found';
+  return selectedProposition ? selectedProposition.value : "No match found";
 }
 
 function getThemNames(slugs: string[]): string {
   const matchingThemes = themes?.value?.filter((t: ThemeDTO) => slugs.includes(t.slug));
-  return matchingThemes?.map(theme => theme.name).join(',') ?? "";
+  return matchingThemes?.map((theme) => theme.name).join(",") ?? "";
 }
 
 function isReported(reportings: QuestionReportingDTO[]) {
-  return reportings && reportings.some(report => !report.closed); // Vérifie s'il y a un report non clôturé
+  return reportings && reportings.some((report) => !report.closed); // Vérifie s'il y a un report non clôturé
 }
 
 function editItem(item: QuestionDTO) {
   editedIndex.value = questions?.value?.indexOf(item) ?? -1;
   editedItem.value = { ...item };
   dialog.value = true;
-};
+}
 
 function updateProposition(index: number, value: string) {
   if (value.trim() === "") {
@@ -281,45 +360,49 @@ function deleteItem(item: QuestionDTO) {
   editedIndex.value = questions?.value?.indexOf(item) ?? -1;
   editedItem.value = { ...item };
   dialogDelete.value = true;
-};
+}
 
 async function deleteItemConfirm() {
   await $fetch("/api/question/delete?id=" + editedItem.value.id, {
-    method: "delete"
+    method: "delete",
   });
   closeDelete();
-};
+}
 
 function close() {
   dialog.value = false;
   editedItem.value = { ...defaultItem };
   editedIndex.value = -1;
-};
+}
 
 function closeDelete() {
   dialogDelete.value = false;
   editedItem.value = { ...defaultItem };
   editedIndex.value = -1;
-};
+}
 
 const isSaveDisabled = computed(() => {
   const libelleValid = editedItem.value.data.libelle.trim() !== "";
-  const propositionsValid = editedItem.value.data.propositions.filter(p => p.value.trim() !== "").length >= 2;
+  const propositionsValid =
+    editedItem.value.data.propositions.filter((p) => p.value.trim() !== "").length >= 2;
   const radioSelected = editedItem.value.data.response !== 0;
 
   return !(libelleValid && propositionsValid && radioSelected);
 });
 
 async function save() {
-  editedItem.value.data.difficulty = editedItem.value.difficulty = Number(editedItem.value.difficulty);
+  editedItem.value.data.difficulty = editedItem.value.difficulty = Number(
+    editedItem.value.difficulty,
+  );
 
-  editedItem.value.data.theme = selectedThemeNames.value.map(themeName => {
-    const theme = themes?.value?.find(t => t.name === themeName);
-    return theme ? theme.slug : null;
-  }).filter(slug => slug !== null);
+  editedItem.value.data.theme = selectedThemeNames.value
+    .map((themeName) => {
+      const theme = themes?.value?.find((t) => t.name === themeName);
+      return theme ? theme.slug : null;
+    })
+    .filter((slug) => slug !== null);
 
-  if(editedItem.value.data.theme.length === 0)
-    editedItem.value.data.theme = ["culture_generale"];
+  if (editedItem.value.data.theme.length === 0) editedItem.value.data.theme = ["culture_generale"];
 
   editedItem.value.data.type = "choix";
 
@@ -330,7 +413,7 @@ async function save() {
         ...editedItem.value,
         data: {
           ...editedItem.value.data,
-        }
+        },
       };
 
       await $fetch("/api/question/update", {
@@ -343,7 +426,7 @@ async function save() {
       ...editedItem.value,
       data: {
         ...editedItem.value.data,
-      }
+      },
     };
     await $fetch("/api/question/create", {
       method: "post",
@@ -353,7 +436,6 @@ async function save() {
   }
   close();
 }
-
 </script>
 
 <style scoped></style>

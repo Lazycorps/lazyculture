@@ -1,15 +1,7 @@
 <template>
   <v-container fluid class="fill-height d-flex justify-center align-center">
-    <v-card
-      style="max-width: 500px; width: 100%"
-      class="pa-5 d-flex flex-column"
-      rounded="100"
-    >
-      <v-form
-        :validate-on="validateOn"
-        v-model="formIsValid"
-        ref="formComponent"
-      >
+    <v-card style="max-width: 500px; width: 100%" class="pa-5 d-flex flex-column" rounded="100">
+      <v-form :validate-on="validateOn" v-model="formIsValid" ref="formComponent">
         <v-card-title>Create an account</v-card-title>
         <v-text-field
           label="Email"
@@ -23,9 +15,7 @@
           v-model="password"
           append-inner-icon="mdi-eye"
           @click:append-inner="
-            passwordType == 'password'
-              ? (passwordType = 'text')
-              : (passwordType = 'password')
+            passwordType == 'password' ? (passwordType = 'text') : (passwordType = 'password')
           "
           :rules="[rules.required, rules.passwordComplexity]"
           class="mb-2"
@@ -34,14 +24,8 @@
           {{ errorDisplay }}
         </v-alert>
         <div class="align-self-end">
-          <v-btn @click="router.push('/login')" color="primary" variant="text"
-            >Sign In</v-btn
-          >
-          <v-btn
-            color="primary"
-            variant="flat"
-            @click="register()"
-            :loading="loading"
+          <v-btn @click="router.push('/login')" color="primary" variant="text">Sign In</v-btn>
+          <v-btn color="primary" variant="flat" @click="register()" :loading="loading"
             >Register</v-btn
           >
         </div>
@@ -70,9 +54,8 @@ const rules = {
   max: (v: string) => v.length <= 12 || "Min 12 characters",
   email: (v: string) => /.+@.+\..+/.test(v) || "Must be a valid email",
   passwordComplexity: (v: string) =>
-    /^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(
-      v
-    ) || "Minimum eight characters, at least uppercase letter and one number:",
+    /^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(v) ||
+    "Minimum eight characters, at least uppercase letter and one number:",
 };
 
 async function register() {
