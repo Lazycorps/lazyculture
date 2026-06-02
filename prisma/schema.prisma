@@ -2,7 +2,7 @@ datasource db {
     provider          = "postgresql"
     url               = env("DATABASE_URL")
     directUrl         = env("DIRECT_URL")
-    shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+    // shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 generator client {
@@ -22,6 +22,7 @@ model User {
     Reporting              QuestionReporting[]
     QuestionSeriesResponse QuestionSeriesResponse[]
     UserAchievement        UserAchievement[]
+    BattleRoyalePlayer     BattleRoyalePlayer[]
 }
 
 model UserProgress {
@@ -141,4 +142,33 @@ model UserAchievement {
     unlockedAt    DateTime    @default(now())
 
     @@unique([userId, achievementId])
+}
+
+model BattleRoyaleMatch {
+    id                      String               @id @default(uuid())
+    status                  String               @default("WAITING") // WAITING, PLAYING, FINISHED
+    currentRound            Int                  @default(0)
+    currentQuestionId       Int?
+    currentQuestionStart    DateTime?
+    currentQuestionDuration Int?                 // Durée en secondes
+    winnerId                String?
+    createdAt               DateTime             @default(now())
+    players                 BattleRoyalePlayer[]
+}
+
+model BattleRoyalePlayer {
+    id                 String            @id @default(uuid())
+    matchId            String
+    match              BattleRoyaleMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+    userId             String
+    user               User              @relation(fields: [userId], references: [id])
+    lives              Int               @default(3)
+    lastAnsweredRound  Int               @default(-1)
+    lastAnswerCorrect  Boolean?
+    lastAnswerTime     DateTime?
+    eliminatedAtRound  Int?
+    xpEarned           Int               @default(0)
+    joinedAt           DateTime          @default(now())
+
+    @@unique([matchId, userId])
 }

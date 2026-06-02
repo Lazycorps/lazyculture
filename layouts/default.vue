@@ -163,14 +163,118 @@
         <span class="text-[10px] font-bold font-display">{{ item.label }}</span>
       </NuxtLink>
     </nav>
+
+    <!-- Global Floating widgets for Battle Royale -->
+    <div
+      v-if="user"
+      class="fixed bottom-20 md:bottom-6 right-6 z-50 flex flex-col space-y-3 pointer-events-none w-80"
+    >
+      <!-- 1. Recoverable Active Game Alert -->
+      <div
+        v-if="brSession.recoverableMatchId.value && route.path !== '/series/battle-royale'"
+        class="pointer-events-auto bg-[#1e1b4b]/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(245,158,11,0.2)] space-y-3 transform transition-all duration-300 animate-slide-in"
+      >
+        <div class="flex items-start justify-between">
+          <div class="flex items-center space-x-3">
+            <span class="text-2xl animate-pulse">⚡</span>
+            <div>
+              <h4 class="text-xs font-black font-display text-white uppercase tracking-wider">
+                Partie en cours !
+              </h4>
+              <p class="text-[10px] text-gray-300">Vous avez un match de Battle Royale actif.</p>
+            </div>
+          </div>
+          <UButton
+            icon="i-heroicons-x-mark"
+            size="xs"
+            color="gray"
+            variant="ghost"
+            class="rounded-full hover:text-white"
+            @click="brSession.recoverableMatchId.value = null"
+          />
+        </div>
+        <UButton
+          color="amber"
+          size="sm"
+          block
+          icon="i-heroicons-arrow-right-circle"
+          class="font-black font-display uppercase tracking-widest py-2"
+          @click="resumeActiveBRMatch"
+        >
+          Rejoindre la partie
+        </UButton>
+      </div>
+
+      <!-- 2. Active Lobby Status tracking (when navigated away) -->
+      <div
+        v-if="
+          brSession.matchId.value &&
+          brSession.status.value === 'WAITING' &&
+          route.path !== '/series/battle-royale'
+        "
+        class="pointer-events-auto bg-[#0f172a]/95 backdrop-blur-md border border-violet-500/35 rounded-2xl p-4 shadow-[0_0_20px_rgba(139,92,246,0.25)] space-y-3 transform transition-all duration-300 animate-slide-in"
+      >
+        <div class="flex items-start justify-between">
+          <div class="flex items-center space-x-3">
+            <span class="text-2xl animate-spin-slow">🐢</span>
+            <div>
+              <h4 class="text-xs font-black font-display text-white uppercase tracking-wider">
+                Salon d'attente
+              </h4>
+              <p class="text-[10px] text-violet-300 font-semibold font-display">
+                {{ brSession.players.value.length }} joueur(s) connectés
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="text-[10px] text-gray-400 bg-white/5 border border-white/5 rounded px-2 py-1 flex items-center justify-between"
+        >
+          <span>Statut :</span>
+          <span
+            v-if="brSession.isCountdownRunning.value"
+            class="text-cyan-400 font-extrabold animate-pulse"
+          >
+            ⏳ Lancement ({{ brSession.countdown.value }}s)
+          </span>
+          <span v-else class="text-violet-400 font-bold"> En attente de joueurs... </span>
+        </div>
+
+        <div class="flex space-x-2">
+          <UButton
+            color="rose"
+            size="xs"
+            variant="ghost"
+            class="font-bold uppercase tracking-wider"
+            @click="brSession.disconnect"
+          >
+            Quitter
+          </UButton>
+          <UButton
+            color="primary"
+            size="xs"
+            class="flex-1 font-black font-display uppercase tracking-wider py-1.5 justify-center"
+            icon="i-heroicons-arrow-right"
+            to="/series/battle-royale"
+          >
+            Retourner au Salon
+          </UButton>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useBattleRoyaleSession } from "~/composables/useBattleRoyaleSession";
+
 const router = useRouter();
 const user = useSupabaseUser();
 const showBottomNav = useState("showBottomNav", () => true);
 const userProfile = ref<any>(null);
+
+const brSession = useBattleRoyaleSession();
 
 const xpProgress = computed(() => {
   if (!userProfile.value) return 0;
@@ -186,20 +290,33 @@ const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
+  { label: "Battle Royale", path: "/series/battle-royale", icon: "i-heroicons-fire" },
   { label: "Classement", path: "/ranking", icon: "i-heroicons-chart-bar" },
 ]);
 
 onMounted(async () => {
   await fetchProfile();
+  if (user.value) {
+    void brSession.checkActiveSession();
+  }
 });
 
 watch(user, async (newUser) => {
   if (newUser) {
     await fetchProfile();
+    void brSession.checkActiveSession();
   } else {
     userProfile.value = null;
+    brSession.disconnect();
   }
 });
+
+function resumeActiveBRMatch() {
+  if (brSession.recoverableMatchId.value && user.value) {
+    brSession.connect(brSession.recoverableMatchId.value, user.value.id);
+    router.push("/series/battle-royale");
+  }
+}
 
 async function fetchProfile() {
   if (user.value) {
@@ -279,5 +396,24 @@ watch(
   --color-primary-800: 91 33 182;
   --color-primary-900: 76 29 149;
   --color-primary-950: 46 16 101;
+}
+
+@keyframes br-slide-in {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: br-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
 }
 </style>
