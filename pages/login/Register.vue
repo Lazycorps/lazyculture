@@ -1,78 +1,160 @@
 <template>
-  <v-container fluid class="fill-height d-flex justify-center align-center">
-    <v-card style="max-width: 500px; width: 100%" class="pa-5 d-flex flex-column" rounded="100">
-      <v-form :validate-on="validateOn" v-model="formIsValid" ref="formComponent">
-        <v-card-title>Create an account</v-card-title>
-        <v-text-field
-          label="Email"
-          v-model="email"
-          :rules="[rules.required, rules.email]"
-          class="mb-2"
-        />
-        <v-text-field
-          :type="passwordType"
-          label="Password"
-          v-model="password"
-          append-inner-icon="mdi-eye"
-          @click:append-inner="
-            passwordType == 'password' ? (passwordType = 'text') : (passwordType = 'password')
-          "
-          :rules="[rules.required, rules.passwordComplexity]"
-          class="mb-2"
-        />
-        <v-alert type="error" class="mb-5" variant="tonal" v-if="errorDisplay">
-          {{ errorDisplay }}
-        </v-alert>
-        <div class="align-self-end">
-          <v-btn @click="router.push('/login')" color="primary" variant="text">Sign In</v-btn>
-          <v-btn color="primary" variant="flat" @click="register()" :loading="loading"
-            >Register</v-btn
-          >
+  <div class="w-full max-w-sm mx-auto py-10 select-none">
+    <UCard
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+    >
+      <template #header>
+        <div class="text-center space-y-1.5">
+          <h2 class="text-2xl font-black font-display text-white tracking-wide">Créer un compte</h2>
+          <p class="text-xs text-gray-400 font-medium">
+            Rejoignez Lazyculture pour sauvegarder vos scores !
+          </p>
         </div>
-      </v-form>
-    </v-card>
-  </v-container>
+      </template>
+
+      <form @submit.prevent="register" class="space-y-4">
+        <!-- Email Field -->
+        <UFormGroup
+          label="Adresse Email"
+          name="email"
+          :ui="{
+            label: {
+              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+            },
+          }"
+        >
+          <UInput
+            v-model="email"
+            type="email"
+            placeholder="nom@exemple.com"
+            icon="i-heroicons-envelope"
+            required
+            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+          />
+        </UFormGroup>
+
+        <!-- Password Field with eye toggle -->
+        <UFormGroup
+          label="Mot de passe"
+          name="password"
+          :ui="{
+            label: {
+              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+            },
+          }"
+        >
+          <UInput
+            v-model="password"
+            :type="passwordType"
+            placeholder="Min 8 caractères, 1 Maj, 1 Chiffre"
+            icon="i-heroicons-lock-closed"
+            required
+            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+          >
+            <template #trailing>
+              <UButton
+                :icon="passwordType === 'password' ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+                color="gray"
+                variant="ghost"
+                class="hover:bg-white/5 text-gray-400"
+                @click="togglePassword"
+              />
+            </template>
+          </UInput>
+        </UFormGroup>
+
+        <!-- Validation Error Message Alert -->
+        <div class="pt-2" v-if="errorDisplay">
+          <UAlert
+            color="red"
+            variant="soft"
+            icon="i-heroicons-exclamation-triangle"
+            :title="errorDisplay"
+            :ui="{ wrapper: 'rounded-xl' }"
+          />
+        </div>
+
+        <!-- Action Row -->
+        <div class="flex items-center justify-between pt-4 gap-3">
+          <UButton
+            variant="ghost"
+            color="primary"
+            class="text-xs font-bold font-display"
+            @click="router.push('/login')"
+          >
+            Se connecter
+          </UButton>
+          <UButton
+            type="submit"
+            color="primary"
+            size="md"
+            :loading="loading"
+            class="font-black font-display uppercase tracking-widest px-6"
+          >
+            S'enregistrer
+          </UButton>
+        </div>
+      </form>
+    </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { VForm } from "vuetify/lib/components/index.mjs";
 const router = useRouter();
 
-const formComponent = ref<VForm>();
 const passwordType = ref<"password" | "text">("password");
-
 const email = ref("");
 const password = ref("");
 const errorDisplay = ref("");
-const formIsValid = ref(false);
-const validateOn = ref<"input" | "submit">("submit");
 const loading = ref(false);
-const rules = {
-  required: (v: string) => !!v || "Required.",
-  min: (v: string) => v.length >= 4 || "Min 4 characters",
-  max: (v: string) => v.length <= 12 || "Min 12 characters",
-  email: (v: string) => /.+@.+\..+/.test(v) || "Must be a valid email",
-  passwordComplexity: (v: string) =>
-    /^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(v) ||
-    "Minimum eight characters, at least uppercase letter and one number:",
-};
+
+function togglePassword() {
+  passwordType.value = passwordType.value === "password" ? "text" : "password";
+}
 
 async function register() {
+  errorDisplay.value = "";
+
+  // Validation Rules
+  if (!email.value || !password.value) {
+    errorDisplay.value = "L'adresse email et le mot de passe sont requis.";
+    return;
+  }
+  if (!/.+@.+\..+/.test(email.value)) {
+    errorDisplay.value = "Adresse email invalide.";
+    return;
+  }
+  if (
+    !/^(?=.*[A-ZÀ-ÖØ-Þ])(?=.*\d)[A-Za-zÀ-öø-ÿ\d~`!@#$%^&*()-_+={}|;:'",.<>?\\]{8,}$/.test(
+      password.value,
+    )
+  ) {
+    errorDisplay.value =
+      "Le mot de passe doit faire au moins 8 caractères et contenir au moins une lettre majuscule et un chiffre.";
+    return;
+  }
+
   try {
-    await formComponent.value?.validate();
-    if (!formIsValid.value) return;
     loading.value = true;
     const supabase = useSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
     });
-    if (error) errorDisplay.value = error.message;
-    else router.push("registerValidation");
+    if (error) {
+      errorDisplay.value = error.message;
+    } else {
+      router.push("/login/registerValidation");
+    }
+  } catch (err: any) {
+    errorDisplay.value = "Une erreur est survenue lors de l'inscription.";
   } finally {
-    validateOn.value = "input";
     loading.value = false;
   }
 }
 </script>
+
+<style scoped>
+/* Custom overrides if needed */
+</style>

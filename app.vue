@@ -1,11 +1,11 @@
 <template>
-  <div>
-    <NuxtLayout :name="layout">
-      <v-app>
+  <UApp>
+    <div id="app-container" class="cyber-bg-glow min-h-screen">
+      <NuxtLayout :name="layout">
         <NuxtPage />
-      </v-app>
-    </NuxtLayout>
-  </div>
+      </NuxtLayout>
+    </div>
+  </UApp>
 </template>
 <script setup lang="ts">
 const route = useRoute();

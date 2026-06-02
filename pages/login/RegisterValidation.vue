@@ -1,24 +1,54 @@
 <template>
-  <v-container fluid class="fill-height d-flex justify-center align-center">
-    <v-card style="max-width: 500px; width: 100%" class="pa-5 d-flex flex-column" rounded="100">
-      <v-alert type="success" class="mb-5" variant="tonal">
-        <p class="mb-3">
-          Thank you for signing up. <b>To activate your account</b>, please verify your email
-          address by clicking the confirmation link we've sent to your inbox.
-        </p>
+  <div class="w-full max-w-sm mx-auto py-10 select-none">
+    <UCard
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2 text-center"
+    >
+      <template #header>
+        <div class="flex flex-col items-center space-y-3">
+          <div
+            class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-2xl text-emerald-400"
+          >
+            ✉️
+          </div>
+          <h2 class="text-xl font-black font-display text-white tracking-wide">
+            Vérifiez vos e-mails
+          </h2>
+        </div>
+      </template>
+
+      <div class="space-y-4 text-sm text-gray-300 font-medium leading-relaxed p-2">
         <p>
-          If you haven't received the email within a few minutes, please check your spam or junk
-          folder.
+          Merci pour votre inscription ! <b>Pour activer votre compte</b>, veuillez cliquer sur le
+          lien de confirmation envoyé à votre adresse e-mail.
         </p>
-      </v-alert>
-      <div class="align-self-end">
-        <v-btn @click="router.push('/login')" color="primary" variant="flat">Sign In</v-btn>
+        <p class="text-xs text-gray-400">
+          Si vous ne recevez pas l'e-mail dans quelques minutes, veuillez vérifier vos courriers
+          indésirables (spams).
+        </p>
       </div>
-    </v-card>
-  </v-container>
+
+      <template #footer>
+        <div class="pt-2">
+          <UButton
+            color="primary"
+            block
+            size="md"
+            icon="i-heroicons-arrow-left-on-rectangle"
+            class="font-black font-display uppercase tracking-widest py-3"
+            @click="router.push('/login')"
+          >
+            Se connecter
+          </UButton>
+        </div>
+      </template>
+    </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from "vue-router";
 const router = useRouter();
 </script>
+
+<style scoped>
+/* Scoped modifications if needed */
+</style>

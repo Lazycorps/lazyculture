@@ -11,8 +11,8 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@mdi/font": "^7.4.47",
     "@nuxt/devtools": "^2.0.0",
+    "@nuxt/ui": "^4.8.1",
     "@nuxtjs/supabase": "^2.0.9",
     "@pinia/nuxt": "^0.11.3",
     "@types/node": "^22.19.19",
@@ -22,10 +22,8 @@
     "pinia": "^3.0.4",
     "sass": "^1.100.0",
     "typescript": "^5.9.3",
-    "vite-plugin-vuetify": "^2.1.3",
     "vue": "^3.5.35",
-    "vue3-toastify": "^0.2.9",
-    "vuetify": "^3.12.7"
+    "vue3-toastify": "^0.2.9"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",

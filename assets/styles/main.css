@@ -1,0 +1,186 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap");
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Quicksand", sans-serif;
+  --font-display: "Quicksand", sans-serif;
+
+  --color-cyber-bg: #070a13;
+  --color-cyber-bg-secondary: #0d111e;
+  --color-cyber-card: rgba(17, 24, 39, 0.7);
+  --color-cyber-primary: #6d28d9;
+  --color-cyber-secondary: #06b6d4;
+  --color-cyber-success: #10b981;
+  --color-cyber-danger: #ef4444;
+  --color-cyber-gold: #f59e0b;
+
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --shadow-neon: 0 0 15px rgba(109, 40, 217, 0.3);
+  --shadow-neon-green: 0 0 15px rgba(16, 185, 129, 0.3);
+  --shadow-neon-red: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+/* Global Styles */
+html,
+body,
+#__nuxt,
+#app-container {
+  height: 100%;
+  margin: 0;
+  background-color: #070a13;
+  color: #f3f4f6;
+  font-family: "Plus Jakarta Sans", "Quicksand", sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Background Radial Glow */
+.cyber-bg-glow {
+  background: radial-gradient(
+    circle at 50% -20%,
+    rgba(109, 40, 217, 0.15) 0%,
+    rgba(7, 10, 19, 1) 70%
+  );
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(7, 10, 19, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Keyframes & Animations */
+@keyframes heartPulse {
+  0% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.2);
+  }
+  30% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.15);
+  }
+  60% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-heart-pulse {
+  animation: heartPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes floatXP {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.2);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1);
+  }
+  100% {
+    transform: translateY(-60px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.xp-float-anim {
+  animation: floatXP 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 3D button active state override for native buttons */
+.btn-pressable {
+  transition: all 0.1s ease-in-out;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+}
+
+.btn-pressable:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Podium Styles */
+.podium-1 {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.podium-2 {
+  background: linear-gradient(135deg, rgba(203, 213, 225, 0.2) 0%, rgba(203, 213, 225, 0.03) 100%);
+  border: 1px solid rgba(203, 213, 225, 0.3);
+}
+
+.podium-3 {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.2) 0%, rgba(180, 83, 9, 0.03) 100%);
+  border: 1px solid rgba(180, 83, 9, 0.3);
+}
+
+/* Gold Achievement Glow */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+  border: 2px solid rgba(245, 158, 11, 0.6) !important;
+}
+
+/* Custom active classes */
+.nav-active {
+  background: rgba(109, 40, 217, 0.15);
+  color: #a78bfa !important;
+  border-left: 3px solid #8b5cf6;
+}
+
+.nav-mobile-active {
+  background: rgba(109, 40, 217, 0.15);
+  color: #a78bfa !important;
+}

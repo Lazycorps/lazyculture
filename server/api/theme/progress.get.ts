@@ -2,38 +2,43 @@ import { serverSupabaseClient } from "#supabase/server";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
-  const client = await serverSupabaseClient(event);
-  const userConnected = (await client.auth.getUser())?.data?.user;
-  const query = getQuery(event);
-  const isNotRandom = query.theme != "random";
-  const questionCount = await prisma.question.count({
-    where: {
-      deleted: false,
-      ...(isNotRandom && {
-        data: {
-          path: ["theme"],
-          array_contains: query.theme as string,
-        },
-      }),
-    },
-  });
+  try {
+    const client = await serverSupabaseClient(event);
+    const userConnected = (await client.auth.getUser())?.data?.user;
+    const query = getQuery(event);
+    const isNotRandom = query.theme != "random";
+    const questionCount = await prisma.question.count({
+      where: {
+        deleted: false,
+        ...(isNotRandom && {
+          data: {
+            path: ["theme"],
+            array_contains: query.theme as string,
+          },
+        }),
+      },
+    });
 
-  // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
-  let responseCount = 0;
-  let mastery = 0;
-  if (userConnected != null) {
-    const responses = await getAllSuccessResponses(userConnected?.id, query.theme as string);
-    const lastResponse = await getLastResponses(
-      userConnected?.id,
-      query.theme as string,
-      isNotRandom ? 50 : 1000,
-    );
-    responseCount = responses.length;
-    const goodResponseCount = lastResponse.filter((r) => r.success).length;
-    mastery = lastResponse.length > 20 ? (goodResponseCount / lastResponse.length) * 10 : 0;
+    // Étape 1 : Récupérer toutes les réponses avec leurs questions associées
+    let responseCount = 0;
+    let mastery = 0;
+    if (userConnected != null) {
+      const responses = await getAllSuccessResponses(userConnected?.id, query.theme as string);
+      const lastResponse = await getLastResponses(
+        userConnected?.id,
+        query.theme as string,
+        isNotRandom ? 50 : 1000,
+      );
+      responseCount = responses.length;
+      const goodResponseCount = lastResponse.filter((r) => r.success).length;
+      mastery = lastResponse.length > 20 ? (goodResponseCount / lastResponse.length) * 10 : 0;
+    }
+
+    return { questionCount, responseCount, mastery };
+  } catch (e) {
+    console.error("Error loading theme progress on server:", e);
+    return { questionCount: 0, responseCount: 0, mastery: 0 };
   }
-
-  return { questionCount, responseCount, mastery };
 });
 
 async function getAllSuccessResponses(userConnected: string, theme: string) {

@@ -1,74 +1,186 @@
 <template>
-  <v-skeleton-loader
-    :loading="firstLoading"
-    type="article, list-item,list-item,list-item,list-item, actions"
-    width="500"
-  >
-    <div class="d-flex flex-column justify-center" style="max-width: 500px">
-      <div class="d-flex flex-row justify-center mb-5" style="max-width: 500px">
-        <v-icon class="mr-2">mdi-help-box-multiple-outline</v-icon>
-        {{ question.themes.join(", ") }}
-        <v-spacer></v-spacer>
+  <div class="relative w-full max-w-lg mx-auto flex flex-col justify-center pb-16 md:pb-20">
+    <!-- Floating XP Indicator -->
+    <div
+      v-if="showXP"
+      class="xp-float-anim absolute top-10 right-4 z-50 text-2xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1.5 rounded-full shadow-neon"
+    >
+      <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-amber-500" />
+      +{{ xpWin }} XP
+    </div>
+
+    <!-- Skeleton Loader -->
+    <div
+      v-if="firstLoading"
+      class="animate-pulse space-y-3 p-4 bg-slate-900/40 rounded-2xl border border-white/5"
+    >
+      <div class="flex justify-between items-center">
+        <div class="h-4 bg-white/10 rounded w-1/3"></div>
+        <div class="h-8 w-8 bg-white/10 rounded-full"></div>
+      </div>
+      <div class="h-5 bg-white/10 rounded w-3/4"></div>
+      <div class="h-20 bg-white/5 rounded-xl w-full"></div>
+      <div class="space-y-2 pt-2">
+        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+      </div>
+      <div class="h-9 bg-white/15 rounded-xl w-1/2 mx-auto pt-1"></div>
+    </div>
+
+    <!-- Question View -->
+    <div v-else class="flex flex-col space-y-2.5 md:space-y-3.5">
+      <!-- Header Row (Theme badges + Flag) -->
+      <div class="flex items-center justify-between select-none">
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="t in question.themes"
+            :key="t"
+            class="text-[9px] font-extrabold uppercase tracking-wider font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
+          >
+            {{ t }}
+          </span>
+        </div>
         <QuestionReporting ref="questionReporting" :questionId="question.id" />
       </div>
-      <h3>{{ question.data.libelle }}</h3>
-      <v-img v-if="question.data.img" :src="question.data.img" height="200"></v-img>
-      <v-item-group mandatory v-model="selectedResponse" class="mx-auto ma-5">
-        <v-item
-          v-for="proposition in question.data.propositions"
-          v-slot="{ isSelected, toggle }"
-          :value="proposition.id"
-        >
-          <v-btn
-            style="min-width: 250px; margin-bottom: 5px; display: block"
-            class="mx-auto"
-            :value="proposition.id"
-            :variant="isSelected ? 'tonal' : 'outlined'"
-            :color="
-              redResponse == proposition.id
-                ? 'red'
-                : greenResponse == proposition.id
-                  ? 'green'
-                  : isSelected
-                    ? 'green'
-                    : 'white'
-            "
-            @click="toggle"
-          >
-            {{ proposition.value }}
-          </v-btn>
-        </v-item>
-      </v-item-group>
-      <span class="mb-5">{{ commentaire }}</span>
-      <span v-if="responded" class="d-flex justify-center align-center" style="position: relative">
-        <v-btn
-          @click="NextQuestion()"
-          :loading="loading"
-          class="mx-auto"
-          style="width: 250px"
-          color="blue"
-        >
-          Continuer
-        </v-btn>
-        <transition name="fade">
-          <p v-if="showXP" class="xp-text" style="position: absolute; left: 85%">
-            + {{ xpWin }} xp
-          </p>
-        </transition>
-      </span>
-      <v-btn
-        v-if="!responded"
-        @click="validateResponse()"
-        style="width: 250px"
-        class="mx-auto"
-        color="green"
-        :disabled="selectedResponse == null"
+
+      <!-- Question Text -->
+      <h2
+        class="text-base md:text-lg font-black font-display text-white tracking-wide leading-relaxed"
       >
-        Valider
-      </v-btn>
+        {{ question.data.libelle }}
+      </h2>
+
+      <!-- Question Image (if exists) -->
+      <div
+        v-if="question.data.img"
+        class="relative h-20 md:h-28 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-inner"
+      >
+        <img :src="question.data.img" alt="Question image" class="w-full h-full object-contain" />
+      </div>
+
+      <!-- Options / Propositions list -->
+      <div class="flex flex-col gap-1.5 py-0.5">
+        <button
+          v-for="proposition in question.data.propositions"
+          :key="proposition.id"
+          :disabled="responded"
+          class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
+          :class="getOptionClass(proposition.id)"
+          @click="selectOption(proposition.id)"
+        >
+          <div class="flex items-center justify-between">
+            <span>{{ proposition.value }}</span>
+
+            <!-- Check/Cross icon indicator in option -->
+            <span
+              v-if="
+                responded && (greenResponse === proposition.id || redResponse === proposition.id)
+              "
+            >
+              <UIcon
+                v-if="greenResponse === proposition.id"
+                name="i-heroicons-check-circle-20-solid"
+                class="text-xl text-emerald-400 animate-bounce"
+              />
+              <UIcon
+                v-else-if="redResponse === proposition.id"
+                name="i-heroicons-x-circle-20-solid"
+                class="text-xl text-rose-500 animate-shake"
+              />
+            </span>
+          </div>
+        </button>
+      </div>
     </div>
-  </v-skeleton-loader>
+
+    <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
+    <div
+      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-6 transition-all duration-300"
+      :class="
+        responded
+          ? isCorrect
+            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
+            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
+          : 'bg-slate-950/80 border-white/10'
+      "
+    >
+      <div
+        class="max-w-xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-4"
+      >
+        <!-- Left Side: Status / Instructions -->
+        <div class="flex-1 w-full md:w-auto">
+          <!-- Active Mode Instruction (Before response) -->
+          <div v-if="!responded" class="hidden md:flex items-center space-x-2 text-gray-400">
+            <UIcon name="i-heroicons-information-circle" class="text-lg text-violet-400" />
+            <span class="text-xs font-semibold font-display tracking-wide"
+              >Choisissez une proposition ci-dessus</span
+            >
+          </div>
+
+          <!-- Answer Evaluation Banner (After response) -->
+          <div v-else class="flex items-start space-x-4">
+            <div
+              class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+              :class="
+                isCorrect
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
+                  : 'bg-rose-500/20 text-rose-400 border border-rose-400/30'
+              "
+            >
+              <UIcon v-if="isCorrect" name="i-heroicons-check-circle" />
+              <UIcon v-else name="i-heroicons-exclamation-triangle" />
+            </div>
+            <div class="space-y-0.5 min-w-0 flex-1">
+              <h4
+                class="font-black font-display text-base tracking-wide"
+                :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
+              >
+                {{ isCorrect ? "Excellent travail !" : "Oups, mauvaise réponse" }}
+              </h4>
+              <div class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text">
+                <p class="text-[11px] text-gray-300 font-medium leading-relaxed">
+                  {{
+                    commentaire ||
+                    (isCorrect ? "C'est exact !" : "Dommage, mais continuez d'apprendre.")
+                  }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Exact same centered button spot -->
+        <div class="w-full md:w-auto flex-shrink-0 flex justify-center">
+          <!-- Validate Button -->
+          <UButton
+            v-if="!responded"
+            size="lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-3.5 justify-center shadow-lg"
+            :color="selectedResponse != null ? 'primary' : 'gray'"
+            :disabled="selectedResponse == null || loading"
+            :loading="loading"
+            @click="validateResponse"
+          >
+            Valider
+          </UButton>
+          <!-- Continue Button -->
+          <UButton
+            v-else
+            size="lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-3.5 justify-center shadow-lg"
+            :color="isCorrect ? 'emerald' : 'rose'"
+            :loading="loading"
+            @click="NextQuestion"
+          >
+            Continuer
+          </UButton>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
+
 <script setup lang="ts">
 import { ResponseDTO } from "~/models/DTO/responseDTO";
 import { QuestionDTO } from "~/models/question";
@@ -76,17 +188,24 @@ import QuestionReporting from "./QuestionReporting.vue";
 
 const props = defineProps<{ theme?: string }>();
 const achievementStore = useAchievementStore();
+
 const firstLoading = ref(true);
 const loading = ref(true);
 const commentaire = ref("");
 const responded = ref(false);
-const selectedResponse = ref();
-const redResponse = ref();
-const greenResponse = ref();
+const selectedResponse = ref<any>(null);
+const redResponse = ref<any>(null);
+const greenResponse = ref<any>(null);
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
 const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
+
+const isCorrect = computed(() => {
+  return greenResponse.value === redResponse.value
+    ? false
+    : greenResponse.value !== null && redResponse.value === null;
+});
 
 onMounted(() => {
   try {
@@ -94,33 +213,65 @@ onMounted(() => {
   } catch (err) {}
 });
 
+function selectOption(id: any) {
+  if (responded.value) return;
+  selectedResponse.value = id;
+}
+
+function getOptionClass(id: any) {
+  // Post-response states
+  if (responded.value) {
+    if (greenResponse.value === id) {
+      return "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-neon-green font-extrabold cursor-default";
+    }
+    if (redResponse.value === id) {
+      return "bg-rose-500/10 border-rose-500/50 text-rose-500 shadow-neon-red font-extrabold cursor-default";
+    }
+    return "bg-slate-900/20 border-white/5 text-gray-500 cursor-default opacity-40";
+  }
+
+  // Pre-response selection states
+  if (selectedResponse.value === id) {
+    return "bg-violet-600/15 border-violet-500 shadow-neon text-violet-300 font-extrabold scale-[1.01] btn-pressable";
+  }
+  return "bg-white/5 hover:bg-white/10 hover:border-white/20 border-white/10 text-gray-300 font-semibold btn-pressable";
+}
+
 async function validateResponse() {
+  if (selectedResponse.value == null) return;
   try {
     loading.value = true;
-    responded.value = true;
     commentaire.value = question.value.data.commentaire;
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
     reponseDTO.userResponseId = selectedResponse.value;
-    if (selectedResponse.value == question.value.data.response) {
+
+    // Evaluate answer matching local schema
+    const isAnswerCorrect = selectedResponse.value === question.value.data.response;
+
+    if (isAnswerCorrect) {
       greenResponse.value = selectedResponse.value;
-      selectedResponse.value = null;
+      redResponse.value = null;
     } else {
       redResponse.value = selectedResponse.value;
-      selectedResponse.value = null;
       greenResponse.value = question.value.data.response;
     }
 
-    const responseResult = await $fetch("/api/response/validate", {
+    const responseResult = await $fetch<any>("/api/response/validate", {
       method: "post",
       body: { ...reponseDTO },
     });
+
+    responded.value = true;
     achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
+  } catch (e) {
+    console.error("Failed to validate response:", e);
   } finally {
     loading.value = false;
   }
 }
+
 async function NextQuestion() {
   try {
     loading.value = true;
@@ -136,6 +287,8 @@ async function NextQuestion() {
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
+  } catch (e) {
+    console.error("Failed to load next question:", e);
   } finally {
     loading.value = false;
     firstLoading.value = false;
@@ -143,15 +296,15 @@ async function NextQuestion() {
 }
 
 function gainXP(amount: number) {
-  if (amount == 0) return;
+  if (amount === 0) return;
 
   xpWin.value = amount;
   showXP.value = true;
 
-  // Cache le texte après 2 secondes
+  // Fade out float text
   setTimeout(() => {
     showXP.value = false;
-  }, 1000);
+  }, 1200);
 }
 
 async function getNewQuestion() {
@@ -161,24 +314,21 @@ async function getNewQuestion() {
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
+/* Shake animation keyframes */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
 }
 
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.xp-text {
-  font-family: "Quicksand", sans-serif;
-  /* Ou 'Quicksand', selon ta préférence */
-  font-weight: 600;
-  font-size: 1rem;
-  /* Ajuste selon tes besoins */
-  color: #ffcc00;
-  /* Jaune or pour un effet de gain d'XP */
-  text-align: center;
+.animate-shake {
+  animation: shake 0.2s ease-in-out 2;
 }
 </style>
