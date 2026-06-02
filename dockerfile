@@ -4,7 +4,7 @@ ARG NODE_VERSION=26.3.0
 FROM node:${NODE_VERSION}-slim AS build
 
 # Installer curl et bash (requis pour récupérer le script d'installation de Vite+)
-RUN apt-get update && apt-get install -y curl bash git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl bash && rm -rf /var/lib/apt/lists/*
 
 # Installer la CLI Vite+ (vp) globalement dans le conteneur
 RUN curl -fsSL https://vite.plus | bash
