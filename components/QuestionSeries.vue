@@ -1,6 +1,7 @@
 <template>
   <div
-    class="relative w-full flex flex-col justify-center select-none pb-16 md:pb-20"
+    class="relative w-full flex flex-col justify-center select-none min-h-[calc(100dvh-240px)] md:min-h-0 transition-all duration-300"
+    :class="responded ? 'pb-60 md:pb-28' : 'pb-36 md:pb-20'"
     v-if="question"
   >
     <!-- Floating XP Indicator -->
@@ -84,7 +85,7 @@
 
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-6 transition-all duration-300"
+      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-4 md:p-6 transition-all duration-300"
       :class="
         responded
           ? isCorrect
@@ -94,7 +95,7 @@
       "
     >
       <div
-        class="max-w-xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-4"
+        class="max-w-xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4"
       >
         <!-- Left Side: Status / Instructions -->
         <div class="flex-1 w-full md:w-auto">
@@ -107,9 +108,9 @@
           </div>
 
           <!-- Answer Evaluation Banner (After response) -->
-          <div v-else class="flex items-start space-x-4">
+          <div v-else class="flex items-start space-x-3 md:space-x-4">
             <div
-              class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0"
+              class="w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-lg md:text-xl flex-shrink-0"
               :class="
                 isCorrect
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
@@ -144,7 +145,7 @@
           <UButton
             v-if="!responded"
             size="lg"
-            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-3.5 justify-center shadow-lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="selectedResponse != null ? 'primary' : 'gray'"
             :disabled="selectedResponse == null || loading || parentLoading"
             :loading="loading || parentLoading"
@@ -156,7 +157,7 @@
           <UButton
             v-else
             size="lg"
-            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-3.5 justify-center shadow-lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="isCorrect ? 'emerald' : 'rose'"
             :loading="loading || parentLoading"
             @click="NextQuestion"

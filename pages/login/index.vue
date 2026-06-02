@@ -150,8 +150,10 @@ async function signIn() {
     if (error) {
       displayError.value = error.message;
     } else if (data?.user) {
+      const token = data.session?.access_token;
       await $fetch("/api/user/create", {
         method: "post",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: {
           id: data.user.id,
           name: "",

@@ -196,7 +196,15 @@ watch(user, async (newUser) => {
 async function fetchProfile() {
   if (user.value) {
     try {
-      const data = await $fetch<any>("/api/user/current");
+      const supabase = useSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const data = await $fetch<any>("/api/user/current", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       userProfile.value = {
         name: data?.name || "Joueur",
         level: data?.UserProgress?.levelId || 1,

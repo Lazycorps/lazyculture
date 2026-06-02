@@ -3,12 +3,26 @@ import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   const userConnected = await serverSupabaseUser(event);
-  if (userConnected == null) return;
+  if (userConnected == null) return null;
 
-  const user = await prisma.user.findFirst({
+  let user = await prisma.user.findFirst({
     where: { id: userConnected.id },
     include: { UserProgress: { include: { level: true } } },
   });
+
+  if (user == null) {
+    user = await prisma.user.create({
+      data: {
+        id: userConnected.id,
+        name: "",
+        slug: "",
+        createDate: new Date(),
+        updateDate: new Date(),
+      },
+      include: { UserProgress: { include: { level: true } } },
+    });
+  }
+
   let nextLevelTreshold = 100;
   if (user?.UserProgress?.levelId) {
     const nextLevel = await prisma.level.findFirst({

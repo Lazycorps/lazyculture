@@ -159,7 +159,14 @@ onMounted(async () => {
 async function fetchUser() {
   try {
     loading.value = true;
-    const userConnected = await $fetch<any>("/api/user/current");
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const userConnected = await $fetch<any>("/api/user/current", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     username.value = userConnected?.name ?? "";
     email.value = userConnected?.email ?? "";
     level.value = userConnected?.UserProgress?.levelId ?? 1;
@@ -179,8 +186,14 @@ async function updateUsername() {
   }
   try {
     loadingUpdateUser.value = true;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
     const userUpdated = await $fetch<any>("/api/user/username", {
       method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: {
         username: username.value,
       },
