@@ -39,6 +39,9 @@ RUN vp install
 # Copier le reste des fichiers
 COPY . .
 
+# Générer le client Prisma
+RUN npx prisma generate
+
 # Construire l'application Nuxt.js
 RUN vp run build
 
