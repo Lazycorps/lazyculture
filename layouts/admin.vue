@@ -1,108 +1,191 @@
 <template>
-  <v-layout>
-    <v-navigation-drawer width="200" permanent>
-      <v-list>
-        <v-list-item-group>
-          <v-list-item>
-            <v-list-item-content>
-              <v-list-item-title class="menu-item highlight">Maintenance</v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
+  <div
+    id="app-container"
+    class="min-h-screen flex flex-col md:flex-row bg-[#070a13] text-gray-100 font-sans"
+  >
+    <!-- Desktop Sidebar -->
+    <aside
+      class="hidden md:flex md:w-64 flex-col bg-slate-950/40 backdrop-blur-xl border-r border-white/10 p-6 space-y-8 flex-shrink-0"
+    >
+      <!-- Logo and App Title -->
+      <div
+        class="flex items-center space-x-3 cursor-pointer select-none group"
+        @click="router.push('/themes')"
+      >
+        <div
+          class="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform"
+        >
+          👑
+        </div>
+        <div>
+          <h1
+            class="text-lg font-black font-display bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent tracking-wide"
+          >
+            Lazyculture
+          </h1>
+          <p class="text-[10px] text-violet-400 font-bold uppercase tracking-widest font-display">
+            Admin Panel
+          </p>
+        </div>
+      </div>
 
-          <v-list-item @click="router.push('/admin/maintenance/questions')" class="menu-item">
-            <template v-slot:prepend>
-              <v-icon>mdi-help-circle</v-icon>
-            </template>
-            <v-list-item-content>
-              <v-list-item-title>Questions</v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
+      <!-- Navigation groups -->
+      <nav class="flex-1 space-y-6">
+        <!-- Maintenance Section -->
+        <div class="space-y-2">
+          <p
+            class="px-4 text-[10px] font-black uppercase tracking-widest text-gray-500 font-display"
+          >
+            Maintenance
+          </p>
+          <div class="space-y-1">
+            <NuxtLink
+              to="/admin/maintenance/questions"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-question-mark-circle"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">Questions</span>
+            </NuxtLink>
+            <NuxtLink
+              to="/admin/maintenance/themes"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-book-open"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">Thèmes</span>
+            </NuxtLink>
+          </div>
+        </div>
 
-          <v-list-item @click="router.push('/admin/maintenance/themes')" class="menu-item">
-            <template v-slot:prepend>
-              <v-icon>mdi-book-open-variant-outline</v-icon>
-            </template>
-            <v-list-item-content>
-              <v-list-item-title>Themes</v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
+        <!-- Imports Section -->
+        <div class="space-y-2">
+          <p
+            class="px-4 text-[10px] font-black uppercase tracking-widest text-gray-500 font-display"
+          >
+            Imports
+          </p>
+          <div class="space-y-1">
+            <NuxtLink
+              to="/admin/importquestions"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-arrow-up-tray"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">JSON</span>
+            </NuxtLink>
+          </div>
+        </div>
+      </nav>
 
-          <!-- Menu Imports sans trait en dessous et même style que Maintenance -->
-          <v-list-item>
-            <v-list-item-content>
-              <v-list-item-title class="menu-item highlight">Imports</v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
+      <!-- Back to App Button -->
+      <div class="pt-4 border-t border-white/5">
+        <UButton
+          to="/themes"
+          block
+          color="gray"
+          variant="ghost"
+          class="flex items-center justify-start space-x-3 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl"
+        >
+          <UIcon name="i-heroicons-arrow-left-on-rectangle" class="text-xl" />
+          <span class="font-semibold font-display tracking-wide text-sm">Retour au site</span>
+        </UButton>
+      </div>
+    </aside>
 
-          <!-- JSON sous Imports -->
-          <v-list-item @click="router.push('/admin/importquestions')" class="menu-item">
-            <template v-slot:prepend>
-              <v-icon>mdi-file-import</v-icon>
-            </template>
-            <v-list-item-content>
-              <v-list-item-title>JSON</v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
-          <v-list-item class="menu-item border-bottom">
-            <v-list-item-content>
-              <v-list-item-title></v-list-item-title>
-            </v-list-item-content>
-          </v-list-item>
-        </v-list-item-group>
-      </v-list>
-    </v-navigation-drawer>
+    <!-- Mobile Top Header -->
+    <header
+      class="md:hidden flex items-center justify-between px-6 py-4 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
+    >
+      <div class="flex items-center space-x-3" @click="router.push('/themes')">
+        <div
+          class="w-8 h-8 rounded-lg bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-lg animate-pulse"
+        >
+          👑
+        </div>
+        <div class="flex flex-col">
+          <span
+            class="font-black text-sm font-display bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent"
+          >
+            Lazyculture Admin
+          </span>
+        </div>
+      </div>
 
-    <v-main class="page-content">
-      <slot />
-    </v-main>
-  </v-layout>
+      <UButton
+        to="/themes"
+        color="primary"
+        variant="solid"
+        size="xs"
+        class="rounded-full px-3 py-1 font-bold font-display"
+      >
+        Quitter Admin
+      </UButton>
+    </header>
+
+    <!-- Main Page Content -->
+    <main class="flex-1 overflow-y-auto px-4 py-6 md:p-8 pb-28 md:pb-8 flex flex-col min-h-0">
+      <div class="max-w-6xl mx-auto w-full h-full flex flex-col">
+        <slot />
+      </div>
+    </main>
+
+    <!-- Mobile Glass Bottom Bar -->
+    <nav
+      class="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass flex justify-around py-3 px-2"
+    >
+      <NuxtLink
+        to="/admin/maintenance/questions"
+        class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
+        active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      >
+        <UIcon
+          name="i-heroicons-question-mark-circle"
+          class="text-xl group-hover:scale-110 transition-transform mb-1"
+        />
+        <span class="text-[10px] font-bold font-display">Questions</span>
+      </NuxtLink>
+
+      <NuxtLink
+        to="/admin/maintenance/themes"
+        class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
+        active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      >
+        <UIcon
+          name="i-heroicons-book-open"
+          class="text-xl group-hover:scale-110 transition-transform mb-1"
+        />
+        <span class="text-[10px] font-bold font-display">Thèmes</span>
+      </NuxtLink>
+
+      <NuxtLink
+        to="/admin/importquestions"
+        class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
+        active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      >
+        <UIcon
+          name="i-heroicons-arrow-up-tray"
+          class="text-xl group-hover:scale-110 transition-transform mb-1"
+        />
+        <span class="text-[10px] font-bold font-display">JSON</span>
+      </NuxtLink>
+    </nav>
+  </div>
 </template>
 
 <script setup lang="ts">
 const router = useRouter();
 </script>
 
-<style>
-html,
-body,
-#app,
-.v-application {
-  height: 100%;
-  margin: 0;
-}
-
-.page-content {
-  height: 100vh;
-  overflow-y: auto;
-}
-
-.headline {
-  padding: 16px;
-  text-align: left;
-  /* Aligne le texte à gauche */
-}
-
-.highlight {
-  font-weight: bold;
-  /* Met en gras */
-  color: #1976d2;
-  /* Change la couleur si nécessaire */
-}
-
-.menu-item {
-  border-bottom: 1px solid #e0e0e0;
-  /* Ajoute une bordure en bas pour Questions et Themes */
-  padding: 12px 16px;
-  /* Ajuste le remplissage pour les éléments de menu */
-}
-
-.menu-item:last-child {
-  border-bottom: none;
-  /* Enlève la bordure du dernier élément */
-}
-
-.menu-item.highlight {
-  border-bottom: none;
-  /* Enlève la bordure pour Imports */
-}
+<style scoped>
+/* Scoped styles */
 </style>
