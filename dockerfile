@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y curl bash && rm -rf /var/lib/apt/lists/
 RUN curl -fsSL https://vite.plus | bash
 
 # Ajouter le binaire vp au PATH pour que Docker le trouve
-ENV PATH="/root/.local/share/vite-plus/bin:$PATH"
+ENV PATH="/root/.vite-plus/bin:$PATH"
 
 ARG BASE_URL
 ENV BASE_URL=$BASE_URL
