@@ -95,46 +95,18 @@
       <span>Vous êtes éliminé(e). Vous observez le match en tant que spectateur.</span>
     </div>
 
-    <!-- Question Title -->
-    <div class="space-y-4">
-      <div class="flex items-center space-x-1.5">
-        <span
-          v-for="t in question.themes"
-          :key="t"
-          class="text-[9px] font-extrabold uppercase tracking-wider font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
-        >
-          {{ t }}
-        </span>
-      </div>
-
-      <h3
-        class="text-base md:text-lg font-black font-display text-white tracking-wide leading-relaxed"
-      >
-        {{ question.libelle }}
-      </h3>
-    </div>
-
-    <!-- Propositions Grid -->
-    <div class="flex flex-col gap-2 py-2">
-      <button
-        v-for="(prop, index) in question.propositions"
-        :key="prop.id"
-        :disabled="responded || isSpectator || timeLeft <= 0"
-        class="w-full text-left px-4 py-3 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
-        :class="getOptionClass(prop.id)"
-        @click="selectOption(prop.id)"
-      >
-        <div class="flex items-center justify-between">
-          <span>{{ prop.value }}</span>
-          <!-- Checkmark if currently selected by active player -->
-          <UIcon
-            v-if="selectedOptionId === prop.id"
-            name="i-heroicons-check-circle-20-solid"
-            class="text-xl text-violet-400"
-          />
-        </div>
-      </button>
-    </div>
+    <!-- Question card content -->
+    <QuestionDisplay
+      :libelle="question.libelle"
+      :img="question.img"
+      :themes="question.themes"
+      :propositions="question.propositions"
+      :disabled="responded || isSpectator || timeLeft <= 0"
+      :selectedOptionId="selectedOptionId"
+      :showCorrectIncorrectColors="false"
+      :showReporting="false"
+      @selectOption="selectOption"
+    />
 
     <!-- Opponents Panel (Bottom/Footer drawer) -->
     <div class="bg-white/5 border border-white/10 rounded-2xl p-4 shadow-glass">
@@ -300,19 +272,6 @@ const timerTextColor = computed(() => {
 function selectOption(id: number) {
   if (props.responded || props.isSpectator || timeLeft.value <= 0) return;
   emit("submitAnswer", id);
-}
-
-function getOptionClass(id: number) {
-  if (props.responded || props.isSpectator) {
-    if (props.selectedOptionId === id) {
-      return "bg-violet-600/15 border-violet-500/50 text-violet-400 shadow-neon scale-[1.01] cursor-default";
-    }
-    return "bg-slate-900/20 border-white/5 text-gray-500 cursor-default opacity-40";
-  }
-  if (props.selectedOptionId === id) {
-    return "bg-violet-600/15 border-violet-500 shadow-neon text-violet-300 font-extrabold scale-[1.01]";
-  }
-  return "bg-white/5 hover:bg-white/10 hover:border-white/20 border-white/10 text-gray-300 font-semibold cursor-pointer active:scale-98";
 }
 </script>
 

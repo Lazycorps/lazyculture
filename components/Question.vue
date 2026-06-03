@@ -32,80 +32,22 @@
     </div>
 
     <!-- Question View -->
-    <div v-else class="flex flex-col space-y-2.5 md:space-y-3.5">
-      <!-- Header Row (Theme badges + Flag) -->
-      <div class="flex items-center justify-between select-none">
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="t in question.themes"
-            :key="t"
-            class="text-[9px] font-extrabold uppercase tracking-wider font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
-          >
-            {{ t }}
-          </span>
-        </div>
-        <QuestionReporting ref="questionReporting" :questionId="question.id" />
-      </div>
-
-      <!-- Question Text -->
-      <h2
-        class="text-base md:text-lg font-black font-display text-white tracking-wide leading-relaxed"
-      >
-        {{ question.data.libelle }}
-      </h2>
-
-      <!-- Image + Options Layout (Vertical vs Horizontal layout) -->
-      <div
-        :class="
-          isVerticalImage
-            ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-center'
-            : 'flex flex-col space-y-2.5 md:space-y-3.5'
-        "
-      >
-        <!-- Question Image (if exists) -->
-        <div
-          v-if="question.data.img"
-          class="relative w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-inner"
-          :class="isVerticalImage ? 'h-44 md:h-56' : 'h-36 md:h-48'"
-        >
-          <img :src="question.data.img" alt="Question image" class="w-full h-full object-contain" />
-        </div>
-
-        <!-- Options / Propositions list -->
-        <div class="flex flex-col gap-1.5 py-0.5 w-full">
-          <button
-            v-for="proposition in question.data.propositions"
-            :key="proposition.id"
-            :disabled="responded"
-            class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
-            :class="getOptionClass(proposition.id)"
-            @click="selectOption(proposition.id)"
-          >
-            <div class="flex items-center justify-between">
-              <span>{{ proposition.value }}</span>
-
-              <!-- Check/Cross icon indicator in option -->
-              <span
-                v-if="
-                  responded && (greenResponse === proposition.id || redResponse === proposition.id)
-                "
-              >
-                <UIcon
-                  v-if="greenResponse === proposition.id"
-                  name="i-heroicons-check-circle-20-solid"
-                  class="text-xl text-emerald-400 animate-bounce"
-                />
-                <UIcon
-                  v-else-if="redResponse === proposition.id"
-                  name="i-heroicons-x-circle-20-solid"
-                  class="text-xl text-rose-500 animate-shake"
-                />
-              </span>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
+    <QuestionDisplay
+      v-else
+      ref="questionDisplay"
+      :libelle="question.data.libelle"
+      :img="question.data.img"
+      :themes="question.themes"
+      :propositions="question.data.propositions"
+      :disabled="responded"
+      :selectedOptionId="selectedResponse"
+      :correctOptionId="greenResponse"
+      :incorrectOptionId="redResponse"
+      :showCorrectIncorrectColors="responded"
+      :showReporting="true"
+      :questionId="question.id"
+      @selectOption="selectOption"
+    />
 
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
@@ -213,24 +155,7 @@ const greenResponse = ref<any>(null);
 const xpWin = ref(0);
 const showXP = ref(false);
 const question = ref(new QuestionDTO());
-const questionReporting = ref<InstanceType<typeof QuestionReporting> | null>(null);
-const isVerticalImage = ref(false);
-
-watch(
-  () => question.value?.data?.img,
-  (newImgUrl) => {
-    isVerticalImage.value = false;
-    if (!newImgUrl) return;
-    const img = new Image();
-    img.onload = () => {
-      if (img.naturalHeight > img.naturalWidth) {
-        isVerticalImage.value = true;
-      }
-    };
-    img.src = newImgUrl;
-  },
-  { immediate: true },
-);
+const questionDisplay = ref<any>(null);
 
 const isCorrect = computed(() => {
   return greenResponse.value === redResponse.value
@@ -252,25 +177,6 @@ onBeforeUnmount(() => {
 function selectOption(id: any) {
   if (responded.value) return;
   selectedResponse.value = id;
-}
-
-function getOptionClass(id: any) {
-  // Post-response states
-  if (responded.value) {
-    if (greenResponse.value === id) {
-      return "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-neon-green font-extrabold cursor-default";
-    }
-    if (redResponse.value === id) {
-      return "bg-rose-500/10 border-rose-500/50 text-rose-500 shadow-neon-red font-extrabold cursor-default";
-    }
-    return "bg-slate-900/20 border-white/5 text-gray-500 cursor-default opacity-40";
-  }
-
-  // Pre-response selection states
-  if (selectedResponse.value === id) {
-    return "bg-violet-600/15 border-violet-500 shadow-neon text-violet-300 font-extrabold scale-[1.01] btn-pressable";
-  }
-  return "bg-white/5 hover:bg-white/10 hover:border-white/20 border-white/10 text-gray-300 font-semibold btn-pressable";
 }
 
 async function validateResponse() {
@@ -313,9 +219,7 @@ async function NextQuestion() {
     loading.value = true;
     const newQuestion = await getNewQuestion();
 
-    if (questionReporting.value) {
-      questionReporting.value.reported = false;
-    }
+    questionDisplay.value?.resetReporting();
 
     responded.value = false;
     question.value = newQuestion;
@@ -323,7 +227,6 @@ async function NextQuestion() {
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
-    isVerticalImage.value = false;
   } catch (e) {
     console.error("Failed to load next question:", e);
   } finally {
