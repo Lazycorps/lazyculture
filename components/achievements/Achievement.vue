@@ -1,7 +1,7 @@
 <template>
   <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-4 select-none">
     <div
-      v-for="achievement in achievementsStore.achievements.filter((a) => !a.hidden)"
+      v-for="achievement in finalAchievements.filter((a) => !a.hidden)"
       :key="achievement.id"
       class="flex justify-center"
     >
@@ -59,10 +59,22 @@
 </template>
 
 <script setup lang="ts">
+import type { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
+
+const props = defineProps<{
+  achievements?: AchievementDTO[];
+  userAchievements?: UserAchievementDTO[];
+}>();
+
 const achievementsStore = useAchievementStore();
 
+const finalAchievements = computed(() => props.achievements ?? achievementsStore.achievements);
+const finalUserAchievements = computed(
+  () => props.userAchievements ?? achievementsStore.userAchievements,
+);
+
 function userHasAchievement(achievementId: number) {
-  return achievementsStore.userAchievements.some((a) => a.achievementId === achievementId);
+  return finalUserAchievements.value.some((a) => a.achievementId === achievementId);
 }
 </script>
 

@@ -42,26 +42,112 @@
     </div>
 
     <!-- Personal Stats Card -->
-    <div class="grid grid-cols-2 gap-3 w-full max-w-md">
+    <div class="grid grid-cols-3 gap-2.5 w-full max-w-md">
       <!-- Rank -->
-      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+      <div
+        class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center"
+      >
         <p
-          class="text-2xl font-black font-display"
+          class="text-xl font-black font-display"
           :class="isWinner ? 'text-amber-400' : 'text-cyan-400'"
         >
           #{{ myRank }}
         </p>
-        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-1">
+        <p class="text-[8px] font-bold text-gray-500 uppercase tracking-wider font-display mt-1">
           Votre Rang
         </p>
       </div>
 
       <!-- XP Gained -->
-      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-        <p class="text-2xl font-black font-display text-emerald-400">+{{ myXPEarned }} XP</p>
-        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-1">
-          Expérience Gagnée
+      <div
+        class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center"
+      >
+        <p class="text-xl font-black font-display text-emerald-400">+{{ myXPEarned }} XP</p>
+        <p class="text-[8px] font-bold text-gray-500 uppercase tracking-wider font-display mt-1">
+          Expérience
         </p>
+      </div>
+
+      <!-- LP Change -->
+      <div
+        class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center flex flex-col justify-center"
+      >
+        <p
+          class="text-xl font-black font-display"
+          :class="myLPChange >= 0 ? 'text-cyan-400' : 'text-rose-500'"
+        >
+          {{ myLPChange >= 0 ? "+" : "" }}{{ myLPChange }} LP
+        </p>
+        <p class="text-[8px] font-bold text-gray-500 uppercase tracking-wider font-display mt-1">
+          Points de Ligue
+        </p>
+      </div>
+    </div>
+
+    <!-- LP Progress Bar / Rank Badge -->
+    <div
+      v-if="myRankInfo"
+      class="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center space-y-3 relative overflow-hidden"
+    >
+      <!-- Glow background -->
+      <div
+        class="absolute inset-0 bg-gradient-to-r opacity-5 blur-xl pointer-events-none"
+        :class="myRankInfo.color"
+      ></div>
+
+      <div class="flex items-center space-x-3 w-full">
+        <!-- Badge Icon -->
+        <div
+          class="w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-xl shadow-lg border border-white/10"
+          :class="myRankInfo.color"
+        >
+          <UIcon :name="myRankInfo.icon" />
+        </div>
+
+        <div class="flex-1 text-left">
+          <div class="flex items-baseline justify-between">
+            <span class="text-sm font-black font-display text-white uppercase tracking-wider">
+              {{ myRankInfo.label }}
+            </span>
+            <span class="text-xs font-bold text-gray-400 font-display">
+              {{
+                myRankInfo.tier === "Master"
+                  ? `${myNewPoints} LP`
+                  : `${myRankInfo.pointsInDivision} / 100 LP`
+              }}
+            </span>
+          </div>
+
+          <!-- Progress bar -->
+          <div
+            v-if="myRankInfo.tier !== 'Master'"
+            class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden mt-1.5 relative shadow-inner"
+          >
+            <div
+              class="h-full bg-gradient-to-r rounded-full transition-all duration-1000"
+              :class="myRankInfo.color"
+              :style="{ width: `${myRankInfo.pointsInDivision}%` }"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Promotion / Demotion alerts -->
+      <div
+        v-if="isMePromoted"
+        class="w-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black py-2 px-3 rounded-xl flex items-center justify-center space-x-2 animate-bounce mt-2 font-display uppercase tracking-widest"
+      >
+        <span>🎉</span>
+        <span>PROMOTION ! Vous passez en {{ myRankInfo.label }} !</span>
+        <span>🎉</span>
+      </div>
+      <div
+        v-else-if="isMeDemoted"
+        class="w-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black py-2 px-3 rounded-xl flex items-center justify-center space-x-2 mt-2 font-display uppercase tracking-widest"
+      >
+        <span>⚠️</span>
+        <span>RELÉGATION... Vous descendez en {{ myRankInfo.label }}</span>
+        <span>⚠️</span>
       </div>
     </div>
 
@@ -77,14 +163,15 @@
       </div>
 
       <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
-        <div
+        <NuxtLink
           v-for="(st, idx) in standings"
           :key="st.userId"
-          class="flex items-center justify-between p-2.5 rounded-xl border transition-all"
+          :to="'/user/' + st.userId"
+          class="flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer block"
           :class="[
             st.userId === myUserId
               ? 'bg-violet-600/10 border-violet-500/40'
-              : 'bg-slate-950/20 border-white/5',
+              : 'bg-slate-950/20 border-white/5 hover:border-white/10',
             idx === 0 ? 'border-amber-500/20 shadow-neon-gold bg-amber-500/5' : '',
           ]"
         >
@@ -106,7 +193,9 @@
             </div>
 
             <div class="text-left">
-              <span class="font-bold text-sm text-white block max-w-[120px] truncate">
+              <span
+                class="font-bold text-sm text-white block max-w-[120px] truncate group-hover:text-violet-300 transition-colors"
+              >
                 {{ st.name }}
               </span>
               <span class="text-[9px] text-slate-400">
@@ -115,12 +204,18 @@
             </div>
           </div>
 
-          <div class="text-right">
-            <span class="text-xs font-black font-display text-emerald-400">
+          <div class="text-right flex flex-col justify-center">
+            <span class="text-xs font-black font-display text-emerald-400 block">
               +{{ st.xpEarned }} XP
             </span>
+            <span
+              class="text-[10px] font-black font-display block"
+              :class="st.lpChange >= 0 ? 'text-cyan-400' : 'text-rose-400'"
+            >
+              {{ st.lpChange >= 0 ? "+" : "" }}{{ st.lpChange }} LP
+            </span>
           </div>
-        </div>
+        </NuxtLink>
       </div>
     </div>
 
@@ -147,6 +242,11 @@ interface Standing {
   lives: number;
   xpEarned: number;
   eliminatedAtRound: number | null;
+  lpChange: number;
+  oldPoints: number;
+  newPoints: number;
+  isPromoted: boolean;
+  isDemoted: boolean;
 }
 
 const props = defineProps<{
@@ -169,6 +269,19 @@ const myXPEarned = computed(() => {
   const player = props.standings.find((s) => s.userId === props.myUserId);
   return player ? player.xpEarned : 0;
 });
+
+// Calculs compétitifs pour l'utilisateur courant
+import { getRankFromPoints } from "~/composables/useRank";
+
+const myStanding = computed(() => {
+  return props.standings.find((s) => s.userId === props.myUserId);
+});
+
+const myLPChange = computed(() => myStanding.value?.lpChange ?? 0);
+const myNewPoints = computed(() => myStanding.value?.newPoints ?? 0);
+const isMePromoted = computed(() => myStanding.value?.isPromoted ?? false);
+const isMeDemoted = computed(() => myStanding.value?.isDemoted ?? false);
+const myRankInfo = computed(() => getRankFromPoints(myNewPoints.value));
 </script>
 
 <style scoped>

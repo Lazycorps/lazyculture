@@ -1,5 +1,6 @@
 import prisma from "~/lib/prisma";
 import type { Question } from "@prisma/client";
+import { updateUserRank } from "./rankHelper";
 
 export interface BRPlayer {
   userId: string;
@@ -15,6 +16,7 @@ export interface BRPlayer {
   xpEarned: number;
   isOnline: boolean;
   isReady: boolean;
+  rankPoints: number;
 }
 
 export interface BRMatch {
@@ -196,7 +198,11 @@ class BattleRoyaleManager {
           const progress = await prisma.userProgress.findUnique({
             where: { userId },
           });
+          const brRank = await prisma.battleRoyaleRank.findUnique({
+            where: { userId },
+          });
           const level = progress?.levelId || 1;
+          const rankPoints = brRank?.points || 0;
           player = {
             userId,
             name: dbPlayer.user.name || "Joueur",
@@ -211,6 +217,7 @@ class BattleRoyaleManager {
             xpEarned: dbPlayer.xpEarned,
             isOnline: true,
             isReady: false,
+            rankPoints,
           };
           match.players.push(player);
         }
@@ -236,6 +243,7 @@ class BattleRoyaleManager {
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
+        rankPoints: p.rankPoints || 0,
       })),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
@@ -270,6 +278,7 @@ class BattleRoyaleManager {
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
+        rankPoints: p.rankPoints || 0,
       })),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
@@ -306,6 +315,11 @@ class BattleRoyaleManager {
       },
     });
 
+    const brRank = await prisma.battleRoyaleRank.findUnique({
+      where: { userId: user.id },
+    });
+    const rankPoints = brRank?.points || 0;
+
     // Ajouter en mémoire
     match.players.push({
       userId: user.id,
@@ -321,6 +335,7 @@ class BattleRoyaleManager {
       xpEarned: 0,
       isOnline: false, // Devient true lors de la connexion SSE
       isReady: false,
+      rankPoints,
     });
 
     return true;
@@ -476,6 +491,7 @@ class BattleRoyaleManager {
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
+        rankPoints: p.rankPoints || 0,
       })),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
@@ -513,6 +529,7 @@ class BattleRoyaleManager {
           level: p.level,
           isOnline: p.isOnline,
           isReady: p.isReady,
+          rankPoints: p.rankPoints || 0,
         })),
         countdown: match.countdown,
         isCountdownRunning: !!match.countdownInterval,
@@ -813,6 +830,15 @@ class BattleRoyaleManager {
           data: { xp: { increment: totalBonus } },
         })
         .catch(console.error);
+
+      // Mettre à jour le classement compétitif (LP et rang)
+      const rankUpdate = await updateUserRank(player.userId, rank, totalPlayers).catch((err) => {
+        console.error("Erreur lors de la mise à jour du rang compétitif:", err);
+        return null;
+      });
+
+      // Stocker les détails du rang mis à jour sur l'objet player pour l'utiliser dans la diffusion
+      (player as any).rankUpdate = rankUpdate;
     }
 
     // Sauvegarder en DB
@@ -828,17 +854,27 @@ class BattleRoyaleManager {
       ? match.players.find((p) => p.userId === winnerId)?.name || "Inconnu"
       : null;
 
-    // Diffuser la fin du match avec le classement déjà trié et l'XP mis à jour
+    // Diffuser la fin du match avec le classement déjà trié, l'XP mis à jour et les infos LP
     this.broadcast(matchId, "match_finished", {
       winnerId,
       winnerName,
-      standings: sortedPlayers.map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        lives: p.lives,
-        xpEarned: p.xpEarned,
-        eliminatedAtRound: p.eliminatedAtRound,
-      })),
+      standings: sortedPlayers.map((p) => {
+        const update = (p as any).rankUpdate;
+        return {
+          userId: p.userId,
+          name: p.name,
+          lives: p.lives,
+          xpEarned: p.xpEarned,
+          eliminatedAtRound: p.eliminatedAtRound,
+          lpChange: update?.lpChange ?? 0,
+          oldPoints: update?.oldPoints ?? 0,
+          newPoints: update?.newPoints ?? 0,
+          oldRank: update?.oldRank,
+          newRank: update?.newRank,
+          isPromoted: update?.isPromoted ?? false,
+          isDemoted: update?.isDemoted ?? false,
+        };
+      }),
     });
 
     // Supprimer le match de la mémoire active après 5 minutes pour libérer les ressources
@@ -922,6 +958,7 @@ class BattleRoyaleManager {
         isOnline: p.isOnline,
         isReady: p.isReady,
         hasAnswered: p.lastAnsweredRound === match.currentRound,
+        rankPoints: p.rankPoints || 0,
       })),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,

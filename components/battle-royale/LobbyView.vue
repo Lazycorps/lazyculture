@@ -81,10 +81,11 @@
 
       <div class="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
         <TransitionGroup name="list">
-          <div
+          <NuxtLink
             v-for="p in players"
             :key="p.userId"
-            class="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-white/5 hover:border-white/10 transition-all"
+            :to="'/user/' + p.userId"
+            class="flex items-center justify-between p-3 rounded-xl bg-slate-900/40 border border-white/5 hover:border-white/10 transition-all cursor-pointer block group"
           >
             <div class="flex items-center space-x-3">
               <div class="relative">
@@ -100,15 +101,27 @@
                 ></span>
               </div>
               <div class="text-left">
-                <p class="font-bold text-sm text-white truncate max-w-[150px]">
+                <p
+                  class="font-bold text-sm text-white truncate max-w-[150px] group-hover:text-violet-300 transition-colors"
+                >
                   {{ p.name }}
                   <span v-if="p.userId === myUserId" class="text-violet-400 text-xs ml-1"
                     >(Vous)</span
                   >
                 </p>
-                <p class="text-[10px] text-violet-400 font-semibold font-display">
-                  Niveau {{ p.level }}
-                </p>
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-[10px] text-violet-400 font-semibold font-display">
+                    Niveau {{ p.level }}
+                  </span>
+                  <span class="text-[10px] text-gray-500">•</span>
+                  <span
+                    class="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-gradient-to-r border border-white/5"
+                    :class="getRankBadgeClass(p.rankPoints)"
+                  >
+                    <UIcon :name="getRankIcon(p.rankPoints)" class="text-[9px]" />
+                    <span>{{ getRankLabel(p.rankPoints) }}</span>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -124,7 +137,7 @@
                 {{ p.isReady ? "Prêt" : "Attente" }}
               </span>
             </div>
-          </div>
+          </NuxtLink>
         </TransitionGroup>
       </div>
     </div>
@@ -139,6 +152,7 @@ interface Player {
   level: number;
   isOnline: boolean;
   isReady: boolean;
+  rankPoints?: number;
 }
 
 const props = defineProps<{
@@ -156,6 +170,21 @@ const isMeReady = computed(() => {
   const me = props.players.find((p) => p.userId === props.myUserId);
   return me ? me.isReady : false;
 });
+
+// Helpers de classement
+import { getRankFromPoints } from "~/composables/useRank";
+
+function getRankBadgeClass(points?: number) {
+  return getRankFromPoints(points || 0).color;
+}
+
+function getRankIcon(points?: number) {
+  return getRankFromPoints(points || 0).icon;
+}
+
+function getRankLabel(points?: number) {
+  return getRankFromPoints(points || 0).label;
+}
 </script>
 
 <style scoped>

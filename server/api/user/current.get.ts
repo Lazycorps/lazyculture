@@ -1,11 +1,15 @@
 import prisma from "~/lib/prisma";
+import { getRankFromPoints } from "~/server/utils/rankHelper";
 
 export default defineEventHandler(async (event) => {
   const userConnected = event.context.user;
   if (userConnected == null) return null;
   let user = await prisma.user.findFirst({
     where: { id: userConnected?.id },
-    include: { UserProgress: { include: { level: true } } },
+    include: {
+      UserProgress: { include: { level: true } },
+      BattleRoyaleRank: true,
+    },
   });
 
   if (user == null) {
@@ -17,7 +21,10 @@ export default defineEventHandler(async (event) => {
         createDate: new Date(),
         updateDate: new Date(),
       },
-      include: { UserProgress: { include: { level: true } } },
+      include: {
+        UserProgress: { include: { level: true } },
+        BattleRoyaleRank: true,
+      },
     });
   }
 
@@ -29,9 +36,18 @@ export default defineEventHandler(async (event) => {
     });
     nextLevelTreshold = nextLevel?.xp_threshold ?? 100;
   }
+  const brRank = user.BattleRoyaleRank || { points: 0, wins: 0, gamesPlayed: 0 };
+  const rankInfo = getRankFromPoints(brRank.points);
+
   return {
     ...user,
     email: userConnected.email,
     nextLevelTreshold,
+    brRank: {
+      points: brRank.points,
+      wins: brRank.wins,
+      gamesPlayed: brRank.gamesPlayed,
+      rankInfo,
+    },
   };
 });

@@ -20,26 +20,33 @@
       <!-- 2nd Place (Left) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="secondPlace">
-          <div class="relative group">
-            <UAvatar
-              icon="i-heroicons-user"
-              size="lg"
-              class="bg-slate-300/10 text-slate-300 border-2 border-slate-400 shadow-lg group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
-            >
-              2
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-bold text-xs truncate text-slate-300">
-              {{ secondPlace.userName || "Anonyme" }}
-            </p>
-            <p class="text-[10px] font-extrabold text-slate-400/80 font-display">
-              {{ secondPlace.score }}/10 ({{ secondPlace.elapsedTime }}m)
-            </p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + secondPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <UAvatar
+                icon="i-heroicons-user"
+                size="lg"
+                class="bg-slate-300/10 text-slate-300 border-2 border-slate-400 shadow-lg group-hover:scale-105 transition-transform"
+              />
+              <span
+                class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+              >
+                2
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-bold text-xs truncate text-slate-300 group-hover:text-white transition-colors"
+              >
+                {{ secondPlace.userName || "Anonyme" }}
+              </p>
+              <p class="text-[10px] font-extrabold text-slate-400/80 font-display">
+                {{ secondPlace.score }}/10 ({{ secondPlace.elapsedTime }}m)
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -52,29 +59,36 @@
       <!-- 1st Place (Center - Tallest) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="firstPlace">
-          <div class="relative group">
-            <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
-              >👑</span
-            >
-            <UAvatar
-              icon="i-heroicons-user"
-              size="xl"
-              class="bg-amber-500/10 text-amber-400 border-2 border-amber-400 shadow-neon group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
-            >
-              1
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-extrabold text-sm truncate text-amber-400 font-display">
-              {{ firstPlace.userName || "Anonyme" }}
-            </p>
-            <p class="text-xs font-black text-amber-300/80 font-display">
-              {{ firstPlace.score }}/10 ({{ firstPlace.elapsedTime }}m)
-            </p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + firstPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
+                >👑</span
+              >
+              <UAvatar
+                icon="i-heroicons-user"
+                size="xl"
+                class="bg-amber-500/10 text-amber-400 border-2 border-amber-400 shadow-neon group-hover:scale-105 transition-transform"
+              />
+              <span
+                class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
+              >
+                1
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-extrabold text-sm truncate text-amber-400 font-display group-hover:text-amber-300 transition-colors"
+              >
+                {{ firstPlace.userName || "Anonyme" }}
+              </p>
+              <p class="text-xs font-black text-amber-300/80 font-display">
+                {{ firstPlace.score }}/10 ({{ firstPlace.elapsedTime }}m)
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -87,26 +101,33 @@
       <!-- 3rd Place (Right) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="thirdPlace">
-          <div class="relative group">
-            <UAvatar
-              icon="i-heroicons-user"
-              size="lg"
-              class="bg-amber-700/10 text-amber-600 border-2 border-amber-700/60 shadow-lg group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
-            >
-              3
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-bold text-xs truncate text-amber-700">
-              {{ thirdPlace.userName || "Anonyme" }}
-            </p>
-            <p class="text-[10px] font-extrabold text-amber-700/80 font-display">
-              {{ thirdPlace.score }}/10 ({{ thirdPlace.elapsedTime }}m)
-            </p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + thirdPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <UAvatar
+                icon="i-heroicons-user"
+                size="lg"
+                class="bg-amber-700/10 text-amber-600 border-2 border-amber-700/60 shadow-lg group-hover:scale-105 transition-transform"
+              />
+              <span
+                class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+              >
+                3
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-bold text-xs truncate text-amber-700 group-hover:text-amber-500 transition-colors"
+              >
+                {{ thirdPlace.userName || "Anonyme" }}
+              </p>
+              <p class="text-[10px] font-extrabold text-amber-700/80 font-display">
+                {{ thirdPlace.score }}/10 ({{ thirdPlace.elapsedTime }}m)
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -126,10 +147,11 @@
         class="divide-y divide-white/5 max-h-[400px] overflow-y-auto"
         v-if="remainingUsers.length > 0"
       >
-        <div
+        <NuxtLink
           v-for="(userItem, index) in remainingUsers"
           :key="userItem.userId"
-          class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group"
+          :to="'/user/' + userItem.userId"
+          class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group cursor-pointer block"
         >
           <!-- Rank & Name -->
           <div class="flex items-center space-x-4">
@@ -160,7 +182,7 @@
               ⏱️ {{ userItem.elapsedTime }} min
             </div>
           </div>
-        </div>
+        </NuxtLink>
       </div>
       <div
         v-else-if="!users || users.length === 0"

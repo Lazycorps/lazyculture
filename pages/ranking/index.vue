@@ -1,45 +1,110 @@
 <template>
-  <div class="w-full max-w-xl mx-auto py-2 space-y-8 select-none">
+  <div class="w-full max-w-xl mx-auto py-2 space-y-6 select-none">
     <!-- Header Title -->
     <div class="text-center md:text-left space-y-2">
       <h2
         class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
-        Classement Général
+        Classements
       </h2>
       <p class="text-sm text-gray-400 font-medium">
         Découvrez les meilleurs joueurs de Lazyculture et grimpez au sommet de la gloire.
       </p>
     </div>
 
+    <!-- Tabs Switcher -->
+    <div class="flex justify-center pt-2">
+      <div
+        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-sm"
+      >
+        <button
+          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          :class="
+            currentTab === 'general'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'general'"
+        >
+          <UIcon name="i-heroicons-sparkles" class="text-xs" />
+          <span>Général (XP)</span>
+        </button>
+        <button
+          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          :class="
+            currentTab === 'br'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'br'"
+        >
+          <UIcon name="i-heroicons-shield-check" class="text-xs" />
+          <span>Battle Royale Classé</span>
+        </button>
+      </div>
+    </div>
+
     <!-- 3D Podium for Top 3 Players -->
     <div
-      class="grid grid-cols-3 gap-3 items-end pt-8 max-w-md mx-auto"
-      v-if="users && users.length > 0"
+      class="grid grid-cols-3 gap-3 items-end pt-6 max-w-md mx-auto"
+      v-if="activeUsers && activeUsers.length > 0"
     >
       <!-- 2nd Place (Left) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="secondPlace">
-          <div class="relative group">
-            <UAvatar
-              icon="i-heroicons-user"
-              size="lg"
-              class="bg-slate-300/10 text-slate-300 border-2 border-slate-400 shadow-lg group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
-            >
-              2
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-bold text-xs truncate text-slate-300">
-              {{ secondPlace.name || "Anonyme" }}
-            </p>
-            <p class="text-[10px] font-extrabold text-slate-400/80 font-display">
-              {{ secondPlace.xp }} XP
-            </p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + secondPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <UAvatar
+                icon="i-heroicons-user"
+                size="lg"
+                class="bg-slate-300/10 text-slate-300 border-2 shadow-lg group-hover:scale-105 transition-transform"
+                :class="
+                  currentTab === 'br' && secondPlace.rankInfo
+                    ? 'border-slate-400'
+                    : 'border-slate-400'
+                "
+              />
+              <!-- Rank badge icon overlay for BR tab -->
+              <span
+                v-if="currentTab === 'br' && secondPlace.rankInfo"
+                class="absolute -bottom-2 -left-2 w-6 h-6 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-xs shadow-md"
+                :class="secondPlace.rankInfo.color"
+              >
+                <UIcon :name="secondPlace.rankInfo.icon" class="text-[10px]" />
+              </span>
+              <span
+                class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+              >
+                2
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-bold text-xs truncate text-slate-300 group-hover:text-white transition-colors"
+              >
+                {{ secondPlace.name || "Anonyme" }}
+              </p>
+              <p
+                class="text-[10px] font-extrabold text-slate-400/80 font-display"
+                v-if="currentTab === 'general'"
+              >
+                {{ secondPlace.xp }} XP
+              </p>
+              <p
+                class="text-[10px] font-extrabold text-cyan-400 font-display"
+                v-else-if="currentTab === 'br'"
+              >
+                {{ secondPlace.points }} LP
+                <span
+                  class="block text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5"
+                  >{{ secondPlace.rankInfo?.label }}</span
+                >
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -52,28 +117,63 @@
       <!-- 1st Place (Center - Tallest) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="firstPlace">
-          <div class="relative group">
-            <!-- Golden Crown float effect -->
-            <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
-              >👑</span
-            >
-            <UAvatar
-              icon="i-heroicons-user"
-              size="xl"
-              class="bg-amber-500/10 text-amber-400 border-2 border-amber-400 shadow-neon group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
-            >
-              1
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-extrabold text-sm truncate text-amber-400 font-display">
-              {{ firstPlace.name || "Anonyme" }}
-            </p>
-            <p class="text-xs font-black text-amber-300/80 font-display">{{ firstPlace.xp }} XP</p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + firstPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <!-- Golden Crown float effect -->
+              <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
+                >👑</span
+              >
+              <UAvatar
+                icon="i-heroicons-user"
+                size="xl"
+                class="bg-amber-500/10 text-amber-400 border-2 shadow-neon group-hover:scale-105 transition-transform"
+                :class="
+                  currentTab === 'br' && firstPlace.rankInfo
+                    ? 'border-amber-400'
+                    : 'border-amber-400'
+                "
+              />
+              <!-- Rank badge icon overlay for BR tab -->
+              <span
+                v-if="currentTab === 'br' && firstPlace.rankInfo"
+                class="absolute -bottom-2 -left-2 w-7 h-7 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-sm shadow-md"
+                :class="firstPlace.rankInfo.color"
+              >
+                <UIcon :name="firstPlace.rankInfo.icon" class="text-xs" />
+              </span>
+              <span
+                class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
+              >
+                1
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-extrabold text-sm truncate text-amber-400 font-display group-hover:text-amber-300 transition-colors"
+              >
+                {{ firstPlace.name || "Anonyme" }}
+              </p>
+              <p
+                class="text-xs font-black text-amber-300/80 font-display"
+                v-if="currentTab === 'general'"
+              >
+                {{ firstPlace.xp }} XP
+              </p>
+              <p
+                class="text-xs font-black text-cyan-400 font-display animate-pulse"
+                v-else-if="currentTab === 'br'"
+              >
+                {{ firstPlace.points }} LP
+                <span
+                  class="block text-[8px] text-gray-400 font-bold uppercase tracking-wider mt-0.5"
+                  >{{ firstPlace.rankInfo?.label }}</span
+                >
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -86,26 +186,59 @@
       <!-- 3rd Place (Right) -->
       <div class="flex flex-col items-center space-y-3">
         <template v-if="thirdPlace">
-          <div class="relative group">
-            <UAvatar
-              icon="i-heroicons-user"
-              size="lg"
-              class="bg-amber-700/10 text-amber-600 border-2 border-amber-700/60 shadow-lg group-hover:scale-105 transition-transform"
-            />
-            <span
-              class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
-            >
-              3
-            </span>
-          </div>
-          <div class="text-center w-full overflow-hidden px-1">
-            <p class="font-bold text-xs truncate text-amber-700">
-              {{ thirdPlace.name || "Anonyme" }}
-            </p>
-            <p class="text-[10px] font-extrabold text-amber-700/80 font-display">
-              {{ thirdPlace.xp }} XP
-            </p>
-          </div>
+          <NuxtLink
+            :to="'/user/' + thirdPlace.userId"
+            class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
+          >
+            <div class="relative">
+              <UAvatar
+                icon="i-heroicons-user"
+                size="lg"
+                class="bg-amber-700/10 text-amber-600 border-2 shadow-lg group-hover:scale-105 transition-transform"
+                :class="
+                  currentTab === 'br' && thirdPlace.rankInfo
+                    ? 'border-amber-700/60'
+                    : 'border-amber-700/60'
+                "
+              />
+              <!-- Rank badge icon overlay for BR tab -->
+              <span
+                v-if="currentTab === 'br' && thirdPlace.rankInfo"
+                class="absolute -bottom-2 -left-2 w-6 h-6 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-xs shadow-md"
+                :class="thirdPlace.rankInfo.color"
+              >
+                <UIcon :name="thirdPlace.rankInfo.icon" class="text-[10px]" />
+              </span>
+              <span
+                class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+              >
+                3
+              </span>
+            </div>
+            <div class="text-center w-full overflow-hidden px-1">
+              <p
+                class="font-bold text-xs truncate text-amber-700 group-hover:text-amber-500 transition-colors"
+              >
+                {{ thirdPlace.name || "Anonyme" }}
+              </p>
+              <p
+                class="text-[10px] font-extrabold text-amber-700/80 font-display"
+                v-if="currentTab === 'general'"
+              >
+                {{ thirdPlace.xp }} XP
+              </p>
+              <p
+                class="text-[10px] font-extrabold text-cyan-400 font-display"
+                v-else-if="currentTab === 'br'"
+              >
+                {{ thirdPlace.points }} LP
+                <span
+                  class="block text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5"
+                  >{{ thirdPlace.rankInfo?.label }}</span
+                >
+              </p>
+            </div>
+          </NuxtLink>
         </template>
         <!-- Podium Stand -->
         <div
@@ -125,10 +258,11 @@
         class="divide-y divide-white/5 max-h-[400px] overflow-y-auto"
         v-if="remainingUsers.length > 0"
       >
-        <div
+        <NuxtLink
           v-for="(userItem, index) in remainingUsers"
           :key="userItem.userId"
-          class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group"
+          :to="'/user/' + userItem.userId"
+          class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group cursor-pointer block"
         >
           <!-- Rank & Avatar -->
           <div class="flex items-center space-x-4">
@@ -142,47 +276,89 @@
               size="sm"
               class="bg-white/5 text-gray-400 border border-white/10"
             />
-            <span class="font-bold text-sm text-gray-200 group-hover:text-white transition-colors">
-              {{ userItem.name || "Joueur Anonyme" }}
-            </span>
+            <div class="text-left flex flex-col space-y-0.5">
+              <span
+                class="font-bold text-sm text-gray-200 group-hover:text-white transition-colors"
+              >
+                {{ userItem.name || "Joueur Anonyme" }}
+              </span>
+              <!-- League badge and winrate detail for BR tab -->
+              <div
+                v-if="currentTab === 'br' && userItem.rankInfo"
+                class="flex flex-wrap items-center gap-1.5"
+              >
+                <span
+                  class="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border border-white/5"
+                  :class="userItem.rankInfo.color"
+                >
+                  <UIcon :name="userItem.rankInfo.icon" class="text-[9px]" />
+                  <span>{{ userItem.rankInfo.label }}</span>
+                </span>
+                <span
+                  class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+                >
+                  • Top 1 :
+                  {{
+                    userItem.gamesPlayed > 0
+                      ? Math.round((userItem.wins / userItem.gamesPlayed) * 100)
+                      : 0
+                  }}% ({{ userItem.wins }} / {{ userItem.gamesPlayed }} BR)
+                </span>
+              </div>
+            </div>
           </div>
 
-          <!-- XP score -->
+          <!-- XP / LP Score -->
           <div class="flex items-center space-x-6 text-sm">
-            <div class="text-right">
+            <div class="text-right" v-if="currentTab === 'general'">
               <span class="font-extrabold text-white font-display">{{ userItem.xp }}</span>
               <span
                 class="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-display ml-1"
                 >XP</span
               >
             </div>
+            <div class="text-right" v-else-if="currentTab === 'br'">
+              <span class="font-extrabold text-cyan-400 font-display">{{ userItem.points }}</span>
+              <span
+                class="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-display ml-1"
+                >LP</span
+              >
+            </div>
 
             <div
               class="w-12 text-right text-xs font-semibold text-gray-400"
-              v-if="userItem.bestAscent"
+              v-if="currentTab === 'general' && userItem.bestAscent"
             >
               ⛰️ {{ userItem.bestAscent }}
             </div>
           </div>
-        </div>
+        </NuxtLink>
       </div>
       <div
-        v-else-if="!users || users.length === 0"
+        v-else-if="!activeUsers || activeUsers.length === 0"
         class="text-center py-10 text-gray-500 font-medium"
       >
-        Aucun joueur dans le classement pour le moment.
+        Aucun joueur dans ce classement pour le moment.
       </div>
     </UCard>
   </div>
 </template>
 
 <script setup lang="ts">
-const { data: users } = await useFetch<any[]>("/api/ranking/top");
+const currentTab = ref<"general" | "br">("general");
 
-const firstPlace = computed(() => users.value?.[0] || null);
-const secondPlace = computed(() => users.value?.[1] || null);
-const thirdPlace = computed(() => users.value?.[2] || null);
-const remainingUsers = computed(() => users.value?.slice(3) || []);
+// Récupération des deux types de classements en parallèle
+const { data: users } = await useFetch<any[]>("/api/ranking/top");
+const { data: brUsers } = await useFetch<any[]>("/api/ranking/br");
+
+const activeUsers = computed(() => {
+  return currentTab.value === "general" ? users.value || [] : brUsers.value || [];
+});
+
+const firstPlace = computed(() => activeUsers.value?.[0] || null);
+const secondPlace = computed(() => activeUsers.value?.[1] || null);
+const thirdPlace = computed(() => activeUsers.value?.[2] || null);
+const remainingUsers = computed(() => activeUsers.value?.slice(3) || []);
 </script>
 
 <style scoped>
