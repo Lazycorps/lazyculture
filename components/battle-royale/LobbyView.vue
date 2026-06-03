@@ -49,9 +49,20 @@
           ></div>
         </div>
       </div>
-      <p v-else class="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
-        En attente que les joueurs se marquent prêts...
-      </p>
+      <div v-else class="flex flex-col items-center space-y-3">
+        <p class="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
+          En attente que les joueurs se marquent prêts...
+        </p>
+        <div
+          class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-violet-600/10 border border-violet-500/30 text-violet-300 shadow-[0_0_15px_rgba(139,92,246,0.15)] animate-pulse"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full bg-violet-400 animate-ping absolute inline-flex"
+          ></span>
+          <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-violet-400"></span>
+          <span>{{ missingReadyMessage }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- Ready Action Button -->
@@ -169,6 +180,26 @@ const emit = defineEmits<{
 const isMeReady = computed(() => {
   const me = props.players.find((p) => p.userId === props.myUserId);
   return me ? me.isReady : false;
+});
+
+const missingReadyCount = computed(() => {
+  const onlinePlayers = props.players.filter((p) => p.isOnline);
+  const onlineCount = onlinePlayers.length;
+  const readyCount = onlinePlayers.filter((p) => p.isReady).length;
+
+  if (onlineCount < 2) {
+    return Math.max(0, 2 - readyCount);
+  }
+  const target = Math.ceil(onlineCount * 0.75);
+  return Math.max(0, target - readyCount);
+});
+
+const missingReadyMessage = computed(() => {
+  const count = missingReadyCount.value;
+  if (count <= 0) {
+    return "Prêt à lancer !";
+  }
+  return `${count} joueur${count > 1 ? "s" : ""} prêt${count > 1 ? "s" : ""} manquant${count > 1 ? "s" : ""} pour lancer`;
 });
 
 // Helpers de classement
