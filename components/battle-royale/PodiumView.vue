@@ -219,14 +219,25 @@
       </div>
     </div>
 
-    <!-- Exit / Replay button -->
-    <div class="w-full max-w-md pt-2">
+    <!-- Exit / Replay buttons -->
+    <div class="w-full max-w-md pt-2 flex flex-col gap-3">
       <UButton
         size="lg"
         color="primary"
         block
+        icon="i-heroicons-arrow-path"
+        class="font-black font-display uppercase tracking-widest py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+        @click="$emit('leave')"
+      >
+        Retour au Salon
+      </UButton>
+      <UButton
+        size="lg"
+        color="neutral"
+        variant="ghost"
+        block
         icon="i-heroicons-arrow-left-on-rectangle"
-        class="font-black font-display uppercase tracking-widest py-3.5"
+        class="font-black font-display uppercase tracking-widest py-2 hover:bg-white/5"
         to="/themes"
       >
         Retour aux Thèmes
@@ -254,6 +265,10 @@ const props = defineProps<{
   winnerName: string | null;
   standings: Standing[];
   myUserId: string;
+}>();
+
+const emit = defineEmits<{
+  (e: "leave"): void;
 }>();
 
 const isWinner = computed(() => {

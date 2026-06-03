@@ -167,7 +167,16 @@ export const useBattleRoyaleSession = () => {
       setTimeout(() => {
         showRoundResults.value = false;
         status.value = "FINISHED";
-        disconnect();
+
+        // Fermer la connexion SSE mais conserver l'état pour afficher le podium
+        if (eventSource.value) {
+          try {
+            eventSource.value.close();
+          } catch (e) {
+            console.error("Error closing event source on finish:", e);
+          }
+          eventSource.value = null;
+        }
       }, 4000);
     });
   }

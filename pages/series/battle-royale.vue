@@ -231,6 +231,7 @@
             :winnerName="winnerName"
             :standings="standings"
             :myUserId="user.id"
+            @leave="session.disconnect()"
           />
 
           <!-- 4. Round Results Overlay (displays correction after round timeout) -->
@@ -327,6 +328,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopLobbyPolling();
+  if (status.value === "FINISHED") {
+    session.disconnect();
+  }
 });
 
 async function joinArena(action: "create" | "join", targetMatchId?: string) {

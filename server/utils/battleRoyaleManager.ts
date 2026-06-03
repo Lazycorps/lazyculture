@@ -69,6 +69,100 @@ class BattleRoyaleManager {
     }
   }
 
+  private async deleteMatch(matchId: string) {
+    const match = this.activeMatches[matchId];
+    if (match) {
+      if (match.countdownInterval) clearInterval(match.countdownInterval);
+      if (match.roundTimer) clearTimeout(match.roundTimer);
+      if (match.nextRoundTimeout) clearTimeout(match.nextRoundTimeout);
+      delete this.activeMatches[matchId];
+    }
+
+    try {
+      await prisma.battleRoyaleMatch.delete({
+        where: { id: matchId },
+      });
+    } catch (e) {
+      console.error(`Erreur lors de la suppression du match ${matchId} en DB:`, e);
+    }
+  }
+
+  /**
+   * Retire un joueur de tous les autres matchs actifs (WAITING ou PLAYING).
+   */
+  async removePlayerFromAllOtherMatches(userId: string, currentMatchId: string) {
+    const activeMatchIds = Object.keys(this.activeMatches);
+    for (const matchId of activeMatchIds) {
+      if (matchId === currentMatchId) continue;
+      const match = this.activeMatches[matchId];
+      if (!match) continue;
+
+      const playerIndex = match.players.findIndex((p) => p.userId === userId);
+      if (playerIndex !== -1) {
+        // Retirer le joueur de la mémoire
+        match.players.splice(playerIndex, 1);
+        match.clients = match.clients.filter((c) => c.userId !== userId);
+
+        // Retirer de la base de données
+        try {
+          await prisma.battleRoyalePlayer.delete({
+            where: {
+              matchId_userId: { matchId, userId },
+            },
+          });
+        } catch (e) {
+          // Ignorer si déjà supprimé
+        }
+
+        // Si le match n'a plus aucun joueur connecté (online), ou plus aucun joueur tout court, on le supprime.
+        const onlineCount = match.players.filter((p) => p.isOnline).length;
+        if (match.players.length === 0 || (match.status !== "FINISHED" && onlineCount === 0)) {
+          await this.deleteMatch(matchId);
+          continue;
+        }
+
+        // Sinon, mettre à jour le match restant
+        if (match.status === "WAITING") {
+          this.checkLobbyCountdown(matchId);
+          this.broadcast(matchId, "lobby_update", {
+            players: match.players.map((p) => ({
+              userId: p.userId,
+              name: p.name,
+              avatar: p.avatar,
+              level: p.level,
+              isOnline: p.isOnline,
+              isReady: p.isReady,
+              rankPoints: p.rankPoints || 0,
+            })),
+            countdown: match.countdown,
+            isCountdownRunning: !!match.countdownInterval,
+          });
+        } else if (match.status === "PLAYING") {
+          // Si le match est en cours, vérifier s'il reste des survivants
+          const survivors = match.players.filter((p) => p.lives > 0);
+          if (survivors.length === 1) {
+            void this.endMatch(matchId, survivors[0]!.userId);
+          } else if (survivors.length === 0) {
+            void this.endMatch(matchId, null);
+          } else {
+            this.broadcast(matchId, "lobby_update", {
+              players: match.players.map((p) => ({
+                userId: p.userId,
+                name: p.name,
+                avatar: p.avatar,
+                level: p.level,
+                lives: p.lives,
+                isOnline: p.isOnline,
+                isReady: p.isReady,
+                rankPoints: p.rankPoints || 0,
+              })),
+            });
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Récupère ou crée une partie en attente de joueurs.
    */
@@ -267,6 +361,13 @@ class BattleRoyaleManager {
       player.isOnline = false;
     }
 
+    // Si le match est en attente ou en cours et qu'il n'y a plus aucun joueur connecté en ligne (SSE), on le supprime
+    const onlineCount = match.players.filter((p) => p.isOnline).length;
+    if (match.status !== "FINISHED" && onlineCount === 0) {
+      void this.deleteMatch(matchId);
+      return;
+    }
+
     // Réévaluer le compte à rebours
     this.checkLobbyCountdown(matchId);
 
@@ -295,6 +396,9 @@ class BattleRoyaleManager {
   ): Promise<boolean> {
     const match = this.getMatch(matchId);
     if (!match || match.status !== "WAITING") return false;
+
+    // Retirer le joueur de tous les autres matchs actifs
+    await this.removePlayerFromAllOtherMatches(user.id, matchId);
 
     // Vérifier si déjà présent
     if (match.players.some((p) => p.userId === user.id)) return true;
