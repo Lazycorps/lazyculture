@@ -115,7 +115,7 @@
 
     <!-- Mobile Top Header -->
     <header
-      class="md:hidden flex items-center justify-between px-6 py-4 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
+      class="md:hidden fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
     >
       <div class="flex items-center space-x-3" @click="router.push('/themes')">
         <div
@@ -144,7 +144,10 @@
     </header>
 
     <!-- Main Page Content -->
-    <main class="flex-1 overflow-y-auto px-4 py-6 md:p-8 pb-28 md:pb-8 flex flex-col min-h-0">
+    <main
+      ref="mainElement"
+      class="flex-1 overflow-y-auto px-4 py-6 md:p-8 mt-16 md:mt-0 pb-28 md:pb-8 flex flex-col min-h-0"
+    >
       <div class="max-w-6xl mx-auto w-full h-full flex flex-col">
         <slot />
       </div>
@@ -207,6 +210,20 @@
 
 <script setup lang="ts">
 const router = useRouter();
+const route = useRoute();
+const mainElement = ref<HTMLElement | null>(null);
+
+watch(
+  () => route.path,
+  () => {
+    if (mainElement.value) {
+      mainElement.value.scrollTop = 0;
+    }
+    if (import.meta.client) {
+      window.scrollTo(0, 0);
+    }
+  },
+);
 </script>
 
 <style scoped>

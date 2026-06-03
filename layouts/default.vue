@@ -91,7 +91,7 @@
 
     <!-- Mobile Top Header -->
     <header
-      class="md:hidden flex items-center justify-between px-6 py-4 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
+      class="md:hidden fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
     >
       <div class="flex items-center space-x-3" @click="router.push('/themes')">
         <div
@@ -137,7 +137,7 @@
     <!-- Main Page Content -->
     <main
       ref="mainElement"
-      class="flex-1 overflow-y-auto px-4 py-6 md:p-8 flex flex-col min-h-0"
+      class="flex-1 overflow-y-auto px-4 py-6 md:p-8 mt-16 md:mt-0 flex flex-col min-h-0"
       :class="showBottomNav ? 'pb-28 md:pb-8' : 'pb-8'"
       @scroll="handleScroll"
     >
@@ -377,6 +377,12 @@ watch(
   () => {
     isNavHiddenByScroll.value = false;
     lastScrollTop = 0;
+    if (mainElement.value) {
+      mainElement.value.scrollTop = 0;
+    }
+    if (import.meta.client) {
+      window.scrollTo(0, 0);
+    }
   },
 );
 </script>
