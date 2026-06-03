@@ -4,9 +4,24 @@ import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig();
-  if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {
+
+  // Vérification de l'authentification : Clé API ou Session Admin
+  const apiKey = event.headers.get("x-api-key");
+  let isAuthenticated = apiKey === runtimeConfig.apiKey;
+
+  if (!isAuthenticated) {
+    const userConnected = event.context.user;
+    if (userConnected) {
+      const user = await prisma.user.findUnique({ where: { id: userConnected.id } });
+      if (user?.admin) {
+        isAuthenticated = true;
+      }
+    }
+  }
+
+  if (!isAuthenticated) {
     setResponseStatus(event, 401);
-    return;
+    return { error: "Non autorisé" };
   }
 
   const questions = await readBody<QuestionDataDTO[]>(event);

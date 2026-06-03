@@ -224,6 +224,10 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  middleware: "admin",
+});
+
 import { ref, computed } from "vue";
 import type { Theme } from "~/models/theme";
 

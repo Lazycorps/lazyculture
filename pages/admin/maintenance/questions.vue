@@ -264,9 +264,9 @@ import type {
 import type { Theme, ThemeDTO } from "~/models/theme";
 
 // Define admin middleware if necessary
-// definePageMeta({
-//     middleware: 'admin'
-// });
+definePageMeta({
+  middleware: "admin",
+});
 
 const textFilter = ref<string>("");
 const dialog = ref(false);

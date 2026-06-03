@@ -124,9 +124,9 @@ import { QuestionDataDTO } from "~/models/question";
 import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
 // Define admin middleware if necessary
-// definePageMeta({
-//     middleware: 'admin'
-// });
+definePageMeta({
+  middleware: "admin",
+});
 
 const hideAnswers = ref(true);
 const loading = ref(false);

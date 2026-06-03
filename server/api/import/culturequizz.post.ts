@@ -10,13 +10,27 @@ type QuizzCultureRequestDTO = {
   difficulty: number;
 };
 const runtimeConfig = useRuntimeConfig();
-
 export default defineEventHandler(async (event) => {
-  const supabase = await serverSupabaseClient(event);
-  if (event.headers.get("x-api-key") != runtimeConfig.apiKey) {
-    setResponseStatus(event, 401);
-    return;
+  // Vérification de l'authentification : Clé API ou Session Admin
+  const apiKey = event.headers.get("x-api-key");
+  let isAuthenticated = apiKey === runtimeConfig.apiKey;
+
+  if (!isAuthenticated) {
+    const userConnected = event.context.user;
+    if (userConnected) {
+      const user = await prisma.user.findUnique({ where: { id: userConnected.id } });
+      if (user?.admin) {
+        isAuthenticated = true;
+      }
+    }
   }
+
+  if (!isAuthenticated) {
+    setResponseStatus(event, 401);
+    return { error: "Non autorisé" };
+  }
+
+  const supabase = await serverSupabaseClient(event);
 
   const request = await readBody<QuizzCultureRequestDTO>(event);
   const questions = await extractQuestionsData(request);

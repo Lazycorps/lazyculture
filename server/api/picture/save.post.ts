@@ -2,6 +2,8 @@ import { serverSupabaseClient } from "#supabase/server";
 import formidable from "formidable";
 import type { Fields, Files } from "formidable";
 import fs from "fs";
+import prisma from "~/lib/prisma";
+import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export const config = {
   api: {
@@ -10,6 +12,13 @@ export const config = {
 };
 
 export default defineEventHandler(async (event) => {
+  const userConnected = getAuthenticatedUser(event);
+  const user = await prisma.user.findUnique({ where: { id: userConnected?.id } });
+  if (!user?.admin) {
+    setResponseStatus(event, 403);
+    return { error: "Vous n'avez pas les droits pour réaliser cette opération" };
+  }
+
   const client = await serverSupabaseClient(event);
   try {
     const form = formidable();
