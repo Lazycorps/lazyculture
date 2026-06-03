@@ -1,6 +1,6 @@
 import { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
-import {
+import type {
   QuestionSeriesData,
   QuestionSeriesResponseData,
   QuestionSeriesResponseDataResponse,

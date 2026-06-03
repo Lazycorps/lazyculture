@@ -1,21 +1,21 @@
 <template>
   <UCard
     class="shadow-glass bg-[#111827]/60 border border-white/10 rounded-2xl p-4 mb-4 select-none"
-    :ui="{ body: { padding: 'p-0' } }"
+    :ui="{ body: 'p-0' }"
   >
     <div class="space-y-4">
       <!-- Title input -->
       <UFormField
         label="Intitulé de la question"
         :ui="{
-          label: { text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display' },
+          label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
         }"
       >
         <UInput
           v-model="question.libelle"
           placeholder="Entrez la question..."
           class="w-full"
-          :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+          :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
         />
       </UFormField>
 
@@ -32,9 +32,7 @@
         <UFormField
           label="Type"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <USelectMenu
@@ -42,16 +40,14 @@
             :items="questionTypes"
             class="w-full"
             placeholder="Type de question"
-            :ui="{ background: 'bg-[#111827] border border-white/10 text-white' }"
+            :ui="{ base: 'bg-[#111827] border border-white/10 text-white' }"
           />
         </UFormField>
 
         <UFormField
           label="Difficulté"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <USelectMenu
@@ -59,16 +55,14 @@
             :items="questionDifficulties"
             class="w-full"
             placeholder="Niveau"
-            :ui="{ background: 'bg-[#111827] border border-white/10 text-white' }"
+            :ui="{ base: 'bg-[#111827] border border-white/10 text-white' }"
           />
         </UFormField>
 
         <UFormField
           label="Thème(s)"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <USelectMenu
@@ -79,7 +73,7 @@
             option-attribute="label"
             class="w-full"
             placeholder="Thèmes"
-            :ui="{ background: 'bg-[#111827] border border-white/10 text-white' }"
+            :ui="{ base: 'bg-[#111827] border border-white/10 text-white' }"
           />
         </UFormField>
       </div>
@@ -96,21 +90,21 @@
             class="relative flex items-center"
           >
             <div class="absolute left-3 text-xs font-bold text-gray-500 font-display">
-              #{{ propIndex + 1 }}
+              #{{ Number(propIndex) + 1 }}
             </div>
             <UInput
               v-model="prop.value"
               readonly
               class="w-full pl-8"
               :ui="{
-                background:
-                  !hideAnswers && question.response == propIndex + 1
+                base:
+                  !hideAnswers && question.response == Number(propIndex) + 1
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold shadow-neon-green'
                     : 'bg-white/5 border border-white/10 text-white/80',
               }"
             />
             <span
-              v-if="!hideAnswers && question.response == propIndex + 1"
+              v-if="!hideAnswers && question.response == Number(propIndex) + 1"
               class="absolute right-3 flex items-center text-emerald-400 text-xs font-bold font-display"
             >
               Correct
@@ -124,14 +118,14 @@
         v-if="!hideAnswers"
         label="Commentaire"
         :ui="{
-          label: { text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display' },
+          label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
         }"
       >
         <UInput
           v-model="question.commentaire"
           placeholder="Explication ou commentaire sur la réponse..."
           class="w-full"
-          :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+          :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
         />
       </UFormField>
     </div>

@@ -1,5 +1,6 @@
-import { Prisma, PrismaClient, Question } from "@prisma/client";
-import { OpenQuizzDB, OpenQuizzDBQuestion } from "../../../models/openQuizzDB";
+import { PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type { OpenQuizzDB, OpenQuizzDBQuestion } from "../../../models/openQuizzDB";
 import { QuestionDataDTO } from "../../../models/question";
 const config = useRuntimeConfig();
 const prisma = new PrismaClient({

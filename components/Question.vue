@@ -170,7 +170,7 @@
             v-if="!responded"
             size="lg"
             class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="selectedResponse != null ? 'primary' : 'gray'"
+            :color="selectedResponse != null ? 'primary' : 'neutral'"
             :disabled="selectedResponse == null || loading"
             :loading="loading"
             @click="validateResponse"
@@ -182,7 +182,7 @@
             v-else
             size="lg"
             class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="isCorrect ? 'emerald' : 'rose'"
+            :color="isCorrect ? 'success' : 'error'"
             :loading="loading"
             @click="NextQuestion"
           >

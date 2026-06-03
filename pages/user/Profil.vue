@@ -59,7 +59,7 @@
             v-model="email"
             disabled
             icon="i-heroicons-envelope"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-gray-400' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-gray-400' }"
           />
         </UFormGroup>
 
@@ -77,7 +77,7 @@
             v-model="username"
             placeholder="Entrez votre pseudonyme..."
             icon="i-heroicons-user"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
             @update:model-value="userNameChanged = true"
           >
             <template #trailing>
@@ -112,7 +112,7 @@
       <template #footer>
         <div class="flex justify-end pt-2">
           <UButton
-            color="red"
+            color="error"
             variant="soft"
             icon="i-heroicons-arrow-left-on-rectangle"
             :loading="loading"

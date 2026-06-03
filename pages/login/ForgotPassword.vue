@@ -25,7 +25,7 @@
       <div class="mb-4">
         <UAlert
           v-if="errorMessage"
-          color="red"
+          color="error"
           variant="soft"
           icon="i-heroicons-exclamation-triangle"
           :title="errorMessage"
@@ -33,7 +33,7 @@
         />
         <UAlert
           v-if="successMessage"
-          color="emerald"
+          color="success"
           variant="soft"
           icon="i-heroicons-check-circle"
           :title="successMessage"
@@ -47,9 +47,7 @@
           label="Adresse Email"
           name="email"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
@@ -59,7 +57,7 @@
             icon="i-heroicons-envelope"
             required
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           />
         </UFormField>
 

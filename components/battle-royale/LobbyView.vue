@@ -58,7 +58,7 @@
     <div class="w-full max-w-md">
       <UButton
         size="lg"
-        :color="isMeReady ? 'rose' : 'primary'"
+        :color="isMeReady ? 'error' : 'primary'"
         block
         class="font-black font-display uppercase tracking-widest py-3 justify-center shadow-lg hover:scale-[1.01] active:scale-98 transition-all"
         :icon="isMeReady ? 'i-heroicons-x-circle' : 'i-heroicons-check-circle'"

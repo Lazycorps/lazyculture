@@ -3,7 +3,7 @@
     <!-- Flag Trigger Button -->
     <UButton
       icon="i-heroicons-flag"
-      color="amber"
+      color="warning"
       variant="ghost"
       :disabled="reported"
       class="text-amber-500/70 hover:text-amber-400 disabled:text-gray-600 disabled:bg-transparent"
@@ -11,16 +11,16 @@
     />
 
     <!-- Modern Nuxt UI Modal -->
-    <UModal v-model:open="dialog" :ui="{ width: 'max-w-md' }">
+    <UModal v-model:open="dialog" :ui="{ content: 'max-w-md' }">
       <template #content>
-        <UCard :ui="{ body: { padding: 'p-6' } }">
+        <UCard :ui="{ body: 'p-6' }">
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="text-lg font-black font-display text-white tracking-wide">
                 Signaler un problème
               </h3>
               <UButton
-                color="gray"
+                color="neutral"
                 variant="ghost"
                 icon="i-heroicons-x-mark-20-solid"
                 class="-my-1"
@@ -55,9 +55,9 @@
               <UTextarea
                 v-model="comment"
                 placeholder="Explicitez le problème rencontré..."
-                rows="3"
+                :rows="3"
                 class="w-full"
-                :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+                :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
               />
             </div>
 

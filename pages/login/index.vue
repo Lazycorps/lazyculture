@@ -18,9 +18,7 @@
           label="Adresse Email"
           name="email"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
@@ -30,7 +28,7 @@
             icon="i-heroicons-envelope"
             required
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           />
         </UFormField>
 
@@ -39,9 +37,7 @@
           label="Mot de passe"
           name="password"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
@@ -51,12 +47,12 @@
             icon="i-heroicons-lock-closed"
             required
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           >
             <template #trailing>
               <UButton
                 :icon="passwordType === 'password' ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
-                color="gray"
+                color="neutral"
                 variant="ghost"
                 class="hover:bg-white/5 text-gray-400"
                 @click="togglePassword"
@@ -77,7 +73,7 @@
         <div class="pt-2">
           <UAlert
             v-if="displayError"
-            color="red"
+            color="error"
             variant="soft"
             icon="i-heroicons-exclamation-triangle"
             :title="displayError"
@@ -85,7 +81,7 @@
           />
           <UAlert
             v-if="successMessage"
-            color="emerald"
+            color="success"
             variant="soft"
             icon="i-heroicons-check-circle"
             :title="successMessage"

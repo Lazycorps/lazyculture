@@ -119,7 +119,7 @@
     <!-- Remaining Ranks List -->
     <UCard
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
-      :ui="{ body: { padding: 'p-0' } }"
+      :ui="{ body: 'p-0' }"
     >
       <div
         class="divide-y divide-white/5 max-h-[400px] overflow-y-auto"

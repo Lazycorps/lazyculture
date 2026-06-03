@@ -146,7 +146,7 @@
             v-if="!responded"
             size="lg"
             class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="selectedResponse != null ? 'primary' : 'gray'"
+            :color="selectedResponse != null ? 'primary' : 'neutral'"
             :disabled="selectedResponse == null || loading || parentLoading"
             :loading="loading || parentLoading"
             @click="validateResponse"
@@ -158,7 +158,7 @@
             v-else
             size="lg"
             class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="isCorrect ? 'emerald' : 'rose'"
+            :color="isCorrect ? 'success' : 'error'"
             :loading="loading || parentLoading"
             @click="NextQuestion"
           >
@@ -256,24 +256,26 @@ function getOptionClass(index: number, id: any) {
 }
 
 async function validateResponse() {
-  if (selectedResponse.value == null || !props.question) return;
+  const question = props.question;
+  if (selectedResponse.value == null || !question) return;
   try {
     loading.value = true;
-    commentaire.value = props.question.data.commentaire;
+    commentaire.value = question.data.commentaire;
 
     const reponseDTO = new ResponseDTO();
-    reponseDTO.questionId = props.question.id;
+    reponseDTO.questionId = question.id;
     reponseDTO.userResponseId = selectedResponse.value + 1;
 
-    const selectedProp = props.question.data.propositions[selectedResponse.value];
-    const isAnswerCorrect = selectedProp.id === props.question.data.response;
+    const selectedProp = question.data.propositions[selectedResponse.value];
+    if (!selectedProp) return;
+    const isAnswerCorrect = selectedProp.id === question.data.response;
 
     if (isAnswerCorrect) {
       greenResponse.value = selectedResponse.value + 1;
       redResponse.value = null;
     } else {
       redResponse.value = selectedResponse.value + 1;
-      greenResponse.value = props.question.data.response;
+      greenResponse.value = question.data.response;
     }
 
     const responseResult = await $fetch<any>("/api/response/validate", {

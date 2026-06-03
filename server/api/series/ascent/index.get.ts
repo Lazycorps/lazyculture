@@ -1,13 +1,13 @@
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import {
+import type {
   QuestionSeriesData,
   QuestionSeriesDTO,
   QuestionSeriesResponseDTO,
   UserSeriesDTO,
 } from "~/models/series";
-import { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
-import { User } from "@supabase/auth-js";
+import type { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
+import type { User } from "@supabase/auth-js";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {

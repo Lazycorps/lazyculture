@@ -1,4 +1,3 @@
-import { User } from "@supabase/auth-js";
 import { PrismaClient } from "@prisma/client";
 import { UserAchievementDTO } from "~/models/DTO/achievementDTO";
 import prisma from "~/lib/prisma";

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import { Theme } from "~/models/theme";
+import type { Theme } from "~/models/theme";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 
 const runtimeConfig = useRuntimeConfig();

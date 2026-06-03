@@ -115,8 +115,8 @@
             <div class="grid grid-cols-2 gap-3 w-full max-w-sm pt-2">
               <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
                 <p class="text-xl font-black font-display text-emerald-400">
-                  {{ userSeries?.userResponse.data.score }} /
-                  {{ userSeries?.series.data.questionsIds.length }}
+                  {{ userSeries?.userResponse?.data?.score }} /
+                  {{ userSeries?.series?.data?.questionsIds?.length }}
                 </p>
                 <p
                   class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
@@ -126,7 +126,7 @@
               </div>
               <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
                 <p class="text-xl font-black font-display text-amber-400">
-                  +{{ userSeries?.userResponse.data.xpEarned }} XP
+                  +{{ userSeries?.userResponse?.data?.xpEarned }} XP
                 </p>
                 <p
                   class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
@@ -178,7 +178,7 @@ const loading = ref(false);
 const seriesStarted = ref(false);
 const { data: userSeries } = await useFetch<UserSeriesDTO>("/api/series/daily");
 const nbrQuestion = computed(() => {
-  return userSeries.value?.series.data.questionsIds.length;
+  return userSeries.value?.series?.data?.questionsIds?.length || 0;
 });
 const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
@@ -200,7 +200,7 @@ async function nextQuestion() {
     loading.value = true;
     const nexQuestion =
       userSeries.value?.userResponse?.data?.nextQuestion ??
-      userSeries.value?.series.data.questionsIds[0];
+      userSeries.value?.series?.data?.questionsIds?.[0];
     question.value = await $fetch<QuestionDTO>("/api/question", {
       query: {
         id: nexQuestion,
@@ -224,10 +224,14 @@ async function validateResponse(response: ResponseDTO) {
       userResponseId: response.userResponseId,
     } as SeriesResponseDTO;
 
-    userSeries.value.userResponse = await $fetch("/api/series/response", {
+    const updatedResponse = await $fetch<any>("/api/series/response", {
       method: "post",
       body: seriesResponse,
     });
+    userSeries.value = {
+      ...userSeries.value,
+      userResponse: updatedResponse,
+    };
     achievementStore.answerDailyQuestion();
   } catch (e) {
     console.error("Failed to validate response in daily:", e);

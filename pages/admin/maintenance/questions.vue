@@ -13,15 +13,27 @@
         </p>
       </div>
 
-      <UButton
-        color="primary"
-        size="md"
-        icon="i-heroicons-plus"
-        class="font-black font-display uppercase tracking-wider px-6 shadow-neon"
-        @click="editItem(defaultItem)"
-      >
-        Nouvelle Question
-      </UButton>
+      <div class="flex items-center space-x-3">
+        <UButton
+          color="warning"
+          size="md"
+          icon="i-heroicons-arrow-path"
+          class="font-black font-display uppercase tracking-wider px-6"
+          :loading="recalculating"
+          @click="recalculateDifficulties"
+        >
+          Recalculer Difficultés
+        </UButton>
+        <UButton
+          color="primary"
+          size="md"
+          icon="i-heroicons-plus"
+          class="font-black font-display uppercase tracking-wider px-6 shadow-neon"
+          @click="editItem(defaultItem)"
+        >
+          Nouvelle Question
+        </UButton>
+      </div>
     </div>
 
     <!-- Filters Bar Card -->
@@ -34,9 +46,7 @@
           <UFormField
             label="Recherche textuelle"
             :ui="{
-              label: {
-                text: 'text-[10px] font-bold text-gray-500 uppercase tracking-widest font-display',
-              },
+              label: 'text-[10px] font-bold text-gray-500 uppercase tracking-widest font-display',
             }"
           >
             <UInput
@@ -44,7 +54,7 @@
               placeholder="Rechercher par libellé ou proposition..."
               icon="i-heroicons-magnifying-glass"
               class="w-full"
-              :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+              :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
             />
           </UFormField>
         </div>
@@ -54,9 +64,7 @@
           <UFormField
             label="Filtrer par thème"
             :ui="{
-              label: {
-                text: 'text-[10px] font-bold text-gray-500 uppercase tracking-widest font-display',
-              },
+              label: 'text-[10px] font-bold text-gray-500 uppercase tracking-widest font-display',
             }"
           >
             <USelectMenu
@@ -65,7 +73,7 @@
               class="w-full"
               placeholder="Tous les thèmes"
               clearable
-              :ui="{ background: 'bg-[#111827] border border-white/10 text-white' }"
+              :ui="{ base: 'bg-[#111827] border border-white/10 text-white' }"
             />
           </UFormField>
         </div>
@@ -84,7 +92,7 @@
           </div>
 
           <div class="flex items-center space-x-2">
-            <USwitch v-model="showReportedQuestions" color="orange" id="switch-reported" />
+            <USwitch v-model="showReportedQuestions" color="warning" id="switch-reported" />
             <label
               for="switch-reported"
               class="text-xs font-bold text-gray-400 font-display cursor-pointer select-none"
@@ -93,7 +101,7 @@
           </div>
 
           <div class="flex items-center space-x-2">
-            <USwitch v-model="showDeleted" color="red" id="switch-deleted" />
+            <USwitch v-model="showDeleted" color="error" id="switch-deleted" />
             <label
               for="switch-deleted"
               class="text-xs font-bold text-gray-400 font-display cursor-pointer select-none"
@@ -107,7 +115,7 @@
     <!-- Questions Table Card -->
     <UCard
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
-      :ui="{ body: { padding: 'p-0' } }"
+      :ui="{ body: 'p-0' }"
     >
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-sm">
@@ -118,20 +126,21 @@
               <th class="px-6 py-4 max-w-sm">Question</th>
               <th v-if="showResponse" class="px-6 py-4">Réponse correcte</th>
               <th class="px-6 py-4">Thèmes</th>
+              <th class="px-6 py-4 text-center">Difficulté</th>
               <th class="px-6 py-4 text-center">Status</th>
               <th class="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/5 text-gray-200">
             <tr
-              v-for="item in filteredQuestions"
+              v-for="item in paginatedQuestions"
               :key="item.id"
               class="hover:bg-white/5 transition-colors group"
               :class="item.deleted ? 'opacity-50 line-through bg-red-950/10' : ''"
             >
               <!-- Libelle -->
               <td class="px-6 py-4 font-semibold max-w-sm truncate">
-                {{ item.data.libelle }}
+                {{ item.data?.libelle || "Sans libellé" }}
               </td>
               <!-- Response (Conditionally Showed) -->
               <td v-if="showResponse" class="px-6 py-4 font-bold text-emerald-400 font-display">
@@ -139,7 +148,16 @@
               </td>
               <!-- Themes -->
               <td class="px-6 py-4 text-xs font-semibold text-violet-400 font-display">
-                {{ getThemNames(item.data.theme) }}
+                {{ getThemNames(item.data?.theme || []) }}
+              </td>
+              <!-- Difficulty -->
+              <td class="px-6 py-4 text-center font-semibold font-display text-xs">
+                <span
+                  class="px-2.5 py-0.5 rounded-full"
+                  :class="getDifficultyClass(item.difficulty)"
+                >
+                  {{ getDifficultyLabel(item.difficulty) }}
+                </span>
               </td>
               <!-- Status Indicators -->
               <td class="px-6 py-4 text-center">
@@ -166,7 +184,7 @@
               <td class="px-6 py-4 text-right">
                 <div class="flex justify-end items-center space-x-1">
                   <UButton
-                    color="gray"
+                    color="neutral"
                     variant="ghost"
                     icon="i-heroicons-pencil-square"
                     size="sm"
@@ -174,7 +192,7 @@
                     @click="editItem(item)"
                   />
                   <UButton
-                    color="red"
+                    color="error"
                     variant="ghost"
                     icon="i-heroicons-trash"
                     size="sm"
@@ -186,7 +204,7 @@
             </tr>
             <tr v-if="filteredQuestions.length === 0">
               <td
-                :colspan="showResponse ? 5 : 4"
+                :colspan="showResponse ? 6 : 5"
                 class="text-center py-10 text-gray-500 font-medium"
               >
                 Aucune question trouvée correspondant aux critères.
@@ -195,274 +213,48 @@
           </tbody>
         </table>
       </div>
+
+      <template v-if="filteredQuestions.length > itemsPerPage" #footer>
+        <div
+          class="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-white/10 bg-white/5 w-full"
+        >
+          <span class="text-xs text-gray-400 font-medium">
+            Affichage de {{ (page - 1) * itemsPerPage + 1 }} à
+            {{ Math.min(page * itemsPerPage, filteredQuestions.length) }} sur
+            {{ filteredQuestions.length }} questions
+          </span>
+          <UPagination
+            v-model:page="page"
+            :total="filteredQuestions.length"
+            :items-per-page="itemsPerPage"
+            show-edges
+            :sibling-count="1"
+            color="neutral"
+            active-color="primary"
+          />
+        </div>
+      </template>
     </UCard>
 
     <!-- Question Modal Editor -->
-    <UModal v-model="dialog">
-      <div
-        class="p-6 bg-[#111827] border border-white/10 rounded-2xl shadow-glass space-y-6 text-gray-200 w-full max-w-3xl overflow-y-auto max-h-[90vh]"
-      >
-        <!-- Title -->
-        <div class="border-b border-white/5 pb-4">
-          <h3 class="text-xl font-black font-display text-white tracking-wide">
-            {{ formTitle }}
-          </h3>
-          <p class="text-xs text-gray-400 mt-1">
-            Modifiez ou complétez les données de la question.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Left Column: Libelle & Propositions -->
-          <div class="space-y-4">
-            <UFormField
-              label="Libellé de la question"
-              :ui="{
-                label: {
-                  text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-                },
-              }"
-            >
-              <UTextarea
-                v-model="editedItem.data.libelle"
-                placeholder="Entrez la question..."
-                :rows="2"
-                class="w-full"
-                :ui="{ background: 'bg-white/5 border border-white/10 text-white font-medium' }"
-              />
-            </UFormField>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display"
-                  >Propositions & Réponse correcte</span
-                >
-                <span class="text-[10px] text-gray-500 font-semibold font-display"
-                  >Cochez le bouton vert pour la bonne réponse</span
-                >
-              </div>
-
-              <!-- Propositions Grid -->
-              <div class="space-y-3">
-                <div
-                  v-for="(proposition, index) in paddedPropositions"
-                  :key="index"
-                  class="flex items-center space-x-3 bg-white/5 border border-white/10 rounded-xl p-2.5 transition-all"
-                  :class="
-                    editedItem.data.response === proposition.id && proposition.value.trim()
-                      ? 'border-emerald-500/30 bg-emerald-500/5 shadow-neon-green'
-                      : ''
-                  "
-                >
-                  <UInput
-                    v-model="proposition.value"
-                    :placeholder="'Proposition ' + (index + 1)"
-                    class="flex-1"
-                    size="sm"
-                    :ui="{ background: 'bg-transparent border-none text-white focus:ring-0 pl-0' }"
-                    @blur="updateProposition(index, proposition.value)"
-                  />
-                  <!-- Standard HTML Radio input since standard custom radio is highly reliable -->
-                  <input
-                    type="radio"
-                    :name="'question-response'"
-                    :value="proposition.id"
-                    v-model="editedItem.data.response"
-                    :disabled="!proposition.value.trim()"
-                    class="w-4 h-4 text-emerald-500 bg-slate-900 border-white/20 focus:ring-emerald-500 focus:ring-offset-slate-950 focus:ring-2 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: Settings (Themes, Difficulty, Status, Image) -->
-          <div class="space-y-4">
-            <UFormField
-              label="Sélectionner les thèmes"
-              :ui="{
-                label: {
-                  text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-                },
-              }"
-            >
-              <USelectMenu
-                v-model="selectedThemeNames"
-                multiple
-                :items="themes?.map((theme) => theme.name) ?? []"
-                class="w-full"
-                placeholder="Ajouter des thèmes..."
-                :ui="{ background: 'bg-[#111827] border border-white/10 text-white' }"
-              />
-            </UFormField>
-
-            <UFormField
-              label="URL de l'image (optionnel)"
-              :ui="{
-                label: {
-                  text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-                },
-              }"
-            >
-              <UInput
-                v-model="editedItem.data.img"
-                placeholder="Ex: https://image.com/pic.jpg"
-                class="w-full"
-                :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
-              />
-            </UFormField>
-
-            <UFormField
-              label="Difficulté (1 à 5)"
-              :ui="{
-                label: {
-                  text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-                },
-              }"
-            >
-              <UInput
-                v-model="editedItem.difficulty"
-                type="number"
-                min="1"
-                max="5"
-                class="w-full"
-                :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
-              />
-            </UFormField>
-
-            <div
-              class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div class="space-y-0.5">
-                <span class="text-xs font-bold text-gray-300 font-display">Statut Supprimé</span>
-                <p class="text-[10px] text-gray-500 font-medium">
-                  Activer pour désactiver temporairement la question.
-                </p>
-              </div>
-              <USwitch v-model="editedItem.deleted" color="red" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Comment block -->
-        <UFormField
-          label="Commentaire de réponse (Explication)"
-          :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
-          }"
-        >
-          <UTextarea
-            v-model="editedItem.data.commentaire"
-            placeholder="Explication complémentaire affichée après avoir répondu..."
-            :rows="2"
-            class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
-          />
-        </UFormField>
-
-        <!-- Flag / Reports Resolution Area -->
-        <div
-          v-if="editedItem.reportings && editedItem.reportings.length > 0"
-          class="border-t border-white/10 pt-4 space-y-3"
-        >
-          <h4
-            class="text-sm font-black font-display text-amber-400 uppercase tracking-wider flex items-center"
-          >
-            <UIcon name="i-heroicons-flag" class="mr-1.5 text-base" /> Signalements en cours
-          </h4>
-          <div class="space-y-3 max-h-36 overflow-y-auto pr-1">
-            <div
-              v-for="(reporting, index) in editedItem.reportings"
-              :key="index"
-              class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl"
-            >
-              <div class="flex-1 min-w-0">
-                <p class="text-xs text-amber-300/80 font-semibold font-display">
-                  Raison du signalement :
-                </p>
-                <p class="text-xs text-gray-200 mt-1 truncate">
-                  {{ reporting.commentaire || "Aucun commentaire" }}
-                </p>
-              </div>
-              <div class="flex items-center space-x-2 flex-shrink-0">
-                <USwitch v-model="reporting.closed" color="emerald" id="report-closed" />
-                <label
-                  for="report-closed"
-                  class="text-xs font-bold text-gray-400 font-display select-none cursor-pointer"
-                  >Clôturé</label
-                >
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer Actions -->
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-white/5">
-          <UButton
-            variant="ghost"
-            color="primary"
-            class="font-bold font-display uppercase tracking-wider text-xs"
-            @click="close"
-          >
-            Annuler
-          </UButton>
-          <UButton
-            color="primary"
-            class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon"
-            :disabled="isSaveDisabled"
-            @click="save"
-          >
-            Sauvegarder
-          </UButton>
-        </div>
-      </div>
-    </UModal>
+    <AdminQuestionEditModal
+      v-model="dialog"
+      :question="editedItem"
+      :themes="themes ?? []"
+      @save="onQuestionSaved"
+    />
 
     <!-- Delete Confirmation Modal -->
-    <UModal v-model="dialogDelete">
-      <div
-        class="p-6 bg-[#111827] border border-white/10 rounded-2xl shadow-glass text-center space-y-6"
-      >
-        <div
-          class="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl"
-        >
-          ⚠️
-        </div>
-        <div>
-          <h3 class="text-lg font-black font-display text-white tracking-wide">
-            Supprimer la question ?
-          </h3>
-          <p class="text-xs text-gray-400 mt-2 max-w-xs mx-auto">
-            Êtes-vous sûr de vouloir supprimer cette question définitivement ? Cette action est
-            irréversible.
-          </p>
-        </div>
-        <div class="flex items-center justify-center space-x-3 pt-2">
-          <UButton
-            variant="ghost"
-            color="primary"
-            class="font-bold font-display uppercase tracking-wider text-xs"
-            @click="closeDelete"
-          >
-            Annuler
-          </UButton>
-          <UButton
-            color="red"
-            class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon shadow-red-500/20"
-            @click="deleteItemConfirm"
-          >
-            Supprimer
-          </UButton>
-        </div>
-      </div>
-    </UModal>
+    <AdminQuestionDeleteModal
+      v-model="dialogDelete"
+      :question="editedItem"
+      @deleted="onQuestionDeleted"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import type {
   QuestionDataDTO,
   QuestionDTO,
@@ -483,6 +275,9 @@ const showResponse = ref(false);
 const showDeleted = ref(false);
 const showReportedQuestions = ref(false);
 const editedIndex = ref(-1);
+
+const page = ref(1);
+const itemsPerPage = 10;
 
 const editedItem = ref<QuestionDTO>({
   id: 0,
@@ -552,7 +347,7 @@ const filteredQuestions = computed(() => {
   if (selectedTheme.value) {
     const selectedThemeSlug = themes?.value?.find((t) => t.name === selectedTheme.value)?.slug;
     if (selectedThemeSlug) {
-      filtered = filtered.filter((question) => question.data.theme.includes(selectedThemeSlug));
+      filtered = filtered.filter((question) => question.data?.theme?.includes(selectedThemeSlug));
     }
   }
 
@@ -560,9 +355,9 @@ const filteredQuestions = computed(() => {
     const filterText = textFilter.value.toLowerCase();
     filtered = filtered.filter(
       (question) =>
-        question.data.libelle.toLowerCase().includes(filterText) ||
-        question.data.propositions.some((proposition) =>
-          proposition.value.toLowerCase().includes(filterText),
+        (question.data?.libelle || "").toLowerCase().includes(filterText) ||
+        (question.data?.propositions || []).some((proposition) =>
+          (proposition.value || "").toLowerCase().includes(filterText),
         ),
     );
   }
@@ -570,37 +365,26 @@ const filteredQuestions = computed(() => {
   return filtered;
 });
 
-const selectedThemeNames = computed({
-  get() {
-    return editedItem.value.data.theme.map((slug) => {
-      const theme = themes?.value?.find((t) => t.slug === slug);
-      return theme ? theme.name : slug;
-    });
-  },
-  set(newThemeNames) {
-    const updatedSlugs = newThemeNames.map((name) => {
-      const theme = themes?.value?.find((t) => t.name === name);
-      return theme ? theme.slug : name;
-    });
-    editedItem.value.data.theme = updatedSlugs;
-  },
+const paginatedQuestions = computed(() => {
+  const start = (page.value - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredQuestions.value.slice(start, end);
 });
 
-const paddedPropositions = computed(() => {
-  const propositions = [...editedItem.value.data.propositions];
+const totalPages = computed(() => Math.ceil(filteredQuestions.value.length / itemsPerPage));
 
-  while (propositions.length < 4) {
-    propositions.push({ id: propositions.length + 1, value: "", img: "" });
+watch([textFilter, selectedTheme, showDeleted, showReportedQuestions], () => {
+  page.value = 1;
+});
+
+watch(totalPages, (newVal) => {
+  if (page.value > newVal && newVal > 0) {
+    page.value = newVal;
   }
-
-  return propositions;
 });
-
-const formTitle = computed(() =>
-  editedIndex.value === -1 ? "Nouvelle Question" : `Question #${editedItem.value.id}`,
-);
 
 function getResponse(data: QuestionDataDTO) {
+  if (!data || !data.propositions) return "Aucune réponse correcte définie";
   const selectedProposition = data.propositions.find(
     (proposition: QuestionPropositionDTO) => proposition.id === data.response,
   );
@@ -608,6 +392,7 @@ function getResponse(data: QuestionDataDTO) {
 }
 
 function getThemNames(slugs: string[]): string {
+  if (!slugs) return "";
   const matchingThemes = themes?.value?.filter((t: ThemeDTO) => slugs.includes(t.slug));
   return matchingThemes?.map((theme) => theme.name).join(", ") ?? "";
 }
@@ -618,99 +403,131 @@ function isReported(reportings: QuestionReportingDTO[]) {
 
 function editItem(item: QuestionDTO) {
   editedIndex.value = questions?.value?.indexOf(item) ?? -1;
-  editedItem.value = JSON.parse(JSON.stringify(item)); // deep clone to prevent instant mutations
-  dialog.value = true;
-}
+  const cloned = JSON.parse(JSON.stringify(item));
 
-function updateProposition(index: number, value: string) {
-  if (value.trim() === "") {
-    return;
-  }
-
-  if (index < editedItem.value.data.propositions.length) {
-    editedItem.value.data.propositions[index].value = value;
+  if (!cloned.data) {
+    cloned.data = {
+      type: "choix",
+      difficulty: cloned.difficulty || 0,
+      theme: [],
+      libelle: "",
+      img: "",
+      response: 0,
+      propositions: [],
+      commentaire: "",
+      commentaireImg: "",
+    };
   } else {
-    editedItem.value.data.propositions.push({ id: index + 1, value: value, img: "" });
+    if (!cloned.data.propositions) cloned.data.propositions = [];
+    if (!cloned.data.theme) cloned.data.theme = [];
+    if (!cloned.data.libelle) cloned.data.libelle = "";
+    if (cloned.data.response === undefined || cloned.data.response === null)
+      cloned.data.response = 0;
   }
-  if (editedItem.value.data.propositions.length > 4) {
-    editedItem.value.data.propositions = editedItem.value.data.propositions.slice(0, 4);
-  }
+
+  editedItem.value = cloned;
+  dialog.value = true;
 }
 
 function deleteItem(item: QuestionDTO) {
   editedIndex.value = questions?.value?.indexOf(item) ?? -1;
-  editedItem.value = JSON.parse(JSON.stringify(item));
+  const cloned = JSON.parse(JSON.stringify(item));
+  if (!cloned.data) {
+    cloned.data = {
+      type: "choix",
+      difficulty: cloned.difficulty || 0,
+      theme: [],
+      libelle: "",
+      img: "",
+      response: 0,
+      propositions: [],
+      commentaire: "",
+      commentaireImg: "",
+    };
+  }
+  editedItem.value = cloned;
   dialogDelete.value = true;
 }
 
-async function deleteItemConfirm() {
-  try {
-    await $fetch("/api/question/delete?id=" + editedItem.value.id, {
-      method: "delete",
-    });
-    if (questions?.value && editedIndex.value > -1) {
-      questions.value.splice(editedIndex.value, 1);
-    }
-  } catch (err) {
-    console.error("Failed to delete question :", err);
-  } finally {
-    closeDelete();
-  }
-}
-
-function close() {
-  dialog.value = false;
-  editedItem.value = JSON.parse(JSON.stringify(defaultItem));
-  editedIndex.value = -1;
-}
-
-function closeDelete() {
-  dialogDelete.value = false;
-  editedItem.value = JSON.parse(JSON.stringify(defaultItem));
-  editedIndex.value = -1;
-}
-
-const isSaveDisabled = computed(() => {
-  const libelleValid = editedItem.value.data.libelle.trim() !== "";
-  const propositionsValid =
-    editedItem.value.data.propositions.filter((p) => p.value.trim() !== "").length >= 2;
-  const radioSelected = editedItem.value.data.response !== 0;
-
-  return !(libelleValid && propositionsValid && radioSelected);
-});
-
-async function save() {
-  editedItem.value.data.difficulty = editedItem.value.difficulty = Number(
-    editedItem.value.difficulty,
-  );
-
-  editedItem.value.data.theme = selectedThemeNames.value
-    .map((themeName) => {
-      const theme = themes?.value?.find((t) => t.name === themeName);
-      return theme ? theme.slug : null;
-    })
-    .filter((slug) => slug !== null) as string[];
-
-  if (editedItem.value.data.theme.length === 0) editedItem.value.data.theme = ["culture_generale"];
-
-  editedItem.value.data.type = "choix";
-
+function onQuestionSaved(savedQuestion: QuestionDTO) {
   if (editedIndex.value > -1) {
-    const updated = await $fetch<QuestionDTO>("/api/question/update", {
-      method: "put",
-      body: { ...editedItem.value },
-    });
     if (questions?.value) {
-      questions.value[editedIndex.value] = updated;
+      questions.value[editedIndex.value] = savedQuestion;
     }
   } else {
-    const created = await $fetch<QuestionDTO>("/api/question/create", {
-      method: "post",
-      body: { ...editedItem.value },
-    });
-    questions?.value?.push(created);
+    questions?.value?.push(savedQuestion);
   }
-  close();
+}
+
+function onQuestionDeleted(questionId: number) {
+  if (questions?.value && editedIndex.value > -1) {
+    questions.value.splice(editedIndex.value, 1);
+  }
+}
+
+const recalculating = ref(false);
+
+async function recalculateDifficulties() {
+  if (
+    !confirm(
+      "Voulez-vous vraiment recalculer la difficulté de toutes les questions à partir des statistiques de jeu ?",
+    )
+  ) {
+    return;
+  }
+
+  try {
+    recalculating.value = true;
+    const result = await $fetch<any>("/api/question/recalculate-difficulties", {
+      method: "post",
+    });
+    alert(`Calcul terminé avec succès !\n${result.updatedCount} questions ont été mises à jour.`);
+
+    // Recharger la liste des questions
+    const refreshed = await $fetch<QuestionDTO[]>("/api/question/all");
+    if (questions) {
+      questions.value = refreshed;
+    }
+  } catch (e: any) {
+    console.error("Erreur de calcul :", e);
+    alert("Une erreur est survenue lors du recalcul : " + (e.statusMessage || e.message));
+  } finally {
+    recalculating.value = false;
+  }
+}
+
+function getDifficultyLabel(difficulty: number): string {
+  switch (difficulty) {
+    case 1:
+      return "Débutant";
+    case 2:
+      return "Confirmé";
+    case 3:
+      return "Expert";
+    case 4:
+      return "Diabolique";
+    case 5:
+      return "Impossible";
+    default:
+      return `Niveau ${difficulty}`;
+  }
+}
+
+function getDifficultyClass(difficulty: number): string {
+  switch (difficulty) {
+    case 1:
+      return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+    case 2:
+      return "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
+    case 3:
+      return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+    case 4:
+      return "bg-orange-500/10 text-orange-400 border border-orange-500/20";
+    case 5:
+      return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+    default:
+      return "bg-gray-500/10 text-gray-400 border border-gray-500/20";
+  }
 }
 </script>
 

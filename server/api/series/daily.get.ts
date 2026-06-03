@@ -1,6 +1,7 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import prisma from "~/lib/prisma";
-import {
+import type {
   QuestionSeriesData,
   QuestionSeriesDTO,
   QuestionSeriesResponseDTO,

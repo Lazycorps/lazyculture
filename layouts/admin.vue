@@ -92,7 +92,7 @@
         <UButton
           to="/themes"
           block
-          color="gray"
+          color="neutral"
           variant="ghost"
           class="flex items-center justify-start space-x-3 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl"
         >

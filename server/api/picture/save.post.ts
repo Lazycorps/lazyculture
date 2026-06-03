@@ -1,5 +1,6 @@
 import { serverSupabaseClient } from "#supabase/server";
-import formidable, { Fields, Files } from "formidable";
+import formidable from "formidable";
+import type { Fields, Files } from "formidable";
 import fs from "fs";
 
 export const config = {

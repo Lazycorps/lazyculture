@@ -21,9 +21,7 @@
         <UFormField
           label="Source JSON"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UTextarea
@@ -31,7 +29,7 @@
             placeholder='[{"libelle": "Question ?", "type": "choix", "difficulty": 2, "theme": ["culture_generale"], "response": 1, "propositions": [{"id": 1, "value": "Oui", "img": ""}], "commentaire": "Explication"}]'
             :rows="6"
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white font-mono text-sm' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white font-mono text-sm' }"
           />
         </UFormField>
 
@@ -88,7 +86,7 @@
               >Question #{{ index + 1 }}</span
             >
             <UButton
-              color="red"
+              color="error"
               variant="ghost"
               size="xs"
               icon="i-heroicons-trash"
@@ -106,7 +104,7 @@
       <!-- Import trigger button -->
       <div class="flex justify-end pt-4">
         <UButton
-          color="emerald"
+          color="success"
           size="lg"
           icon="i-heroicons-cloud-arrow-up"
           :loading="loading"

@@ -197,7 +197,7 @@ const userHealthPoint = computed(() => {
   return userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value;
 });
 const nbrQuestion = computed(() => {
-  return userSeries.value?.series?.data?.questionsIds.length;
+  return userSeries.value?.series?.data?.questionsIds?.length || 0;
 });
 const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
@@ -231,7 +231,7 @@ async function nextQuestion() {
     loading.value = true;
     const nexQuestion =
       userSeries.value?.userResponse?.data?.nextQuestion ??
-      userSeries.value?.series?.data?.questionsIds[0];
+      userSeries.value?.series?.data?.questionsIds?.[0];
     question.value = await $fetch<QuestionDTO>("/api/question", {
       query: {
         id: nexQuestion,
@@ -255,10 +255,14 @@ async function validateResponse(response: ResponseDTO) {
       userResponseId: response.userResponseId,
     } as SeriesResponseDTO;
 
-    userSeries.value.userResponse = await $fetch("/api/series/ascent/response", {
+    const updatedResponse = await $fetch<any>("/api/series/ascent/response", {
       method: "post",
       body: seriesResponse,
     });
+    userSeries.value = {
+      ...userSeries.value,
+      userResponse: updatedResponse,
+    };
     achievementStore.answerAscentQuestion();
   } catch (e) {
     console.error("Failed to validate response in series:", e);

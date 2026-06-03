@@ -187,14 +187,14 @@
           <UButton
             icon="i-heroicons-x-mark"
             size="xs"
-            color="gray"
+            color="neutral"
             variant="ghost"
             class="rounded-full hover:text-white"
             @click="brSession.recoverableMatchId.value = null"
           />
         </div>
         <UButton
-          color="amber"
+          color="warning"
           size="sm"
           block
           icon="i-heroicons-arrow-right-circle"
@@ -243,7 +243,7 @@
 
         <div class="flex space-x-2">
           <UButton
-            color="rose"
+            color="error"
             size="xs"
             variant="ghost"
             class="font-bold uppercase tracking-wider"

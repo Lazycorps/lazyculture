@@ -1,12 +1,12 @@
-import { QuestionDataDTO } from "~/models/question";
+import type { QuestionDataDTO } from "~/models/question";
 import prisma from "~/lib/prisma";
-import {
+import type {
   QuestionSeriesData,
   QuestionSeriesDTO,
   QuestionSeriesResponseDataResponse,
 } from "~/models/series";
-import { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
-import { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
+import type { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
+import type { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {

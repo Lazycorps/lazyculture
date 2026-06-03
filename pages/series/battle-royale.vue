@@ -62,12 +62,12 @@
               </p>
             </div>
             <UButton
-              color="amber"
+              color="warning"
               size="md"
               block
               icon="i-heroicons-arrow-right-circle"
               class="font-black uppercase font-display tracking-wider py-2.5"
-              @click="session.connect(session.recoverableMatchId.value, user.id)"
+              @click="session.connect(session.recoverableMatchId.value, user?.id || '')"
             >
               Reprendre la partie
             </UButton>
@@ -119,7 +119,7 @@
                 variant="ghost"
                 icon="i-heroicons-arrow-path"
                 size="xs"
-                color="gray"
+                color="neutral"
                 class="hover:text-white"
                 @click="fetchLobbies"
               />
@@ -157,7 +157,7 @@
                   </div>
 
                   <UButton
-                    color="cyan"
+                    color="primary"
                     size="xs"
                     icon="i-heroicons-arrow-right-on-rectangle"
                     class="font-bold tracking-wider px-3"
@@ -344,7 +344,9 @@ async function joinArena(action: "create" | "join", targetMatchId?: string) {
     });
 
     // 2. Établir la connexion SSE globale
-    session.connect(result.matchId, user.id);
+    if (user) {
+      session.connect(result.matchId, user.id);
+    }
   } catch (e: any) {
     console.error("Échec lors de l'entrée dans l'arène :", e);
     // En cas d'échec, relancer le polling

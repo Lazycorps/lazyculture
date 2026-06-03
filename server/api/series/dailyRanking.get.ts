@@ -1,5 +1,5 @@
 import prisma from "~/lib/prisma";
-import { QuestionSeriesResponseData } from "~/models/series";
+import type { QuestionSeriesResponseData } from "~/models/series";
 
 type DailySeriesRankingDTO = {
   userId: string;

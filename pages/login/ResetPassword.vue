@@ -30,7 +30,7 @@
       <!-- Session Error -->
       <div v-else-if="sessionError" class="space-y-4">
         <UAlert
-          color="red"
+          color="error"
           variant="soft"
           icon="i-heroicons-exclamation-triangle"
           :title="sessionError"
@@ -54,9 +54,7 @@
           label="Nouveau mot de passe"
           name="password"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
@@ -66,12 +64,12 @@
             icon="i-heroicons-lock-closed"
             required
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           >
             <template #trailing>
               <UButton
                 :icon="passwordType === 'password' ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
-                color="gray"
+                color="neutral"
                 variant="ghost"
                 class="hover:bg-white/5 text-gray-400"
                 @click="togglePassword"
@@ -116,9 +114,7 @@
           label="Confirmer le mot de passe"
           name="confirmPassword"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
@@ -128,14 +124,14 @@
             icon="i-heroicons-lock-closed"
             required
             class="w-full"
-            :ui="{ background: 'bg-white/5 border border-white/10 text-white' }"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           >
             <template #trailing>
               <UButton
                 :icon="
                   confirmPasswordType === 'password' ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'
                 "
-                color="gray"
+                color="neutral"
                 variant="ghost"
                 class="hover:bg-white/5 text-gray-400"
                 @click="toggleConfirmPassword"
@@ -148,7 +144,7 @@
         <div class="pt-2">
           <UAlert
             v-if="errorMessage"
-            color="red"
+            color="error"
             variant="soft"
             icon="i-heroicons-exclamation-triangle"
             :title="errorMessage"
@@ -156,7 +152,7 @@
           />
           <UAlert
             v-if="successMessage"
-            color="emerald"
+            color="success"
             variant="soft"
             icon="i-heroicons-check-circle"
             :title="successMessage"
