@@ -15,7 +15,7 @@
     <!-- Tabs Switcher -->
     <div class="flex justify-center pt-2">
       <div
-        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-sm"
+        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-md"
       >
         <button
           class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
@@ -27,7 +27,7 @@
           @click="currentTab = 'general'"
         >
           <UIcon name="i-heroicons-sparkles" class="text-xs" />
-          <span>Général (XP)</span>
+          <span>XP</span>
         </button>
         <button
           class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
@@ -39,7 +39,19 @@
           @click="currentTab = 'br'"
         >
           <UIcon name="i-heroicons-shield-check" class="text-xs" />
-          <span>Battle Royale Classé</span>
+          <span>BR</span>
+        </button>
+        <button
+          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          :class="
+            currentTab === 'showdown'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'showdown'"
+        >
+          <UIcon name="i-heroicons-bolt" class="text-xs" />
+          <span>Showdown</span>
         </button>
       </div>
     </div>
@@ -60,16 +72,11 @@
               <UAvatar
                 icon="i-heroicons-user"
                 size="lg"
-                class="bg-slate-300/10 text-slate-300 border-2 shadow-lg group-hover:scale-105 transition-transform"
-                :class="
-                  currentTab === 'br' && secondPlace.rankInfo
-                    ? 'border-slate-400'
-                    : 'border-slate-400'
-                "
+                class="bg-slate-300/10 text-slate-300 border-2 shadow-lg group-hover:scale-105 transition-transform border-slate-400"
               />
-              <!-- Rank badge icon overlay for BR tab -->
+              <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
-                v-if="currentTab === 'br' && secondPlace.rankInfo"
+                v-if="(currentTab === 'br' || currentTab === 'showdown') && secondPlace.rankInfo"
                 class="absolute -bottom-2 -left-2 w-6 h-6 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-xs shadow-md"
                 :class="secondPlace.rankInfo.color"
               >
@@ -95,7 +102,7 @@
               </p>
               <p
                 class="text-[10px] font-extrabold text-cyan-400 font-display"
-                v-else-if="currentTab === 'br'"
+                v-else-if="currentTab === 'br' || currentTab === 'showdown'"
               >
                 {{ secondPlace.points }} LP
                 <span
@@ -129,16 +136,11 @@
               <UAvatar
                 icon="i-heroicons-user"
                 size="xl"
-                class="bg-amber-500/10 text-amber-400 border-2 shadow-neon group-hover:scale-105 transition-transform"
-                :class="
-                  currentTab === 'br' && firstPlace.rankInfo
-                    ? 'border-amber-400'
-                    : 'border-amber-400'
-                "
+                class="bg-amber-500/10 text-amber-400 border-2 shadow-neon group-hover:scale-105 transition-transform border-amber-400"
               />
-              <!-- Rank badge icon overlay for BR tab -->
+              <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
-                v-if="currentTab === 'br' && firstPlace.rankInfo"
+                v-if="(currentTab === 'br' || currentTab === 'showdown') && firstPlace.rankInfo"
                 class="absolute -bottom-2 -left-2 w-7 h-7 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-sm shadow-md"
                 :class="firstPlace.rankInfo.color"
               >
@@ -164,7 +166,7 @@
               </p>
               <p
                 class="text-xs font-black text-cyan-400 font-display animate-pulse"
-                v-else-if="currentTab === 'br'"
+                v-else-if="currentTab === 'br' || currentTab === 'showdown'"
               >
                 {{ firstPlace.points }} LP
                 <span
@@ -194,16 +196,11 @@
               <UAvatar
                 icon="i-heroicons-user"
                 size="lg"
-                class="bg-amber-700/10 text-amber-600 border-2 shadow-lg group-hover:scale-105 transition-transform"
-                :class="
-                  currentTab === 'br' && thirdPlace.rankInfo
-                    ? 'border-amber-700/60'
-                    : 'border-amber-700/60'
-                "
+                class="bg-amber-700/10 text-amber-600 border-2 shadow-lg group-hover:scale-105 transition-transform border-amber-700/60"
               />
-              <!-- Rank badge icon overlay for BR tab -->
+              <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
-                v-if="currentTab === 'br' && thirdPlace.rankInfo"
+                v-if="(currentTab === 'br' || currentTab === 'showdown') && thirdPlace.rankInfo"
                 class="absolute -bottom-2 -left-2 w-6 h-6 rounded-lg bg-gradient-to-br flex items-center justify-center border border-white/10 text-xs shadow-md"
                 :class="thirdPlace.rankInfo.color"
               >
@@ -229,7 +226,7 @@
               </p>
               <p
                 class="text-[10px] font-extrabold text-cyan-400 font-display"
-                v-else-if="currentTab === 'br'"
+                v-else-if="currentTab === 'br' || currentTab === 'showdown'"
               >
                 {{ thirdPlace.points }} LP
                 <span
@@ -282,9 +279,9 @@
               >
                 {{ userItem.name || "Joueur Anonyme" }}
               </span>
-              <!-- League badge and winrate detail for BR tab -->
+              <!-- League badge and winrate detail for BR/Showdown tab -->
               <div
-                v-if="currentTab === 'br' && userItem.rankInfo"
+                v-if="(currentTab === 'br' || currentTab === 'showdown') && userItem.rankInfo"
                 class="flex flex-wrap items-center gap-1.5"
               >
                 <span
@@ -297,12 +294,13 @@
                 <span
                   class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
                 >
-                  • Top 1 :
+                  • Victoires :
                   {{
                     userItem.gamesPlayed > 0
                       ? Math.round((userItem.wins / userItem.gamesPlayed) * 100)
                       : 0
-                  }}% ({{ userItem.wins }} / {{ userItem.gamesPlayed }} BR)
+                  }}% ({{ userItem.wins }} / {{ userItem.gamesPlayed }}
+                  {{ currentTab === "br" ? "BR" : "SD" }})
                 </span>
               </div>
             </div>
@@ -317,7 +315,7 @@
                 >XP</span
               >
             </div>
-            <div class="text-right" v-else-if="currentTab === 'br'">
+            <div class="text-right" v-else-if="currentTab === 'br' || currentTab === 'showdown'">
               <span class="font-extrabold text-cyan-400 font-display">{{ userItem.points }}</span>
               <span
                 class="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-display ml-1"
@@ -345,14 +343,17 @@
 </template>
 
 <script setup lang="ts">
-const currentTab = ref<"general" | "br">("general");
+const currentTab = ref<"general" | "br" | "showdown">("general");
 
-// Récupération des deux types de classements en parallèle
+// Récupération des trois types de classements en parallèle
 const { data: users } = await useFetch<any[]>("/api/ranking/top");
 const { data: brUsers } = await useFetch<any[]>("/api/ranking/br");
+const { data: showdownUsers } = await useFetch<any[]>("/api/ranking/showdown");
 
 const activeUsers = computed(() => {
-  return currentTab.value === "general" ? users.value || [] : brUsers.value || [];
+  if (currentTab.value === "general") return users.value || [];
+  if (currentTab.value === "br") return brUsers.value || [];
+  return showdownUsers.value || [];
 });
 
 const firstPlace = computed(() => activeUsers.value?.[0] || null);

@@ -24,6 +24,8 @@ model User {
     UserAchievement        UserAchievement[]
     BattleRoyalePlayer     BattleRoyalePlayer[]
     BattleRoyaleRank       BattleRoyaleRank?
+    ShowdownPlayer         ShowdownPlayer[]
+    ShowdownRank           ShowdownRank?
 }
 
 model UserProgress {
@@ -175,6 +177,42 @@ model BattleRoyalePlayer {
 }
 
 model BattleRoyaleRank {
+    userId      String   @id
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    points      Int      @default(0)
+    wins        Int      @default(0)
+    gamesPlayed Int      @default(0)
+    createDate  DateTime @default(now())
+    updateDate  DateTime @default(now())
+}
+
+model ShowdownMatch {
+    id                      String               @id @default(uuid())
+    status                  String               @default("WAITING") // WAITING, THEME_SELECTION, PLAYING, FINISHED
+    currentRound            Int                  @default(0)
+    currentQuestionId       Int?
+    currentQuestionStart    DateTime?
+    currentQuestionDuration Int?
+    winnerId                String?
+    createdAt               DateTime             @default(now())
+    players                 ShowdownPlayer[]
+}
+
+model ShowdownPlayer {
+    id                 String            @id @default(uuid())
+    matchId            String
+    match              ShowdownMatch     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+    userId             String
+    user               User              @relation(fields: [userId], references: [id])
+    hp                 Int               @default(100)
+    xpEarned           Int               @default(0)
+    joinedAt           DateTime          @default(now())
+    teamId             String?           // Optionnel, pour de futurs modes 2v2/3v3
+
+    @@unique([matchId, userId])
+}
+
+model ShowdownRank {
     userId      String   @id
     user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     points      Int      @default(0)

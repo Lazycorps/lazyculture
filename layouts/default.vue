@@ -58,7 +58,7 @@ const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
-  { label: "Battle Royale", path: "/series/battle-royale", icon: "i-heroicons-fire" },
+  { label: "Multijoueur", path: "/multiplayer", icon: "i-heroicons-users" },
   { label: "Classement", path: "/ranking", icon: "i-heroicons-chart-bar" },
 ]);
 
