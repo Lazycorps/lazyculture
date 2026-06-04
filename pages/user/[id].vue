@@ -329,8 +329,8 @@
                 <span class="text-[10px] text-gray-500 block font-medium">
                   {{
                     match.eliminatedAtRound
-                      ? `Éliminé au Round ${match.eliminatedAtRound}`
-                      : "Survivant"
+                      ? `Éliminé au Round ${match.eliminatedAtRound} / ${match.currentRound || 0}`
+                      : `Survivant (${match.currentRound || 0} ${match.currentRound && match.currentRound > 1 ? "rounds" : "round"})`
                   }}
                 </span>
               </div>

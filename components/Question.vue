@@ -12,6 +12,23 @@
       +{{ xpWin }} XP
     </div>
 
+    <!-- Theme Progress Header / Bar -->
+    <div v-if="themeProgress" class="mb-4 select-none flex items-center space-x-3 w-full px-1">
+      <div
+        class="flex-1 h-1.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
+      >
+        <div
+          class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
+          :style="{
+            width: `${themeProgress.questionCount > 0 ? (themeProgress.responseCount / themeProgress.questionCount) * 100 : 0}%`,
+          }"
+        ></div>
+      </div>
+      <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
+        {{ themeProgress.responseCount }} / {{ themeProgress.questionCount }} résolues
+      </span>
+    </div>
+
     <!-- Skeleton Loader -->
     <div
       v-if="firstLoading"
@@ -78,10 +95,14 @@
             </div>
             <div class="space-y-0.5 min-w-0 flex-1">
               <h4
-                class="font-black font-display text-base tracking-wide"
+                class="font-black font-display text-base tracking-wide flex items-center justify-between"
                 :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
               >
-                {{ isCorrect ? "Excellent travail !" : "Oups, mauvaise réponse" }}
+                <span>{{ isCorrect ? "Excellent travail !" : "Oups, mauvaise réponse" }}</span>
+                <span v-if="themeProgress" class="text-[11px] font-bold text-gray-400 font-display">
+                  Progression : {{ themeProgress.responseCount }} /
+                  {{ themeProgress.questionCount }}
+                </span>
               </h4>
               <div
                 class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text mb-4"
@@ -149,6 +170,23 @@ const showXP = ref(false);
 const question = ref(new QuestionDTO());
 const questionDisplay = ref<any>(null);
 
+const themeProgress = ref<{ questionCount: number; responseCount: number } | null>(null);
+
+async function loadThemeProgress() {
+  if (!props.theme) return;
+  try {
+    const result = await $fetch<any>("/api/theme/progress", {
+      query: { theme: props.theme },
+    });
+    themeProgress.value = {
+      questionCount: result.questionCount,
+      responseCount: result.responseCount,
+    };
+  } catch (e) {
+    console.error("Failed to load theme progress:", e);
+  }
+}
+
 const isCorrect = computed(() => {
   return greenResponse.value === redResponse.value
     ? false
@@ -160,6 +198,9 @@ onMounted(() => {
     NextQuestion();
   } catch (err) {}
   showBottomNav.value = false;
+  if (props.theme) {
+    loadThemeProgress();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -199,6 +240,10 @@ async function validateResponse() {
     responded.value = true;
     achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
+
+    if (props.theme) {
+      await loadThemeProgress();
+    }
   } catch (e) {
     console.error("Failed to validate response:", e);
   } finally {
