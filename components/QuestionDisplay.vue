@@ -48,7 +48,7 @@
           v-for="proposition in propositions"
           :key="proposition.id"
           :disabled="disabled"
-          class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm tracking-wide font-display border transition-all duration-150 relative select-none"
+          class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-md tracking-wide font-display border transition-all duration-150 relative select-none"
           :class="getOptionClass(proposition.id)"
           @click="selectOption(proposition.id)"
         >
