@@ -452,19 +452,6 @@
 
             <!-- Question card -->
             <div v-if="currentQuestion" class="space-y-4">
-              <!-- Reading phase banner (answers locked) -->
-              <transition name="fade">
-                <div
-                  v-if="isReading && !showRoundResults"
-                  class="flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/25 text-sky-300"
-                >
-                  <span class="text-base animate-pulse">📖</span>
-                  <span class="text-[11px] font-black uppercase tracking-wide">
-                    Lecture en cours — réponses dans {{ readingTimeLeft }}s
-                  </span>
-                </div>
-              </transition>
-
               <QuestionDisplay
                 :libelle="currentQuestion.libelle"
                 :img="currentQuestion.img"
