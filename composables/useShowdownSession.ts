@@ -14,6 +14,14 @@ export const useShowdownSession = () => {
   const themeSelectionTimeLeft = useState<number>("sd-theme-selection-time-left", () => 20);
   const currentQuestion = useState<any>("sd-current-question", () => null);
   const currentQuestionDuration = useState<number>("sd-current-question-duration", () => 20);
+  const currentQuestionReadingDuration = useState<number>(
+    "sd-current-question-reading-duration",
+    () => 0,
+  );
+  const currentQuestionAnswerStartTime = useState<number>(
+    "sd-current-question-answer-start-time",
+    () => 0,
+  );
   const currentQuestionEndTime = useState<number>("sd-current-question-end-time", () => 0);
   const myHp = useState<number>("sd-my-hp", () => 100);
   const myStreak = useState<number>("sd-my-streak", () => 0);
@@ -49,6 +57,8 @@ export const useShowdownSession = () => {
     themeSelectionTurn.value = null;
     themeSelectionTimeLeft.value = 20;
     currentQuestion.value = null;
+    currentQuestionReadingDuration.value = 0;
+    currentQuestionAnswerStartTime.value = 0;
     myHp.value = 100;
     myStreak.value = 0;
     opponent.value = null;
@@ -81,6 +91,8 @@ export const useShowdownSession = () => {
       themeSelectionTimeLeft.value = data.themeSelectionTimeLeft;
       currentQuestion.value = data.currentQuestion;
       currentQuestionDuration.value = data.currentQuestionDuration;
+      currentQuestionReadingDuration.value = data.currentQuestionReadingDuration || 0;
+      currentQuestionAnswerStartTime.value = data.currentQuestionAnswerStartTime || 0;
       currentQuestionEndTime.value = data.currentQuestionEndTime || 0;
       myHp.value = data.myHp;
       myStreak.value = data.myStreak;
@@ -156,6 +168,8 @@ export const useShowdownSession = () => {
       currentRound.value = data.round;
       currentQuestion.value = data.question;
       currentQuestionDuration.value = data.duration;
+      currentQuestionReadingDuration.value = data.readingDuration || 0;
+      currentQuestionAnswerStartTime.value = data.answerStartTime || 0;
       currentQuestionEndTime.value = data.endTime;
 
       responded.value = false;
@@ -245,6 +259,8 @@ export const useShowdownSession = () => {
     themeSelectionTimeLeft,
     currentQuestion,
     currentQuestionDuration,
+    currentQuestionReadingDuration,
+    currentQuestionAnswerStartTime,
     currentQuestionEndTime,
     myHp,
     myStreak,

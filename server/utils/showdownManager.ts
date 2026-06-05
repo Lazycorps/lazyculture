@@ -43,8 +43,10 @@ export interface ShowdownMatchInMemory {
   } | null;
   currentQuestionAnswer: number | null;
   currentQuestionCommentaire: string;
-  currentQuestionStart: Date | null;
-  currentQuestionDuration: number;
+  currentQuestionStart: Date | null; // Moment où la question est affichée (début de la lecture)
+  currentQuestionReadingDuration: number; // Temps de lecture (en s) avant l'ouverture des réponses
+  currentQuestionAnswerStart: Date | null; // Moment où les réponses s'ouvrent (= start + lecture)
+  currentQuestionDuration: number; // Fenêtre de réponse (en s), une fois la lecture terminée
   winnerId: string | null;
   players: ShowdownPlayerInMemory[];
   usedQuestionIds: number[];
@@ -255,6 +257,8 @@ class ShowdownManager {
         currentQuestionAnswer: null,
         currentQuestionCommentaire: "",
         currentQuestionStart: null,
+        currentQuestionReadingDuration: 0,
+        currentQuestionAnswerStart: null,
         currentQuestionDuration: 20, // 20 secondes pour répondre par défaut
         winnerId: null,
         players: [
@@ -417,8 +421,12 @@ class ShowdownManager {
       themeSelectionTimeLeft: match.themeSelectionTimeLeft,
       currentQuestion: match.currentQuestion,
       currentQuestionDuration: match.currentQuestionDuration,
-      currentQuestionEndTime: match.currentQuestionStart
-        ? match.currentQuestionStart.getTime() + match.currentQuestionDuration * 1000
+      currentQuestionReadingDuration: match.currentQuestionReadingDuration,
+      currentQuestionAnswerStartTime: match.currentQuestionAnswerStart
+        ? match.currentQuestionAnswerStart.getTime()
+        : null,
+      currentQuestionEndTime: match.currentQuestionAnswerStart
+        ? match.currentQuestionAnswerStart.getTime() + match.currentQuestionDuration * 1000
         : null,
       myHp: player ? player.hp : 0,
       myStreak: player ? player.streak : 0,
@@ -685,8 +693,30 @@ class ShowdownManager {
 
     match.currentQuestionAnswer = answerId;
     match.currentQuestionCommentaire = commentaire;
-    match.currentQuestionStart = new Date();
-    match.currentQuestionDuration = 20; // Temps de réponse fixe de 20s
+
+    // Temps de lecture : laisse à chacun le temps de lire la question avant que le
+    // chrono de rapidité ne démarre, pour que la vitesse de lecture ne pénalise pas.
+    // Calculé selon la longueur du texte (énoncé + propositions), borné entre 3 et 9s.
+    const libelleText: string = rawData?.libelle || "";
+    const propositionsText: number = propositions.reduce(
+      (sum: number, p: any) => sum + (p?.value?.length || 0),
+      0,
+    );
+    const totalTextLength = libelleText.length + propositionsText;
+    let readingDuration = Math.ceil(totalTextLength / 20);
+    if (question.picture || rawData?.img) readingDuration += 2; // image à observer
+    readingDuration = Math.min(9, Math.max(3, readingDuration));
+
+    // Le round dure 20s au total : la lecture est prélevée sur ce budget, le reste
+    // constitue la fenêtre de réponse (au moins 11s).
+    const totalRoundDuration = 20;
+    const answerDuration = totalRoundDuration - readingDuration;
+
+    const now = new Date();
+    match.currentQuestionStart = now;
+    match.currentQuestionReadingDuration = readingDuration;
+    match.currentQuestionAnswerStart = new Date(now.getTime() + readingDuration * 1000);
+    match.currentQuestionDuration = answerDuration; // Fenêtre de réponse (après lecture)
 
     match.currentQuestion = {
       id: question.id,
@@ -714,18 +744,23 @@ class ShowdownManager {
       .catch(console.error);
 
     // Diffuser la question
+    const answerStartMs = match.currentQuestionAnswerStart!.getTime();
     this.broadcast(matchId, "new_question", {
       round: match.currentRound,
       themeSlug: activeThemeSlug,
       question: match.currentQuestion,
       duration: match.currentQuestionDuration,
-      endTime: Date.now() + match.currentQuestionDuration * 1000,
+      readingDuration: match.currentQuestionReadingDuration,
+      answerStartTime: answerStartMs,
+      endTime: answerStartMs + match.currentQuestionDuration * 1000,
     });
 
-    // Lancer le timer
+    // Lancer le timer : lecture + fenêtre de réponse
+    const totalRoundMs =
+      (match.currentQuestionReadingDuration + match.currentQuestionDuration) * 1000;
     match.roundTimer = setTimeout(() => {
       void this.resolveRound(matchId);
-    }, match.currentQuestionDuration * 1000);
+    }, totalRoundMs);
   }
 
   private async fetchThemeQuestion(
@@ -781,6 +816,14 @@ class ShowdownManager {
     // ne plus accepter de réponse tardive pendant la fenêtre de transition.
     if (match.lastResolvedRound === match.currentRound) {
       return { success: false, message: "Le round est terminé." };
+    }
+
+    // Phase de lecture : les réponses ne sont pas encore ouvertes.
+    if (
+      match.currentQuestionAnswerStart &&
+      Date.now() < match.currentQuestionAnswerStart.getTime()
+    ) {
+      return { success: false, message: "Lisez la question avant de répondre." };
     }
 
     // Si l'adversaire a déjà répondu JUSTE en premier, le round est gelé
@@ -859,13 +902,17 @@ class ShowdownManager {
     let p1SpeedRatio = 0;
     let p2SpeedRatio = 0;
 
-    // Calculer les ratios de rapidité (1.0 = instantané, 0.0 = temps écoulé)
-    if (p1Correct && p1.lastAnswerTime && match.currentQuestionStart) {
-      const timeTaken = (p1.lastAnswerTime.getTime() - match.currentQuestionStart.getTime()) / 1000;
+    // Calculer les ratios de rapidité (1.0 = instantané, 0.0 = temps écoulé).
+    // Le chrono démarre à l'ouverture des réponses (fin de la lecture), pas à
+    // l'affichage : la vitesse de lecture n'impacte donc pas le score.
+    const answerStartMs =
+      match.currentQuestionAnswerStart?.getTime() ?? match.currentQuestionStart?.getTime() ?? 0;
+    if (p1Correct && p1.lastAnswerTime && answerStartMs) {
+      const timeTaken = (p1.lastAnswerTime.getTime() - answerStartMs) / 1000;
       p1SpeedRatio = Math.max(0, Math.min(1, (duration - timeTaken) / duration));
     }
-    if (p2Correct && p2.lastAnswerTime && match.currentQuestionStart) {
-      const timeTaken = (p2.lastAnswerTime.getTime() - match.currentQuestionStart.getTime()) / 1000;
+    if (p2Correct && p2.lastAnswerTime && answerStartMs) {
+      const timeTaken = (p2.lastAnswerTime.getTime() - answerStartMs) / 1000;
       p2SpeedRatio = Math.max(0, Math.min(1, (duration - timeTaken) / duration));
     }
 

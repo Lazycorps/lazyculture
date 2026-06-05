@@ -318,6 +318,14 @@
                       {{ roundEndCountdown }}
                     </span>
                   </template>
+                  <template v-else-if="isReading">
+                    <span class="text-base z-10 animate-pulse" title="Temps de lecture">📖</span>
+                    <span
+                      class="absolute -bottom-1 text-[9px] font-mono font-black text-sky-400 z-10"
+                    >
+                      {{ readingTimeLeft }}s
+                    </span>
+                  </template>
                   <template v-else>
                     <!-- Circular progress outline -->
                     <svg class="absolute w-full h-full transform -rotate-90">
@@ -444,12 +452,25 @@
 
             <!-- Question card -->
             <div v-if="currentQuestion" class="space-y-4">
+              <!-- Reading phase banner (answers locked) -->
+              <transition name="fade">
+                <div
+                  v-if="isReading && !showRoundResults"
+                  class="flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/25 text-sky-300"
+                >
+                  <span class="text-base animate-pulse">📖</span>
+                  <span class="text-[11px] font-black uppercase tracking-wide">
+                    Lecture en cours — réponses dans {{ readingTimeLeft }}s
+                  </span>
+                </div>
+              </transition>
+
               <QuestionDisplay
                 :libelle="currentQuestion.libelle"
                 :img="currentQuestion.img"
                 :themes="[]"
                 :propositions="currentQuestion.propositions"
-                :disabled="responded"
+                :disabled="responded || isReading"
                 :selectedOptionId="selectedOptionId"
                 :correctOptionId="showRoundResults ? lastRoundResults?.correctAnswerId : null"
                 :incorrectOptionId="
@@ -612,6 +633,7 @@ const themeSelectionTurn = session.themeSelectionTurn;
 const themeSelectionTimeLeft = session.themeSelectionTimeLeft;
 const currentQuestion = session.currentQuestion;
 const currentQuestionDuration = session.currentQuestionDuration;
+const currentQuestionAnswerStartTime = session.currentQuestionAnswerStartTime;
 const currentQuestionEndTime = session.currentQuestionEndTime;
 const myHp = session.myHp;
 const myStreak = session.myStreak;
@@ -631,6 +653,8 @@ let timerInterval: any = null;
 
 // Duel timers
 const timerLeft = ref(10);
+const isReading = ref(false);
+const readingTimeLeft = ref(0);
 let duelTimerInterval: any = null;
 
 // Visual FX
@@ -913,10 +937,23 @@ function startDuelTimer() {
   stopDuelTimer();
   timerLeft.value = currentQuestionDuration.value;
 
-  duelTimerInterval = setInterval(() => {
-    // Calculer le temps restant basé sur la date de départ
+  const tick = () => {
+    const now = Date.now();
+    const answerStart = currentQuestionAnswerStartTime.value;
+
+    // Phase de lecture : les réponses sont verrouillées, le chrono n'a pas démarré
+    if (answerStart && now < answerStart) {
+      isReading.value = true;
+      readingTimeLeft.value = Math.max(0, Math.ceil((answerStart - now) / 1000));
+      timerLeft.value = currentQuestionDuration.value;
+      return;
+    }
+
+    isReading.value = false;
+
+    // Phase de réponse : décompte basé sur la date de fin
     if (currentQuestionEndTime.value) {
-      const remaining = Math.max(0, Math.round((currentQuestionEndTime.value - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.round((currentQuestionEndTime.value - now) / 1000));
       timerLeft.value = remaining;
       if (remaining <= 0) {
         stopDuelTimer();
@@ -927,7 +964,10 @@ function startDuelTimer() {
         stopDuelTimer();
       }
     }
-  }, 200);
+  };
+
+  tick();
+  duelTimerInterval = setInterval(tick, 200);
 }
 
 function stopDuelTimer() {
@@ -935,10 +975,11 @@ function stopDuelTimer() {
     clearInterval(duelTimerInterval);
     duelTimerInterval = null;
   }
+  isReading.value = false;
 }
 
 async function handleSubmitAnswer(optionId: number) {
-  if (responded.value) return;
+  if (responded.value || isReading.value) return;
 
   selectedOptionId.value = optionId;
   responded.value = true;
