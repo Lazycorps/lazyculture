@@ -1,4 +1,5 @@
 <template>
+  <VitePwaManifest />
   <UApp>
     <div id="app-container" class="cyber-bg-glow min-h-screen">
       <NuxtLayout :name="layout">

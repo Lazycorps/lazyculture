@@ -17,6 +17,7 @@
     "@nuxtjs/supabase": "^2.0.9",
     "@pinia/nuxt": "^0.11.3",
     "@types/node": "^22.19.19",
+    "@vite-pwa/nuxt": "^1.1.1",
     "formidable": "^3.5.4",
     "jsdom": "^28.1.0",
     "nuxt": "^4.4.6",

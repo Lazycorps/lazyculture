@@ -3,7 +3,48 @@ import { defineNuxtConfig } from "nuxt/config";
 export default defineNuxtConfig({
   compatibilityDate: "2024-04-03",
   devtools: { enabled: true },
-  modules: ["@nuxtjs/supabase", "@pinia/nuxt", "@nuxt/ui"],
+  modules: ["@nuxtjs/supabase", "@pinia/nuxt", "@nuxt/ui", "@vite-pwa/nuxt"],
+  // @ts-expect-error
+  pwa: {
+    registerType: "autoUpdate",
+    manifest: {
+      name: "Lazyculture",
+      short_name: "Lazyculture",
+      description: "Découvrez et apprenez avec Lazyculture",
+      theme_color: "#070a13",
+      background_color: "#070a13",
+      icons: [
+        {
+          src: "pwa-64x64.png",
+          sizes: "64x64",
+          type: "image/png",
+        },
+        {
+          src: "pwa-192x192.png",
+          sizes: "192x192",
+          type: "image/png",
+        },
+        {
+          src: "pwa-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+        },
+        {
+          src: "maskable-icon-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
+      ],
+    },
+    workbox: {
+      navigateFallback: "/",
+    },
+    devOptions: {
+      enabled: true,
+      type: "module",
+    },
+  },
   css: ["~/assets/styles/main.css"],
   vite: {
     resolve: {
@@ -12,7 +53,6 @@ export default defineNuxtConfig({
       },
     },
   },
-  // @ts-expect-error
   routeRules: {
     "/": {
       // Temporary redirect using a 307 status code
