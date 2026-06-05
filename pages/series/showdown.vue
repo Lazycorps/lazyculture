@@ -461,7 +461,9 @@
                 :selectedOptionId="selectedOptionId"
                 :correctOptionId="showRoundResults ? lastRoundResults?.correctAnswerId : null"
                 :incorrectOptionId="
-                  showRoundResults && selectedOptionId !== lastRoundResults?.correctAnswerId
+                  showRoundResults &&
+                  lastRoundResults?.correctAnswerId != null &&
+                  selectedOptionId !== lastRoundResults?.correctAnswerId
                     ? selectedOptionId
                     : null
                 "

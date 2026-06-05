@@ -214,9 +214,12 @@ export const useShowdownSession = () => {
     source.addEventListener("match_finished", (event: any) => {
       const data = JSON.parse(event.data);
       winnerId.value = data.winnerId;
-      lastRoundResults.value = data; // Contient aussi les détails de score finaux
 
+      // Ne pas écraser tout de suite lastRoundResults : la correction du dernier
+      // round (correctAnswerId, etc.) reste affichée pendant 3,5s. On bascule les
+      // données finales (scores/LP) seulement au moment d'afficher le podium.
       setTimeout(() => {
+        lastRoundResults.value = data; // Détails de score finaux pour le podium
         showRoundResults.value = false;
         status.value = "FINISHED";
 
