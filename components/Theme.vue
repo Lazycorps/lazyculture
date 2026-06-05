@@ -15,6 +15,14 @@
         class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"
       ></div>
 
+      <!-- New Questions Badge -->
+      <div
+        v-if="!loading && hasNewQuestions"
+        class="absolute top-3 left-3 text-[10px] font-black font-display bg-gradient-to-r from-rose-500 to-pink-500 text-white px-2.5 py-1 rounded-full border border-pink-400/30 shadow-[0_0_12px_rgba(244,63,94,0.4)] tracking-wider uppercase animate-pulse select-none"
+      >
+        New
+      </div>
+
       <!-- Quick progress status float badge -->
       <div
         v-if="!loading && questionCount > 0"
@@ -80,6 +88,7 @@ const props = defineProps<{ theme: Theme }>();
 const responseCount = ref(0);
 const questionCount = ref(0);
 const mastery = ref(0);
+const hasNewQuestions = ref(false);
 const loading = ref(false);
 
 const progressPercent = computed(() => {
@@ -100,6 +109,7 @@ async function loadProgress() {
     responseCount.value = result.responseCount;
     questionCount.value = result.questionCount;
     mastery.value = result.mastery;
+    hasNewQuestions.value = result.hasNewQuestions || false;
   } catch (e) {
     console.error("Failed to load theme progress:", e);
   } finally {
