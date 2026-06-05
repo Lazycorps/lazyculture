@@ -188,6 +188,7 @@ const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
+const showBottomNav = useState("showBottomNav", () => true);
 const { data: userSeries } = await useFetch<UserAscentSeriesDTO>("/api/series/ascent");
 
 const seriesHealthPoint = computed(() => {
@@ -201,6 +202,22 @@ const nbrQuestion = computed(() => {
 });
 const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
+});
+
+const isGameActive = computed(() => {
+  return seriesStarted.value && !userSeries.value?.userResponse?.data?.ended;
+});
+
+watch(
+  isGameActive,
+  (active) => {
+    showBottomNav.value = !active;
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  showBottomNav.value = true;
 });
 
 async function startNewSeries() {

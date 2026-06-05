@@ -264,8 +264,18 @@ const {
 
 const session = useBattleRoyaleSession();
 
+const showBottomNav = useState("showBottomNav", () => true);
+
 // Mappage réactif avec la session globale
 const matchId = session.matchId;
+
+watch(
+  matchId,
+  (newId) => {
+    showBottomNav.value = !newId;
+  },
+  { immediate: true },
+);
 const status = session.status;
 const players = session.players;
 const countdown = session.countdown;
@@ -331,6 +341,7 @@ onBeforeUnmount(() => {
   if (status.value === "FINISHED") {
     session.disconnect();
   }
+  showBottomNav.value = true;
 });
 
 async function joinArena(action: "create" | "join", targetMatchId?: string) {

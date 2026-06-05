@@ -176,6 +176,7 @@ const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
+const showBottomNav = useState("showBottomNav", () => true);
 const { data: userSeries } = await useFetch<UserSeriesDTO>("/api/series/daily");
 const nbrQuestion = computed(() => {
   return userSeries.value?.series?.data?.questionsIds?.length || 0;
@@ -188,6 +189,18 @@ const questionId = computed(() => {
 // après la dernière question, afin qu'il puisse voir la bonne réponse et lire
 // l'explication. Initialisé à true si la série est déjà terminée au chargement.
 const completed = ref(nbrQuestion.value > 0 && questionId.value >= nbrQuestion.value);
+
+watch(
+  [seriesStarted, completed],
+  ([started, comp]) => {
+    showBottomNav.value = !(started && !comp);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  showBottomNav.value = true;
+});
 
 async function startSeries() {
   try {

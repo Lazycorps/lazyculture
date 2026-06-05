@@ -1,0 +1,13 @@
+# Force all text files to have LF (Unix) line endings
+* text eol=lf
+
+# Explicitly mark assets as binary so Git does not touch them
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+

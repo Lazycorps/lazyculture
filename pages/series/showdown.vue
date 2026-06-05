@@ -640,6 +640,16 @@ let queuePollInterval: any = null;
 const elapsedTime = ref(0);
 let timerInterval: any = null;
 
+const showBottomNav = useState("showBottomNav", () => true);
+
+watch(
+  [queueStatus, matchId],
+  ([qStatus, mId]) => {
+    showBottomNav.value = !(qStatus === "searching" || mId);
+  },
+  { immediate: true },
+);
+
 // Duel timers
 const timerLeft = ref(10);
 const isReading = ref(false);
@@ -691,6 +701,7 @@ onBeforeUnmount(() => {
   if (status.value === "FINISHED") {
     session.disconnect();
   }
+  showBottomNav.value = true;
 });
 
 // Watch for matchId changes (reconnect or matched transitions)
