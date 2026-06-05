@@ -1,23 +1,13 @@
-import prisma from "~/lib/prisma";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 import { battleRoyaleManager } from "~/server/utils/battleRoyaleManager";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
 
-  // 1. Récupérer le pseudo de l'utilisateur
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userConnected.id },
-  });
-  const name = dbUser?.name || "Joueur";
+  // 1. Récupérer le pseudo et le niveau de l'utilisateur
+  const { name, level } = await battleRoyaleManager.getPlayerInfo(userConnected.id);
 
-  // 2. Récupérer le niveau de l'utilisateur
-  const progress = await prisma.userProgress.findUnique({
-    where: { userId: userConnected.id },
-  });
-  const level = progress?.levelId || 1;
-
-  // 3. Récupérer, créer ou rejoindre un match en attente
+  // 2. Récupérer, créer ou rejoindre un match en attente
   const body = await readBody(event).catch(() => ({}));
   const action = body?.action || "join_or_create";
   const targetMatchId = body?.matchId;
@@ -38,7 +28,7 @@ export default defineEventHandler(async (event) => {
     match = await battleRoyaleManager.getOrCreateWaitingMatch();
   }
 
-  // 4. Ajouter le joueur
+  // 3. Ajouter le joueur
   const success = await battleRoyaleManager.addPlayerToMatch(
     match.matchId,
     { id: userConnected.id, name },

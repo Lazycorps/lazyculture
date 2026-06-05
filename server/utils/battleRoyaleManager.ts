@@ -265,6 +265,40 @@ class BattleRoyaleManager {
   }
 
   /**
+   * Récupère le pseudo et le niveau d'un joueur depuis la base.
+   */
+  async getPlayerInfo(userId: string): Promise<{ name: string; level: number }> {
+    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    const progress = await prisma.userProgress.findUnique({ where: { userId } });
+    return {
+      name: dbUser?.name || "Joueur",
+      level: progress?.levelId || 1,
+    };
+  }
+
+  /**
+   * Retourne l'ID du match WAITING/PLAYING de l'utilisateur s'il est toujours
+   * actif en mémoire, sinon null.
+   */
+  async getActiveMatchIdForUser(userId: string): Promise<string | null> {
+    const playerMatch = await prisma.battleRoyalePlayer.findFirst({
+      where: {
+        userId,
+        match: {
+          status: { in: ["WAITING", "PLAYING"] },
+        },
+      },
+      select: {
+        matchId: true,
+      },
+    });
+
+    if (!playerMatch) return null;
+    if (!this.getMatch(playerMatch.matchId)) return null;
+    return playerMatch.matchId;
+  }
+
+  /**
    * Enregistre un client SSE pour recevoir les événements.
    */
   async registerClient(

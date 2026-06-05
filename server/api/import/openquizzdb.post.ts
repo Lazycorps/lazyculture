@@ -1,92 +1,11 @@
-import { PrismaClient } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
-import type { OpenQuizzDB, OpenQuizzDBQuestion } from "../../../models/openQuizzDB";
-import { QuestionDataDTO } from "../../../models/question";
-const config = useRuntimeConfig();
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl,
-    },
-  },
-});
+import type { OpenQuizzDB } from "~/models/openQuizzDB";
+import { importService } from "~/server/services/ImportService";
+import { assertApiKeyOrAdmin } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const runtimeConfig = useRuntimeConfig();
+  await assertApiKeyOrAdmin(event);
+
   const query = getQuery(event);
-
-  // Vérification de l'authentification : Clé API ou Session Admin
-  const apiKey = event.headers.get("x-api-key");
-  let isAuthenticated = apiKey === runtimeConfig.apiKey;
-
-  if (!isAuthenticated) {
-    const userConnected = event.context.user;
-    if (userConnected) {
-      const user = await prisma.user.findUnique({ where: { id: userConnected.id } });
-      if (user?.admin) {
-        isAuthenticated = true;
-      }
-    }
-  }
-
-  if (!isAuthenticated) {
-    setResponseStatus(event, 401);
-    return { error: "Non autorisé" };
-  }
-
   const body = await readBody<OpenQuizzDB>(event);
-  const questions: Prisma.QuestionCreateInput[] = [];
-  body.quizz.fr.débutant.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
-    if (question) questions.push(question);
-  });
-  body.quizz.fr.confirmé.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
-    if (question) questions.push(question);
-  });
-  body.quizz.fr.expert.forEach((q) => {
-    const question = GetQuestion(q, 3, "fr", query.theme?.toString());
-    if (question) questions.push(question);
-  });
-
-  return prisma.question.createManyAndReturn({
-    data: questions as Prisma.QuestionCreateInput[],
-  });
+  return importService.importOpenQuizzDB(body, query.theme?.toString());
 });
-
-const GetQuestion = (
-  question: OpenQuizzDBQuestion,
-  difficulty: number,
-  language: string,
-  theme?: string,
-): Prisma.QuestionCreateInput | null => {
-  const questionData = new QuestionDataDTO();
-  questionData.type = "choix";
-  let i = 1;
-  questionData.libelle = question.question;
-  if (theme) questionData.theme = theme.split(",");
-  question.propositions.forEach((p) => {
-    questionData.propositions.push({
-      id: i++,
-      value: p,
-      img: "",
-    });
-  });
-
-  const responseId = questionData.propositions.find((p) => p.value == question.réponse)?.id;
-
-  if (!responseId) return null;
-  questionData.commentaire = question.anecdote;
-  questionData.response = responseId ?? 0;
-
-  return {
-    difficulty,
-    data: questionData as any,
-    source: "OpenQuizzDB",
-    language,
-    createDate: new Date(),
-    updateDate: new Date(),
-    userCreate: "IMPORT",
-    userUpdate: "IMPORT",
-  };
-};

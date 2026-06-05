@@ -1,35 +1,8 @@
-import prisma from "~/lib/prisma";
+import { userService } from "~/server/services/UserService";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
   const body = await readBody(event);
-
-  const user = await prisma.user.upsert({
-    where: { id: userConnected.id },
-    update: {
-      name: body.username,
-      slug: slugify(body.username),
-    },
-    create: {
-      id: userConnected.id,
-      name: body.username,
-      slug: slugify(body.username),
-    },
-  });
-
-  return {
-    ...user,
-    email: userConnected.email,
-  };
+  return userService.setUsername(userConnected.id, userConnected.email, body.username);
 });
-
-const slugify = (str: string) => {
-  str = str.replace(/^\s+|\s+$/g, ""); // trim leading/trailing white space
-  str = str.toLowerCase(); // convert string to lowercase
-  str = str
-    .replace(/[^a-z0-9 -]/g, "") // remove any non-alphanumeric characters
-    .replace(/\s+/g, "_") // replace spaces with hyphens
-    .replace(/-+/g, "_"); // remove consecutive hyphens
-  return str;
-};

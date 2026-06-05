@@ -306,6 +306,29 @@ class ShowdownManager {
     return this.activeMatches[matchId];
   }
 
+  /**
+   * Récupère le pseudo et le niveau d'un joueur depuis la base.
+   */
+  async getPlayerInfo(userId: string): Promise<{ name: string; level: number }> {
+    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+    const progress = await prisma.userProgress.findUnique({ where: { userId } });
+    return {
+      name: dbUser?.name || "Joueur",
+      level: progress?.levelId || 1,
+    };
+  }
+
+  /**
+   * Retourne l'ID de la partie active (non terminée) en mémoire pour cet
+   * utilisateur, sinon null.
+   */
+  getActiveMatchIdForUser(userId: string): string | null {
+    const match = Object.values(this.activeMatches).find(
+      (m) => m.players.some((p) => p.userId === userId) && m.status !== "FINISHED",
+    );
+    return match ? match.matchId : null;
+  }
+
   async registerClient(
     matchId: string,
     userId: string,

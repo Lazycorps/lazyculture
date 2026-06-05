@@ -1,9 +1,6 @@
-import { PrismaClient } from "@prisma/client";
-import prisma from "~/lib/prisma";
+import { themeService } from "~/server/services/ThemeService";
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler((event) => {
   const query = getQuery(event);
-  return prisma.questionTheme.findFirst({
-    where: { slug: query.theme as string },
-  });
+  return themeService.getThemeBySlug(query.theme as string);
 });

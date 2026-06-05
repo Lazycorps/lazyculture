@@ -99,10 +99,6 @@
                 :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
               >
                 <span>{{ isCorrect ? "Excellent travail !" : "Oups, mauvaise réponse" }}</span>
-                <span v-if="themeProgress" class="text-[11px] font-bold text-gray-400 font-display">
-                  Progression : {{ themeProgress.responseCount }} /
-                  {{ themeProgress.questionCount }}
-                </span>
               </h4>
               <div
                 class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text mb-4"

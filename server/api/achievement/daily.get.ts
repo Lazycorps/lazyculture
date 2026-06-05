@@ -1,57 +1,7 @@
-import prisma from "~/lib/prisma";
-import { checkAndAwardAchievements } from "~/server/utils/achievementHelper";
-import { UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import { achievementService } from "~/server/services/AchievementService";
 import { getAuthenticatedUser } from "~/server/utils/auth";
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler((event) => {
   const userConnected = getAuthenticatedUser(event);
-
-  const dailySeriesCount = await prisma.questionSeriesResponse.count({
-    where: {
-      userId: userConnected.id,
-      seriesType: "daily",
-    },
-  });
-  const dailySeriesAchievement = await checkAndAwardAchievements(
-    userConnected.id,
-    "dailySeries",
-    dailySeriesCount,
-  );
-
-  const dailySeriesStreak = await checkDailySeriesStreak(userConnected.id);
-
-  return [...dailySeriesAchievement, ...dailySeriesStreak];
+  return achievementService.checkDailyAchievements(userConnected.id);
 });
-
-async function checkDailySeriesStreak(userId: string): Promise<UserAchievementDTO[]> {
-  const seriesList = await prisma.questionSeries.findMany({
-    where: { type: "daily" },
-    orderBy: { createDate: "desc" },
-    take: 360,
-    select: {
-      id: true,
-    },
-  });
-  console.log(seriesList);
-  const userSeries = await prisma.questionSeriesResponse.findMany({
-    where: { userId, seriesType: "daily" },
-    orderBy: { createDate: "desc" },
-    take: 360,
-    select: {
-      id: true,
-      seriesId: true,
-    },
-  });
-  console.log(userSeries);
-  let currentStreak = 0;
-
-  for (const series of seriesList) {
-    if (userSeries.some((us) => us.seriesId == series.id)) {
-      currentStreak++;
-    } else {
-      break;
-    }
-  }
-  console.log(currentStreak);
-  return await checkAndAwardAchievements(userId, "dailySeriesStreak", currentStreak);
-}

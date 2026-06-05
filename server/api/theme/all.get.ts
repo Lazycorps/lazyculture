@@ -1,6 +1,3 @@
-import { PrismaClient } from "@prisma/client";
-import prisma from "~/lib/prisma";
+import { themeService } from "~/server/services/ThemeService";
 
-export default defineEventHandler(async (event) => {
-  return prisma.questionTheme.findMany();
-});
+export default defineEventHandler(() => themeService.getAllThemes());
