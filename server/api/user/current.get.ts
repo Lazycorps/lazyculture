@@ -3,11 +3,6 @@ import { getRankFromPoints } from "~/server/utils/rankHelper";
 
 export default defineEventHandler(async (event) => {
   const userConnected = event.context.user;
-  console.log(
-    "[/api/user/current] event.context.user:",
-    userConnected?.id ?? null,
-    userConnected?.email ?? null,
-  );
   if (userConnected == null) return null;
   let user = await prisma.user.findFirst({
     where: { id: userConnected?.id },
@@ -16,8 +11,6 @@ export default defineEventHandler(async (event) => {
       BattleRoyaleRank: true,
     },
   });
-
-  console.log("[/api/user/current] prisma user found:", user?.id ?? null, "admin:", user?.admin);
 
   if (user == null) {
     user = await prisma.user.create({
