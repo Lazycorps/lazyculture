@@ -63,7 +63,7 @@
         <hr class="border-white/5 my-5" />
 
         <!-- Quiz Runner Section -->
-        <template v-if="questionId != nbrQuestion">
+        <template v-if="!completed">
           <div class="py-4">
             <QuestionSeries
               v-if="seriesStarted"
@@ -184,6 +184,11 @@ const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
 });
 
+// On bascule vers l'écran de fin uniquement quand le joueur clique sur "Continuer"
+// après la dernière question, afin qu'il puisse voir la bonne réponse et lire
+// l'explication. Initialisé à true si la série est déjà terminée au chargement.
+const completed = ref(nbrQuestion.value > 0 && questionId.value >= nbrQuestion.value);
+
 async function startSeries() {
   try {
     loading.value = true;
@@ -196,6 +201,12 @@ async function startSeries() {
 }
 
 async function nextQuestion() {
+  // Toutes les questions ont été répondues : on affiche l'écran de fin
+  // (déclenché par le clic sur "Continuer" de la dernière question).
+  if (questionId.value >= nbrQuestion.value) {
+    completed.value = true;
+    return;
+  }
   try {
     loading.value = true;
     const nexQuestion =
