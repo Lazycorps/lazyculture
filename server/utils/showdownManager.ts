@@ -22,6 +22,7 @@ export interface ShowdownMatchInMemory {
   matchId: string;
   status: "THEME_SELECTION" | "PLAYING" | "FINISHED";
   currentRound: number; // 0 à 15 (dans la phase actuelle)
+  lastResolvedRound: number; // Dernier round dont les dégâts ont été appliqués (anti double-résolution)
   phase: number; // 1, 2, 3...
   themePool: { name: string; slug: string; picture: string }[]; // 10 thèmes proposés
   selectedThemes: {
@@ -238,6 +239,7 @@ class ShowdownManager {
         matchId: dbMatch.id,
         status: "THEME_SELECTION",
         currentRound: 0,
+        lastResolvedRound: -1,
         phase: 1,
         themePool: selectedPool,
         selectedThemes: {
@@ -775,6 +777,12 @@ class ShowdownManager {
       return { success: false, message: "Vous avez déjà répondu." };
     }
 
+    // Le round a déjà été résolu (timer écoulé ou bonne réponse adverse) :
+    // ne plus accepter de réponse tardive pendant la fenêtre de transition.
+    if (match.lastResolvedRound === match.currentRound) {
+      return { success: false, message: "Le round est terminé." };
+    }
+
     // Si l'adversaire a déjà répondu JUSTE en premier, le round est gelé
     const opponent = match.players.find((p) => p.userId !== userId);
     if (
@@ -823,6 +831,12 @@ class ShowdownManager {
   private async resolveRound(matchId: string) {
     const match = this.getMatch(matchId);
     if (!match || match.status !== "PLAYING") return;
+
+    // Empêcher toute double résolution du même round (timer + réponse quasi simultanés,
+    // ou réponse tardive durant la fenêtre de transition de 3s) qui appliquerait
+    // deux fois les dégâts.
+    if (match.lastResolvedRound === match.currentRound) return;
+    match.lastResolvedRound = match.currentRound;
 
     if (match.roundTimer) clearTimeout(match.roundTimer);
 
