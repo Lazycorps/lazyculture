@@ -703,9 +703,9 @@ class ShowdownManager {
       0,
     );
     const totalTextLength = libelleText.length + propositionsText;
-    let readingDuration = Math.ceil(totalTextLength / 20);
-    if (question.picture || rawData?.img) readingDuration += 2; // image à observer
-    readingDuration = Math.min(9, Math.max(3, readingDuration));
+    let readingDuration = Math.ceil(totalTextLength / 35);
+    if (question.picture || rawData?.img) readingDuration += 1; // image à observer
+    readingDuration = Math.min(6, Math.max(2, readingDuration));
 
     // Le round dure 20s au total : la lecture est prélevée sur ce budget, le reste
     // constitue la fenêtre de réponse (au moins 11s).
