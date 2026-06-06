@@ -56,7 +56,6 @@ export default defineNuxtConfig({
       },
     },
   },
-  // @ts-expect-error - routeRules type might not be resolved in default config schema
   routeRules: {
     "/": {
       // Temporary redirect using a 307 status code
