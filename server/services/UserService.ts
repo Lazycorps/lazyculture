@@ -1,5 +1,6 @@
 import prisma from "~~/server/utils/prisma";
 import { getRankFromPoints } from "~~/server/utils/rankHelper";
+import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import type { QuestionSeriesResponseData } from "#shared/series";
 
@@ -10,6 +11,7 @@ export class UserService {
       include: {
         UserProgress: { include: { level: true } },
         BattleRoyaleRank: true,
+        ShowdownRank: true,
       },
     });
 
@@ -25,6 +27,7 @@ export class UserService {
         include: {
           UserProgress: { include: { level: true } },
           BattleRoyaleRank: true,
+          ShowdownRank: true,
         },
       });
     }
@@ -40,6 +43,9 @@ export class UserService {
     const brRank = user.BattleRoyaleRank || { points: 0, wins: 0, gamesPlayed: 0 };
     const rankInfo = getRankFromPoints(brRank.points);
 
+    const showdownRankRecord = user.ShowdownRank || { points: 0, wins: 0, gamesPlayed: 0 };
+    const showdownRankInfo = getShowdownRankFromPoints(showdownRankRecord.points);
+
     return {
       ...user,
       email,
@@ -49,6 +55,12 @@ export class UserService {
         wins: brRank.wins,
         gamesPlayed: brRank.gamesPlayed,
         rankInfo,
+      },
+      showdownRank: {
+        points: showdownRankRecord.points,
+        wins: showdownRankRecord.wins,
+        gamesPlayed: showdownRankRecord.gamesPlayed,
+        rankInfo: showdownRankInfo,
       },
     };
   }
@@ -103,6 +115,7 @@ export class UserService {
           },
         },
         BattleRoyaleRank: true,
+        ShowdownRank: true,
       },
     });
 
@@ -250,6 +263,56 @@ export class UserService {
     const brRank = user.BattleRoyaleRank || { points: 0, wins: 0, gamesPlayed: 0 };
     const rankInfo = getRankFromPoints(brRank.points);
 
+    const showdownRankRecord = user.ShowdownRank || { points: 0, wins: 0, gamesPlayed: 0 };
+    const showdownRankInfo = getShowdownRankFromPoints(showdownRankRecord.points);
+
+    // Récupération de l'historique Showdown
+    const showdownParticipations = await prisma.showdownPlayer.findMany({
+      where: { userId: user.id },
+      include: {
+        match: {
+          include: {
+            players: {
+              include: {
+                user: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        joinedAt: "desc",
+      },
+      take: 20,
+    });
+
+    const showdownHistory = showdownParticipations.map((part) => {
+      const match = part.match;
+      const opponentPlayer = match.players.find((p) => p.userId !== user.id);
+      const opponentName = opponentPlayer?.user?.name || "Adversaire";
+
+      const won = match.winnerId === user.id;
+      const draw = match.status === "FINISHED" && !match.winnerId;
+
+      return {
+        matchId: match.id,
+        status: match.status,
+        currentRound: match.currentRound,
+        winnerId: match.winnerId,
+        opponentName,
+        opponentId: opponentPlayer?.userId || null,
+        createdAt: match.createdAt,
+        joinedAt: part.joinedAt,
+        hpLeft: part.hp,
+        opponentHpLeft: opponentPlayer?.hp ?? 0,
+        xpEarned: part.xpEarned,
+        won,
+        draw,
+      };
+    });
+
     return {
       user: {
         id: user.id,
@@ -266,10 +329,17 @@ export class UserService {
           gamesPlayed: brRank.gamesPlayed,
           rankInfo,
         },
+        showdownRank: {
+          points: showdownRankRecord.points,
+          wins: showdownRankRecord.wins,
+          gamesPlayed: showdownRankRecord.gamesPlayed,
+          rankInfo: showdownRankInfo,
+        },
       },
       achievements: achievementsDTO,
       userAchievements: userAchievementsDTO,
       battleRoyaleHistory: brHistory,
+      showdownHistory,
       dailyHistory,
     };
   }

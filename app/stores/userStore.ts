@@ -22,6 +22,12 @@ export interface DBUser {
     gamesPlayed: number;
     rankInfo: any;
   };
+  showdownRank?: {
+    points: number;
+    wins: number;
+    gamesPlayed: number;
+    rankInfo: any;
+  };
 }
 
 export const useUserStore = defineStore("user", {
