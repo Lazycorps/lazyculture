@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { computed } from "vue";
 
 export const useShowdownSession = () => {
   const matchId = useState<string | null>("sd-match-id", () => null);
@@ -222,6 +222,21 @@ export const useShowdownSession = () => {
         lastRoundResults.value = data; // Détails de score finaux pour le podium
         showRoundResults.value = false;
         status.value = "FINISHED";
+
+        // Extract achievements for this user and notify
+        const myData = data.p1.userId === userId ? data.p1 : data.p2;
+        if (myData && myData.unlockedAchievements && myData.unlockedAchievements.length > 0) {
+          const achievementStore = useAchievementStore();
+          myData.unlockedAchievements.forEach((a: any) => {
+            const alreadyExists = achievementStore.userAchievements.some(
+              (ua) => ua.achievementId === a.achievementId,
+            );
+            if (!alreadyExists) {
+              achievementStore.userAchievements.push(a);
+              achievementStore.notify(a);
+            }
+          });
+        }
 
         // Fermer la liaison SSE tout en conservant le state local pour le podium
         if (eventSource.value) {

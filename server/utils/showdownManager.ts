@@ -1,6 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateShowdownUserRank } from "./showdownRankHelper";
+import { achievementService } from "~~/server/services/AchievementService";
 
 export interface ShowdownPlayerInMemory {
   userId: string;
@@ -1080,6 +1081,20 @@ class ShowdownManager {
       // Si match nul, pas de variation de LP
     }
 
+    // 3.5. Vérifier les exploits Showdown
+    const p1Achievements = await achievementService
+      .checkShowdownAchievements(p1.userId)
+      .catch((err) => {
+        console.error("Erreur lors de la vérification des exploits Showdown pour p1:", err);
+        return [];
+      });
+    const p2Achievements = await achievementService
+      .checkShowdownAchievements(p2.userId)
+      .catch((err) => {
+        console.error("Erreur lors de la vérification des exploits Showdown pour p2:", err);
+        return [];
+      });
+
     // 4. Enregistrer dans la DB
     await prisma.showdownMatch
       .update({
@@ -1106,6 +1121,7 @@ class ShowdownManager {
         newRank: p1RankUpdate?.newRank,
         isPromoted: p1RankUpdate?.isPromoted ?? false,
         isDemoted: p1RankUpdate?.isDemoted ?? false,
+        unlockedAchievements: p1Achievements ?? [],
       },
       p2: {
         userId: p2.userId,
@@ -1119,6 +1135,7 @@ class ShowdownManager {
         newRank: p2RankUpdate?.newRank,
         isPromoted: p2RankUpdate?.isPromoted ?? false,
         isDemoted: p2RankUpdate?.isDemoted ?? false,
+        unlockedAchievements: p2Achievements ?? [],
       },
     });
 

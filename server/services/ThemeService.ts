@@ -148,6 +148,177 @@ export class ThemeService {
     }
   }
 
+  async getAllThemesProgress(userId?: string) {
+    try {
+      // 1. Get all theme definitions
+      const themes = await prisma.questionTheme.findMany({
+        select: { slug: true },
+      });
+
+      // 2. Question count per theme (non-deleted, not null data)
+      const questionCounts = await prisma.$queryRaw<{ theme_slug: string; count: number }[]>`
+        SELECT
+          jsonb_array_elements_text(data->'theme') AS theme_slug,
+          COUNT(*)::int AS count
+        FROM "Question"
+        WHERE deleted = false AND data IS NOT NULL
+        GROUP BY theme_slug
+      `;
+
+      const totalQuestionsCount = await prisma.question.count({
+        where: { deleted: false },
+      });
+
+      // Initialize the progress map
+      const progressMap: Record<
+        string,
+        {
+          questionCount: number;
+          responseCount: number;
+          mastery: number;
+          hasNewQuestions: boolean;
+        }
+      > = {};
+
+      for (const t of themes) {
+        progressMap[t.slug] = {
+          questionCount: 0,
+          responseCount: 0,
+          mastery: 0,
+          hasNewQuestions: false,
+        };
+      }
+
+      // Populate question count
+      for (const row of questionCounts) {
+        const themeProgress = progressMap[row.theme_slug];
+        if (themeProgress) {
+          themeProgress.questionCount = row.count;
+        }
+      }
+
+      // Initialize random theme
+      progressMap["random"] = {
+        questionCount: totalQuestionsCount,
+        responseCount: 0,
+        mastery: 0,
+        hasNewQuestions: false,
+      };
+
+      if (userId) {
+        // 3. User success response count per theme
+        const successCounts = await prisma.$queryRaw<{ theme_slug: string; count: number }[]>`
+          SELECT
+            jsonb_array_elements_text(q.data->'theme') AS theme_slug,
+            COUNT(DISTINCT qr."questionId")::int AS count
+          FROM "QuestionResponse" qr
+          JOIN "Question" q ON qr."questionId" = q.id
+          WHERE qr."userId" = ${userId}
+            AND qr.success = true
+            AND q.deleted = false
+            AND q.data IS NOT NULL
+          GROUP BY theme_slug
+        `;
+
+        for (const row of successCounts) {
+          const themeProgress = progressMap[row.theme_slug];
+          if (themeProgress) {
+            themeProgress.responseCount = row.count;
+          }
+        }
+
+        const randomSuccessResponses = await prisma.questionResponse.findMany({
+          where: {
+            userId,
+            success: true,
+            question: { deleted: false },
+          },
+          distinct: ["questionId"],
+          select: { questionId: true },
+        });
+        progressMap["random"].responseCount = randomSuccessResponses.length;
+
+        // 4. Mastery per theme
+        const recentResponses = await prisma.$queryRaw<
+          { theme_slug: string; success_count: number; total_count: number }[]
+        >`
+          WITH ranked_responses AS (
+            SELECT
+              qr.success,
+              jsonb_array_elements_text(q.data->'theme') AS theme_slug,
+              ROW_NUMBER() OVER (
+                PARTITION BY jsonb_array_elements_text(q.data->'theme')
+                ORDER BY qr.date DESC
+              ) AS rn
+            FROM "QuestionResponse" qr
+            JOIN "Question" q ON qr."questionId" = q.id
+            WHERE qr."userId" = ${userId}
+              AND q.deleted = false
+              AND q.data IS NOT NULL
+          )
+          SELECT
+            theme_slug,
+            COUNT(CASE WHEN success = true THEN 1 END)::int AS success_count,
+            COUNT(*)::int AS total_count
+          FROM ranked_responses
+          WHERE rn <= 50
+          GROUP BY theme_slug
+        `;
+
+        for (const row of recentResponses) {
+          const themeProgress = progressMap[row.theme_slug];
+          if (themeProgress) {
+            const goodCount = row.success_count;
+            const totalCount = row.total_count;
+            themeProgress.mastery = totalCount > 20 ? (goodCount / totalCount) * 10 : 0;
+          }
+        }
+
+        const randomRecentResponses = await prisma.questionResponse.findMany({
+          where: {
+            userId,
+            question: { deleted: false },
+          },
+          select: { success: true },
+          orderBy: { date: "desc" },
+          take: 1000,
+        });
+        const randomGoodCount = randomRecentResponses.filter((r) => r.success).length;
+        progressMap["random"].mastery =
+          randomRecentResponses.length > 20
+            ? (randomGoodCount / randomRecentResponses.length) * 10
+            : 0;
+
+        // 5. New unanswered questions per theme (created in last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const newUnansweredThemes = await prisma.$queryRaw<{ theme_slug: string }[]>`
+          SELECT DISTINCT
+            jsonb_array_elements_text(q.data->'theme') AS theme_slug
+          FROM "Question" q
+          LEFT JOIN "QuestionResponse" qr ON qr."questionId" = q.id AND qr."userId" = ${userId}
+          WHERE q.deleted = false
+            AND q.data IS NOT NULL
+            AND q."createDate" >= ${thirtyDaysAgo}
+            AND qr.id IS NULL
+        `;
+
+        for (const row of newUnansweredThemes) {
+          const themeProgress = progressMap[row.theme_slug];
+          if (themeProgress) {
+            themeProgress.hasNewQuestions = true;
+          }
+        }
+      }
+
+      return progressMap;
+    } catch (e) {
+      console.error("Error loading batch theme progress on server:", e);
+      return {};
+    }
+  }
+
   private getAllSuccessResponses(userId: string, theme: string) {
     const isNotRandom = theme != "random";
     return prisma.questionResponse.findMany({

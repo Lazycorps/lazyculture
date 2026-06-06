@@ -1,6 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateUserRank } from "./rankHelper";
+import { achievementService } from "~~/server/services/AchievementService";
 
 export interface BRPlayer {
   userId: string;
@@ -975,8 +976,17 @@ class BattleRoyaleManager {
         return null;
       });
 
-      // Stocker les détails du rang mis à jour sur l'objet player pour l'utiliser dans la diffusion
+      // Vérifier les exploits Battle Royale
+      const unlockedAchievements = await achievementService
+        .checkBattleRoyaleAchievements(player.userId)
+        .catch((err) => {
+          console.error("Erreur lors de la vérification des exploits Battle Royale:", err);
+          return [];
+        });
+
+      // Stocker les détails du rang et des achievements mis à jour sur l'objet player pour l'utiliser dans la diffusion
       (player as any).rankUpdate = rankUpdate;
+      (player as any).unlockedAchievements = unlockedAchievements;
     }
 
     // Sauvegarder en DB
@@ -1011,6 +1021,7 @@ class BattleRoyaleManager {
           newRank: update?.newRank,
           isPromoted: update?.isPromoted ?? false,
           isDemoted: update?.isDemoted ?? false,
+          unlockedAchievements: (p as any).unlockedAchievements ?? [],
         };
       }),
     });

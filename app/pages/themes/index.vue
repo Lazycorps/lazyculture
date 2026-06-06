@@ -17,12 +17,12 @@
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 max-w-7xl">
       <!-- Random Theme Special Card -->
       <div class="h-full">
-        <ThemeComponent :theme="randomTheme" />
+        <ThemeComponent :theme="randomTheme" :progress="progressMap?.random" />
       </div>
 
       <!-- Database Loaded Themes -->
       <div v-for="theme in themes" :key="theme.slug" class="h-full">
-        <ThemeComponent :theme="theme" />
+        <ThemeComponent :theme="theme" :progress="progressMap?.[theme.slug]" />
       </div>
     </div>
   </div>
@@ -32,7 +32,13 @@
 import ThemeComponent from "~/components/Theme.vue";
 import type { Theme } from "#shared/theme";
 
-const { data: themes } = await useFetch<Theme[]>("/api/theme/all");
+const [themesRes, progressRes] = await Promise.all([
+  useFetch<Theme[]>("/api/theme/all"),
+  useFetch<Record<string, any>>("/api/theme/progress"),
+]);
+
+const themes = themesRes.data;
+const progressMap = progressRes.data;
 
 const randomTheme = {
   name: "Aléatoire",

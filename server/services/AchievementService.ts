@@ -163,6 +163,44 @@ export class AchievementService {
     }
     return await checkAndAwardAchievements(userId, "dailySeriesStreak", currentStreak);
   }
+
+  async checkBattleRoyaleAchievements(userId: string) {
+    const brRank = await prisma.battleRoyaleRank.findUnique({
+      where: { userId },
+    });
+    if (!brRank) return [];
+
+    const gamesPlayedAchievement = await checkAndAwardAchievements(
+      userId,
+      "brGames",
+      brRank.gamesPlayed,
+    );
+
+    const winsAchievement = await checkAndAwardAchievements(userId, "brWins", brRank.wins);
+
+    return [...gamesPlayedAchievement, ...winsAchievement];
+  }
+
+  async checkShowdownAchievements(userId: string) {
+    const showdownRank = await prisma.showdownRank.findUnique({
+      where: { userId },
+    });
+    if (!showdownRank) return [];
+
+    const gamesPlayedAchievement = await checkAndAwardAchievements(
+      userId,
+      "showdownGames",
+      showdownRank.gamesPlayed,
+    );
+
+    const winsAchievement = await checkAndAwardAchievements(
+      userId,
+      "showdownWins",
+      showdownRank.wins,
+    );
+
+    return [...gamesPlayedAchievement, ...winsAchievement];
+  }
 }
 
 export const achievementService = new AchievementService();

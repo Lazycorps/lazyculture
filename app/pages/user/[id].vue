@@ -132,6 +132,85 @@
         </template>
       </UCard>
 
+      <!-- Statistiques Globales Section -->
+      <UCard
+        v-if="profileData && profileData.globalStats"
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      >
+        <div class="space-y-4">
+          <h3
+            class="text-sm font-black uppercase tracking-wider text-gray-400 font-display flex items-center"
+          >
+            <UIcon
+              name="i-heroicons-chart-bar"
+              class="mr-2 text-violet-500 text-base animate-pulse"
+            />
+            Statistiques Globales
+          </h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-in">
+            <!-- Carte 1: Précision -->
+            <div
+              class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+            >
+              <UIcon name="i-heroicons-check-badge" class="text-emerald-400 text-2xl mb-1.5" />
+              <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+                >Précision</span
+              >
+              <span class="text-xl font-black text-white font-display mt-0.5"
+                >{{ profileData.globalStats.accuracy }}%</span
+              >
+            </div>
+
+            <!-- Carte 2: Questions Répondues -->
+            <div
+              class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+            >
+              <UIcon
+                name="i-heroicons-chat-bubble-left-right"
+                class="text-violet-400 text-2xl mb-1.5"
+              />
+              <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+                >Questions</span
+              >
+              <span class="text-xl font-black text-white font-display mt-0.5">{{
+                profileData.globalStats.totalQuestions
+              }}</span>
+            </div>
+
+            <!-- Carte 3: Parties PvP -->
+            <div
+              class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+            >
+              <UIcon name="i-heroicons-bolt" class="text-pink-400 text-2xl mb-1.5" />
+              <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+                >Parties PvP</span
+              >
+              <span class="text-xl font-black text-white font-display mt-0.5">{{
+                profileData.globalStats.totalPvPMatches
+              }}</span>
+              <span class="text-[9px] text-cyan-400 font-extrabold font-display mt-0.5"
+                >{{ profileData.globalStats.pvpWinRate }}% Victoires</span
+              >
+            </div>
+
+            <!-- Carte 4: Série Active (Streak) -->
+            <div
+              class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+            >
+              <UIcon name="i-heroicons-fire" class="text-orange-500 text-2xl mb-1.5" />
+              <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+                >Série Active</span
+              >
+              <span class="text-xl font-black text-white font-display mt-0.5"
+                >{{ profileData.globalStats.currentStreak }}
+                {{ profileData.globalStats.currentStreak > 1 ? "jours" : "jour" }}</span
+              >
+            </div>
+          </div>
+        </div>
+      </UCard>
+
       <!-- Competitive Battle Royale Section -->
       <UCard
         v-if="profileData.user.brRank"
@@ -507,6 +586,90 @@
         </div>
       </UCard>
 
+      <!-- Progression par Thème Section -->
+      <UCard
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      >
+        <div class="space-y-4">
+          <h3
+            class="text-sm font-black uppercase tracking-wider text-gray-400 font-display flex items-center"
+          >
+            <UIcon
+              name="i-heroicons-academic-cap"
+              class="mr-2 text-violet-500 text-base animate-pulse"
+            />
+            Progression par Thème
+          </h3>
+
+          <div
+            v-if="!profileData.themeProgress || profileData.themeProgress.length === 0"
+            class="text-center py-8 bg-slate-950/20 border border-white/5 rounded-2xl"
+          >
+            <p class="text-xs text-gray-500">Aucune progression enregistrée.</p>
+          </div>
+
+          <div
+            v-else
+            class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar"
+          >
+            <div
+              v-for="item in profileData.themeProgress"
+              :key="item.slug"
+              class="flex items-center space-x-3 p-3 bg-slate-950/20 border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300"
+            >
+              <img
+                :src="item.picture"
+                :alt="item.name"
+                class="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+              />
+              <div class="flex-1 min-w-0 space-y-1">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-xs font-black text-white font-display truncate pr-1">
+                    {{ item.name }}
+                  </h4>
+                  <span
+                    v-if="item.mastery > 0"
+                    class="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0"
+                    :class="getMasteryColorClass(item.mastery).badge"
+                  >
+                    <UIcon
+                      name="i-heroicons-academic-cap"
+                      class="mr-0.5 text-xs"
+                      :class="getMasteryColorClass(item.mastery).icon"
+                    />
+                    {{ item.mastery.toFixed(1) }}
+                  </span>
+                </div>
+
+                <!-- Custom premium progress bar -->
+                <div class="space-y-1">
+                  <div
+                    class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5 relative"
+                  >
+                    <div
+                      class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
+                      :style="{
+                        width: `${item.questionCount > 0 ? (item.responseCount / item.questionCount) * 100 : 0}%`,
+                      }"
+                    ></div>
+                  </div>
+                  <div class="flex justify-between text-[9px] font-bold text-gray-500 font-display">
+                    <span>{{ item.responseCount }} / {{ item.questionCount }} résolues</span>
+                    <span
+                      >{{
+                        item.questionCount > 0
+                          ? Math.round((item.responseCount / item.questionCount) * 100)
+                          : 0
+                      }}%</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
       <!-- Achievements Section -->
       <UCard
         class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
@@ -685,6 +848,25 @@ function formatTime(ms: number) {
     return `${seconds}s`;
   }
   return `${minutes}m ${seconds < 10 ? "0" : ""}${seconds}s`;
+}
+
+function getMasteryColorClass(mastery: number) {
+  if (mastery < 4.5) {
+    return {
+      badge: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+      icon: "text-rose-500",
+    };
+  } else if (mastery < 7.5) {
+    return {
+      badge: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+      icon: "text-amber-500",
+    };
+  } else {
+    return {
+      badge: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+      icon: "text-emerald-500",
+    };
+  }
 }
 </script>
 

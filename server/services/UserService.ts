@@ -3,6 +3,7 @@ import { getRankFromPoints } from "~~/server/utils/rankHelper";
 import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import type { QuestionSeriesResponseData } from "#shared/series";
+import { themeService } from "~~/server/services/ThemeService";
 
 export class UserService {
   async getCurrentUser(userId: string, email: string | undefined) {
@@ -313,6 +314,79 @@ export class UserService {
       };
     });
 
+    const themes = await prisma.questionTheme.findMany({
+      orderBy: { name: "asc" },
+    });
+    const progressMap = await themeService.getAllThemesProgress(user.id);
+    const themeProgress = themes.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      picture: t.picture,
+      questionCount: progressMap[t.slug]?.questionCount ?? 0,
+      responseCount: progressMap[t.slug]?.responseCount ?? 0,
+      mastery: progressMap[t.slug]?.mastery ?? 0,
+    }));
+
+    // Calcul des statistiques globales
+    const totalQuestions = await prisma.questionResponse.count({
+      where: { userId: user.id },
+    });
+    const correctQuestions = await prisma.questionResponse.count({
+      where: { userId: user.id, success: true },
+    });
+
+    // Calcul de la série de jours actifs consécutifs (streak)
+    const lastResponses = await prisma.questionResponse.findMany({
+      where: { userId: user.id },
+      select: { date: true },
+      orderBy: { date: "desc" },
+      take: 500,
+    });
+
+    const toLocalDateStr = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const dates = lastResponses.map((r) => toLocalDateStr(r.date));
+    const uniqueDates = Array.from(new Set(dates));
+
+    let currentStreak = 0;
+    const today = new Date();
+    const todayStr = toLocalDateStr(today);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = toLocalDateStr(yesterday);
+
+    if (uniqueDates.includes(todayStr)) {
+      currentStreak = 1;
+      const checkDate = new Date();
+      while (true) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        const checkStr = toLocalDateStr(checkDate);
+        if (uniqueDates.includes(checkStr)) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+    } else if (uniqueDates.includes(yesterdayStr)) {
+      currentStreak = 1;
+      const checkDate = new Date(yesterday);
+      while (true) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        const checkStr = toLocalDateStr(checkDate);
+        if (uniqueDates.includes(checkStr)) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -341,6 +415,25 @@ export class UserService {
       battleRoyaleHistory: brHistory,
       showdownHistory,
       dailyHistory,
+      themeProgress,
+      globalStats: {
+        totalQuestions,
+        correctQuestions,
+        accuracy: totalQuestions > 0 ? Math.round((correctQuestions / totalQuestions) * 100) : 0,
+        currentStreak,
+        totalPvPMatches: brRank.gamesPlayed + showdownRankRecord.gamesPlayed,
+        totalPvPWins: brRank.wins + showdownRankRecord.wins,
+        pvpWinRate:
+          brRank.gamesPlayed + showdownRankRecord.gamesPlayed > 0
+            ? Math.round(
+                ((brRank.wins + showdownRankRecord.wins) /
+                  (brRank.gamesPlayed + showdownRankRecord.gamesPlayed)) *
+                  100,
+              )
+            : 0,
+        achievementsUnlocked: userAchievements.length,
+        totalAchievements: allAchievements.length,
+      },
     };
   }
 

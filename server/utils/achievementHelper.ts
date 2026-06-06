@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import { UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import prisma from "~~/server/utils/prisma";
 import { updateUserProgress } from "./userProgressHelper";
@@ -15,7 +14,11 @@ type ActionType =
   | "dailySeriesStreak"
   | "ascent"
   | "ascentMaxScore"
-  | "changePseudo";
+  | "changePseudo"
+  | "brGames"
+  | "brWins"
+  | "showdownGames"
+  | "showdownWins";
 
 // Conditions d'achievement
 interface AchievementCondition {

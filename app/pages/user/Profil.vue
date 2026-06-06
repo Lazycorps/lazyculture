@@ -47,53 +47,50 @@
       <!-- Form Inputs Section -->
       <div class="space-y-5">
         <!-- Email Input -->
-        <UFormGroup
+        <UFormField
           label="Adresse Email"
           name="email"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
           <UInput
             v-model="email"
             disabled
             icon="i-heroicons-envelope"
-            :ui="{ base: 'bg-white/5 border border-white/10 text-gray-400' }"
+            class="w-full"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed' }"
           />
-        </UFormGroup>
+        </UFormField>
 
-        <!-- Username Input with trailing save action -->
-        <UFormGroup
+        <!-- Username Input -->
+        <UFormField
           label="Nom d'utilisateur"
           name="username"
           :ui="{
-            label: {
-              text: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-            },
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
           }"
         >
-          <UInput
-            v-model="username"
-            placeholder="Entrez votre pseudonyme..."
-            icon="i-heroicons-user"
-            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
-            @update:model-value="userNameChanged = true"
-          >
-            <template #trailing>
-              <UButton
-                v-if="userNameChanged"
-                icon="i-heroicons-arrow-down-tray"
-                color="primary"
-                variant="ghost"
-                :loading="loadingUpdateUser"
-                class="hover:bg-white/5 text-violet-400"
-                @click="updateUsername"
-              />
-            </template>
-          </UInput>
-        </UFormGroup>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <UInput
+              v-model="username"
+              placeholder="Entrez votre pseudonyme..."
+              icon="i-heroicons-user"
+              class="flex-grow w-full"
+              :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+            />
+            <UButton
+              color="primary"
+              :disabled="!isUsernameSaveable"
+              :loading="loadingUpdateUser"
+              icon="i-heroicons-check-circle"
+              class="font-black font-display uppercase tracking-widest px-6 shrink-0 h-10 flex items-center justify-center"
+              @click="updateUsername"
+            >
+              Enregistrer
+            </UButton>
+          </div>
+        </UFormField>
       </div>
 
       <template #footer>
@@ -110,6 +107,190 @@
           </UButton>
         </div>
       </template>
+    </UCard>
+
+    <!-- Statistiques Globales Section -->
+    <UCard class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl">
+      <div class="space-y-4">
+        <h3
+          class="text-sm font-black uppercase tracking-wider text-gray-400 font-display flex items-center"
+        >
+          <UIcon
+            name="i-heroicons-chart-bar"
+            class="mr-2 text-violet-500 text-base animate-pulse"
+          />
+          Statistiques Globales
+        </h3>
+
+        <div v-if="loadingHistory" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="bg-slate-950/20 border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 h-24"
+          >
+            <USkeleton class="h-6 w-6 rounded-full bg-slate-800 shrink-0" />
+            <USkeleton class="h-3 w-16 bg-slate-800 shrink-0" />
+            <USkeleton class="h-5 w-10 bg-slate-800 shrink-0" />
+          </div>
+        </div>
+
+        <div v-else-if="globalStats" class="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-in">
+          <!-- Carte 1: Précision -->
+          <div
+            class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+          >
+            <UIcon name="i-heroicons-check-badge" class="text-emerald-400 text-2xl mb-1.5" />
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+              >Précision</span
+            >
+            <span class="text-xl font-black text-white font-display mt-0.5"
+              >{{ globalStats.accuracy }}%</span
+            >
+          </div>
+
+          <!-- Carte 2: Questions Répondues -->
+          <div
+            class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+          >
+            <UIcon
+              name="i-heroicons-chat-bubble-left-right"
+              class="text-violet-400 text-2xl mb-1.5"
+            />
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+              >Questions</span
+            >
+            <span class="text-xl font-black text-white font-display mt-0.5">{{
+              globalStats.totalQuestions
+            }}</span>
+          </div>
+
+          <!-- Carte 3: Parties PvP -->
+          <div
+            class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+          >
+            <UIcon name="i-heroicons-bolt" class="text-pink-400 text-2xl mb-1.5" />
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+              >Parties PvP</span
+            >
+            <span class="text-xl font-black text-white font-display mt-0.5">{{
+              globalStats.totalPvPMatches
+            }}</span>
+            <span class="text-[9px] text-cyan-400 font-extrabold font-display mt-0.5"
+              >{{ globalStats.pvpWinRate }}% Victoires</span
+            >
+          </div>
+
+          <!-- Carte 4: Série Active (Streak) -->
+          <div
+            class="bg-slate-950/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-glass"
+          >
+            <UIcon name="i-heroicons-fire" class="text-orange-500 text-2xl mb-1.5" />
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider font-display"
+              >Série Active</span
+            >
+            <span class="text-xl font-black text-white font-display mt-0.5"
+              >{{ globalStats.currentStreak }}
+              {{ globalStats.currentStreak > 1 ? "jours" : "jour" }}</span
+            >
+          </div>
+        </div>
+      </div>
+    </UCard>
+
+    <!-- Progression par Thème Section -->
+    <UCard class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl">
+      <div class="space-y-4">
+        <h3
+          class="text-sm font-black uppercase tracking-wider text-gray-400 font-display flex items-center"
+        >
+          <UIcon
+            name="i-heroicons-academic-cap"
+            class="mr-2 text-violet-500 text-base animate-pulse"
+          />
+          Progression par Thème
+        </h3>
+
+        <div v-if="loadingHistory" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="flex items-center space-x-3 p-3 bg-slate-950/20 border border-white/5 rounded-2xl"
+          >
+            <USkeleton class="h-12 w-12 rounded-xl bg-slate-800 shrink-0" />
+            <div class="space-y-2 flex-1">
+              <USkeleton class="h-3.5 w-1/2 bg-slate-800" />
+              <USkeleton class="h-2 w-full bg-slate-800" />
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-else-if="themeProgress.length === 0"
+          class="text-center py-8 bg-slate-950/20 border border-white/5 rounded-2xl"
+        >
+          <p class="text-xs text-gray-500">Aucune progression enregistrée.</p>
+        </div>
+
+        <div
+          v-else
+          class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar"
+        >
+          <div
+            v-for="item in themeProgress"
+            :key="item.slug"
+            class="flex items-center space-x-3 p-3 bg-slate-950/20 border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300"
+          >
+            <img
+              :src="item.picture"
+              :alt="item.name"
+              class="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0"
+            />
+            <div class="flex-1 min-w-0 space-y-1">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-black text-white font-display truncate pr-1">
+                  {{ item.name }}
+                </h4>
+                <span
+                  v-if="item.mastery > 0"
+                  class="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0"
+                  :class="getMasteryColorClass(item.mastery).badge"
+                >
+                  <UIcon
+                    name="i-heroicons-academic-cap"
+                    class="mr-0.5 text-xs"
+                    :class="getMasteryColorClass(item.mastery).icon"
+                  />
+                  {{ item.mastery.toFixed(1) }}
+                </span>
+              </div>
+
+              <!-- Custom premium progress bar -->
+              <div class="space-y-1">
+                <div
+                  class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-white/5 relative"
+                >
+                  <div
+                    class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
+                    :style="{
+                      width: `${item.questionCount > 0 ? (item.responseCount / item.questionCount) * 100 : 0}%`,
+                    }"
+                  ></div>
+                </div>
+                <div class="flex justify-between text-[9px] font-bold text-gray-500 font-display">
+                  <span>{{ item.responseCount }} / {{ item.questionCount }} résolues</span>
+                  <span
+                    >{{
+                      item.questionCount > 0
+                        ? Math.round((item.responseCount / item.questionCount) * 100)
+                        : 0
+                    }}%</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Achievements Section -->
@@ -580,21 +761,31 @@ const router = useRouter();
 const loading = ref(true);
 const loadingHistory = ref(true);
 const username = ref("");
+const initialUsername = ref("");
 const email = ref("");
 const level = ref(0);
 const xp = ref(0);
 const xpThreshold = ref(0);
 const xpMax = ref(0);
-const userNameChanged = ref(false);
 const loadingUpdateUser = ref(false);
+
+const isUsernameSaveable = computed(() => {
+  return (
+    username.value !== initialUsername.value &&
+    username.value.length >= 4 &&
+    username.value.length <= 16
+  );
+});
 
 const achievements = ref<any[]>([]);
 const userAchievements = ref<any[]>([]);
 const battleRoyaleHistory = ref<any[]>([]);
 const showdownHistory = ref<any[]>([]);
 const dailyHistory = ref<any[]>([]);
+const themeProgress = ref<any[]>([]);
 const brRank = ref<any>(null);
 const showdownRank = ref<any>(null);
+const globalStats = ref<any>(null);
 
 const xpProgress = computed(() => {
   const current = xp.value - xpThreshold.value;
@@ -619,6 +810,7 @@ async function fetchUser() {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     username.value = userConnected?.name ?? "";
+    initialUsername.value = userConnected?.name ?? "";
     email.value = userConnected?.email ?? "";
     level.value = userConnected?.UserProgress?.levelId ?? 1;
     xp.value = userConnected?.UserProgress?.xp ?? 0;
@@ -654,8 +846,10 @@ async function fetchHistory(userId: string) {
     battleRoyaleHistory.value = data?.battleRoyaleHistory ?? [];
     showdownHistory.value = data?.showdownHistory ?? [];
     dailyHistory.value = data?.dailyHistory ?? [];
+    themeProgress.value = data?.themeProgress ?? [];
     brRank.value = data?.user?.brRank ?? null;
     showdownRank.value = data?.user?.showdownRank ?? null;
+    globalStats.value = data?.globalStats ?? null;
   } catch (e) {
     console.error("Failed to load user history:", e);
   } finally {
@@ -682,7 +876,7 @@ async function updateUsername() {
       },
     });
     username.value = userUpdated?.name ?? "";
-    userNameChanged.value = false;
+    initialUsername.value = userUpdated?.name ?? "";
   } catch (e) {
     console.error("Failed to update username:", e);
   } finally {
@@ -721,6 +915,25 @@ function formatTime(ms: number) {
     return `${seconds}s`;
   }
   return `${minutes}m ${seconds < 10 ? "0" : ""}${seconds}s`;
+}
+
+function getMasteryColorClass(mastery: number) {
+  if (mastery < 4.5) {
+    return {
+      badge: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+      icon: "text-rose-500",
+    };
+  } else if (mastery < 7.5) {
+    return {
+      badge: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+      icon: "text-amber-500",
+    };
+  } else {
+    return {
+      badge: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+      icon: "text-emerald-500",
+    };
+  }
 }
 </script>
 

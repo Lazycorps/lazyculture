@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { computed } from "vue";
 
 export const useBattleRoyaleSession = () => {
   const matchId = useState<string | null>("br-match-id", () => null);
@@ -163,6 +163,25 @@ export const useBattleRoyaleSession = () => {
       winnerId.value = data.winnerId;
       winnerName.value = data.winnerName;
       standings.value = data.standings;
+
+      // Extract achievements for this user and notify
+      const myStanding = data.standings.find((s: any) => s.userId === userId);
+      if (
+        myStanding &&
+        myStanding.unlockedAchievements &&
+        myStanding.unlockedAchievements.length > 0
+      ) {
+        const achievementStore = useAchievementStore();
+        myStanding.unlockedAchievements.forEach((a: any) => {
+          const alreadyExists = achievementStore.userAchievements.some(
+            (ua) => ua.achievementId === a.achievementId,
+          );
+          if (!alreadyExists) {
+            achievementStore.userAchievements.push(a);
+            achievementStore.notify(a);
+          }
+        });
+      }
 
       setTimeout(() => {
         showRoundResults.value = false;

@@ -80,21 +80,45 @@
 <script setup lang="ts">
 import type { Theme } from "#shared/theme";
 const router = useRouter();
-const props = defineProps<{ theme: Theme }>();
+const props = defineProps<{
+  theme: Theme;
+  progress?: {
+    questionCount: number;
+    responseCount: number;
+    mastery: number;
+    hasNewQuestions: boolean;
+  };
+}>();
 
 const responseCount = ref(0);
 const questionCount = ref(0);
 const mastery = ref(0);
 const hasNewQuestions = ref(false);
-const loading = ref(false);
+const loading = ref(props.progress === undefined);
 
 const progressPercent = computed(() => {
   if (questionCount.value === 0) return 0;
   return (responseCount.value / questionCount.value) * 100;
 });
 
+watch(
+  () => props.progress,
+  (newVal) => {
+    if (newVal) {
+      responseCount.value = newVal.responseCount;
+      questionCount.value = newVal.questionCount;
+      mastery.value = newVal.mastery;
+      hasNewQuestions.value = newVal.hasNewQuestions || false;
+      loading.value = false;
+    }
+  },
+  { immediate: true },
+);
+
 onMounted(async () => {
-  await loadProgress();
+  if (!props.progress) {
+    await loadProgress();
+  }
 });
 
 async function loadProgress() {
