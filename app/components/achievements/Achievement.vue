@@ -28,7 +28,7 @@
 
         <!-- Achievement Badge Container -->
         <div
-          class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center cursor-help border transition-all duration-200"
+          class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center cursor-help border transition-all duration-200 overflow-hidden"
           :class="
             userHasAchievement(achievement.id)
               ? 'bg-slate-900 border-amber-500/40 shadow-lg gold-glow scale-100 hover:scale-105'
@@ -40,7 +40,7 @@
             v-if="achievement?.icon"
             :src="achievement.icon"
             alt="Achievement Icon"
-            class="w-4/5 h-4/5 object-contain"
+            class="w-full h-full object-cover"
           />
           <!-- Fallback Trophy Emoji -->
           <span v-else class="text-3xl sm:text-4xl">🏆</span>
@@ -48,7 +48,7 @@
           <!-- Locked padlock badge badge -->
           <span
             v-if="!userHasAchievement(achievement.id)"
-            class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-slate-950/90 border border-white/10 flex items-center justify-center text-[10px] text-gray-400"
+            class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-slate-950/90 border border-white/10 flex items-center justify-center text-[10px] text-gray-400 z-10"
           >
             🔒
           </span>
