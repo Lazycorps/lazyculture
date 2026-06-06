@@ -7,11 +7,11 @@
       class="flex items-center space-x-3 cursor-pointer select-none group"
       @click="router.push('/themes')"
     >
-      <div
-        class="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform"
-      >
-        🐢
-      </div>
+      <img
+        src="/pwa-192x192.png"
+        alt="Lazyculture"
+        class="w-10 h-10 object-contain group-hover:scale-110 transition-transform"
+      />
       <h1
         class="text-xl font-black font-display bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-transparent tracking-wide"
       >

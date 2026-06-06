@@ -3,11 +3,7 @@
     class="md:hidden fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 select-none"
   >
     <div class="flex items-center space-x-3 cursor-pointer" @click="router.push('/themes')">
-      <div
-        class="w-8 h-8 rounded-lg bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-lg"
-      >
-        🐢
-      </div>
+      <img src="/pwa-192x192.png" alt="Lazyculture" class="w-8 h-8 object-contain" />
       <span
         class="font-black text-lg font-display bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent"
         >Lazyculture</span

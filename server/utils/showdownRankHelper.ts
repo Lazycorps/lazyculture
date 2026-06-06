@@ -1,13 +1,6 @@
 import prisma from "~~/server/utils/prisma";
 
-export interface RankInfo {
-  tier: string;
-  division: string;
-  pointsInDivision: number;
-  label: string;
-  color: string;
-  icon: string;
-}
+import type { RankInfo } from "./rankHelper";
 
 /**
  * Calcule les informations détaillées du rang compétitif à partir des LP cumulés (identique à Battle Royale).
