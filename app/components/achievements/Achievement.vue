@@ -28,7 +28,7 @@
 
         <!-- Achievement Badge Container -->
         <div
-          class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center cursor-help border transition-all duration-200 overflow-hidden"
+          class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md flex items-center justify-center cursor-help border transition-all duration-200 overflow-hidden"
           :class="
             userHasAchievement(achievement.id)
               ? 'bg-slate-900 border-amber-500/40 shadow-lg gold-glow scale-100 hover:scale-105'
