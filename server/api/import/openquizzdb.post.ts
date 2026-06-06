@@ -1,6 +1,6 @@
-import type { OpenQuizzDB } from "~/models/openQuizzDB";
-import { importService } from "~/server/services/ImportService";
-import { assertApiKeyOrAdmin } from "~/server/utils/auth";
+import type { OpenQuizzDB } from "#shared/openQuizzDB";
+import { importService } from "~~/server/services/ImportService";
+import { assertApiKeyOrAdmin } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   await assertApiKeyOrAdmin(event);

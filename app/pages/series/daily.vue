@@ -11,11 +11,11 @@
           </div>
           <div class="space-y-2">
             <h2 class="text-2xl font-black font-display text-white tracking-wide">
-              Mode Ascension
+              Défi Quotidien
             </h2>
             <p class="text-sm text-gray-400 max-w-sm mx-auto">
-              Relevez le défi ultime et grimpez les sommets de la culture générale. Connectez-vous
-              pour jouer !
+              Testez votre culture générale chaque jour avec une série spéciale de questions et
+              grimpez dans le classement.
             </p>
           </div>
           <UButton
@@ -33,32 +33,16 @@
 
       <!-- Authenticated player view -->
       <template v-else>
-        <!-- Game Header (Title & Health Hearts) -->
+        <!-- Game Header (Title & Progress Bar) -->
         <div class="flex flex-col space-y-4 mb-6">
-          <div class="flex justify-between items-center">
-            <h2 class="text-xl font-black font-display text-white tracking-wide flex items-center">
-              <UIcon
-                name="i-heroicons-arrow-trending-up"
-                class="mr-2 text-violet-400 text-2xl animate-pulse"
-              />
-              {{ userSeries?.series.title }}
-            </h2>
+          <h2 class="text-xl font-black font-display text-white tracking-wide flex items-center">
+            <UIcon
+              name="i-heroicons-calendar"
+              class="mr-2 text-violet-400 text-2xl animate-pulse"
+            />
+            {{ userSeries?.series.title }}
+          </h2>
 
-            <!-- Health Hearts Bar with pulse animation -->
-            <div class="flex items-center">
-              <UIcon
-                v-for="health in seriesHealthPoint"
-                :key="health"
-                name="i-heroicons-heart-solid"
-                class="text-2xl transition-all duration-300 ml-1"
-                :class="
-                  health > userHealthPoint ? 'text-slate-700' : 'text-rose-500 animate-heart-pulse'
-                "
-              />
-            </div>
-          </div>
-
-          <!-- Ascent Level Progress Jauge -->
           <div class="space-y-1.5">
             <!-- Custom Premium Glass Progress Bar -->
             <div
@@ -70,7 +54,7 @@
               ></div>
             </div>
             <div class="flex justify-between text-xs font-bold font-display text-gray-400">
-              <span>Progression de l'ascension</span>
+              <span>Série quotidienne en cours</span>
               <span>{{ questionId }} / {{ nbrQuestion }}</span>
             </div>
           </div>
@@ -79,7 +63,7 @@
         <hr class="border-white/5 my-5" />
 
         <!-- Quiz Runner Section -->
-        <template v-if="!userSeries?.userResponse?.data?.ended">
+        <template v-if="!completed">
           <div class="py-4">
             <QuestionSeries
               v-if="seriesStarted"
@@ -99,7 +83,7 @@
                 icon="i-heroicons-play-solid"
                 @click="startSeries"
               >
-                {{ questionId > 0 ? "Reprendre" : "Démarrer" }} l'ascension
+                {{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série
               </UButton>
             </div>
           </div>
@@ -108,22 +92,22 @@
         <!-- Completion End Screen -->
         <template v-else>
           <div class="text-center py-4 md:py-6 px-4 space-y-4 flex flex-col items-center">
-            <!-- Glowing Trophy icon -->
+            <!-- Glowing Success Badge -->
             <div class="relative">
-              <div class="absolute inset-0 bg-amber-500/20 blur-xl rounded-full scale-125"></div>
+              <div class="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full scale-125"></div>
               <div
-                class="relative w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl text-amber-400"
+                class="relative w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl text-emerald-400"
               >
-                🏆
+                ⭐
               </div>
             </div>
 
             <div class="space-y-1">
               <h3 class="text-xl font-black font-display text-white tracking-wide">
-                Sommet Atteint !
+                Défi du Jour Réussi !
               </h3>
               <p class="text-xs text-gray-400 max-w-sm">
-                Félicitations, vous avez bravé les questions et complété l'ascension avec succès.
+                Excellent travail ! Vous avez complété votre série quotidienne avec succès.
               </p>
             </div>
 
@@ -131,13 +115,13 @@
             <div class="grid grid-cols-2 gap-3 w-full max-w-sm pt-2">
               <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
                 <p class="text-xl font-black font-display text-emerald-400">
-                  {{ userSeries?.userResponse?.data?.responses?.length }} /
+                  {{ userSeries?.userResponse?.data?.score }} /
                   {{ userSeries?.series?.data?.questionsIds?.length }}
                 </p>
                 <p
                   class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
                 >
-                  Réponses
+                  Score obtenu
                 </p>
               </div>
               <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
@@ -152,18 +136,22 @@
               </div>
             </div>
 
-            <!-- Retry button -->
-            <div class="pt-3 w-full max-w-sm">
+            <b
+              class="text-[11px] text-violet-400 font-bold uppercase tracking-wider font-display pt-1"
+              >Revenez demain pour un nouveau quiz !</b
+            >
+
+            <!-- Leaderboard Redirect Button -->
+            <div class="pt-2 w-full max-w-sm">
               <UButton
                 size="lg"
                 color="primary"
                 block
-                :loading="loading"
-                icon="i-heroicons-arrow-path"
+                icon="i-heroicons-chart-bar"
                 class="font-black font-display uppercase tracking-widest py-3.5"
-                @click="startNewSeries"
+                @click="router.push('/ranking/daily')"
               >
-                Nouvelle ascension
+                Classement du Jour
               </UButton>
             </div>
           </div>
@@ -174,10 +162,10 @@
 </template>
 
 <script setup lang="ts">
-import type { ResponseDTO } from "~/models/DTO/responseDTO";
-import type { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
-import { QuestionDTO } from "~/models/question";
-import type { UserAscentSeriesDTO } from "~/models/series/seriesAscension";
+import type { ResponseDTO } from "#shared/DTO/responseDTO";
+import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
+import { QuestionDTO } from "#shared/question";
+import type { UserSeriesDTO } from "#shared/series";
 
 const supabase = useSupabaseClient();
 const achievementStore = useAchievementStore();
@@ -189,14 +177,7 @@ const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);
 const seriesStarted = ref(false);
 const showBottomNav = useState("showBottomNav", () => true);
-const { data: userSeries } = await useFetch<UserAscentSeriesDTO>("/api/series/ascent");
-
-const seriesHealthPoint = computed(() => {
-  return userSeries.value?.series?.data?.healthPoint ?? 1;
-});
-const userHealthPoint = computed(() => {
-  return userSeries.value?.userResponse?.data?.healthPoint ?? seriesHealthPoint.value;
-});
+const { data: userSeries } = await useFetch<UserSeriesDTO>("/api/series/daily");
 const nbrQuestion = computed(() => {
   return userSeries.value?.series?.data?.questionsIds?.length || 0;
 });
@@ -204,14 +185,15 @@ const questionId = computed(() => {
   return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
 });
 
-const isGameActive = computed(() => {
-  return seriesStarted.value && !userSeries.value?.userResponse?.data?.ended;
-});
+// On bascule vers l'écran de fin uniquement quand le joueur clique sur "Continuer"
+// après la dernière question, afin qu'il puisse voir la bonne réponse et lire
+// l'explication. Initialisé à true si la série est déjà terminée au chargement.
+const completed = ref(nbrQuestion.value > 0 && questionId.value >= nbrQuestion.value);
 
 watch(
-  isGameActive,
-  (active) => {
-    showBottomNav.value = !active;
+  [seriesStarted, completed],
+  ([started, comp]) => {
+    showBottomNav.value = !(started && !comp);
   },
   { immediate: true },
 );
@@ -220,30 +202,24 @@ onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
 
-async function startNewSeries() {
-  try {
-    loading.value = true;
-    userSeries.value = await $fetch<UserAscentSeriesDTO>("/api/series/ascent");
-    await nextQuestion();
-  } catch (e) {
-    console.error("Failed to start new series:", e);
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function startSeries() {
   try {
     loading.value = true;
     await nextQuestion();
   } catch (e) {
-    console.error("Failed to start series:", e);
+    console.error("Failed to start daily series:", e);
   } finally {
     loading.value = false;
   }
 }
 
 async function nextQuestion() {
+  // Toutes les questions ont été répondues : on affiche l'écran de fin
+  // (déclenché par le clic sur "Continuer" de la dernière question).
+  if (questionId.value >= nbrQuestion.value) {
+    completed.value = true;
+    return;
+  }
   try {
     loading.value = true;
     const nexQuestion =
@@ -255,7 +231,7 @@ async function nextQuestion() {
       },
     });
   } catch (e) {
-    console.error("Failed to load next question in ascent:", e);
+    console.error("Failed to load next question in daily:", e);
   } finally {
     loading.value = false;
     seriesStarted.value = true;
@@ -272,7 +248,7 @@ async function validateResponse(response: ResponseDTO) {
       userResponseId: response.userResponseId,
     } as SeriesResponseDTO;
 
-    const updatedResponse = await $fetch<any>("/api/series/ascent/response", {
+    const updatedResponse = await $fetch<any>("/api/series/response", {
       method: "post",
       body: seriesResponse,
     });
@@ -280,9 +256,9 @@ async function validateResponse(response: ResponseDTO) {
       ...userSeries.value,
       userResponse: updatedResponse,
     };
-    achievementStore.answerAscentQuestion();
+    achievementStore.answerDailyQuestion();
   } catch (e) {
-    console.error("Failed to validate response in series:", e);
+    console.error("Failed to validate response in daily:", e);
   } finally {
     loading.value = false;
   }
@@ -290,5 +266,5 @@ async function validateResponse(response: ResponseDTO) {
 </script>
 
 <style scoped>
-/* Page-specific styles if any */
+/* Page-specific styling if any */
 </style>

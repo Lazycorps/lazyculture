@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import type { QuestionDTO } from "~/models/question";
+import type { QuestionDTO } from "#shared/question";
 
 const props = defineProps<{
   modelValue: boolean;

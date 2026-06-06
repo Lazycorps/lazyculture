@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { ReportingDTO } from "~/models/DTO/reportingDTO";
+import { ReportingDTO } from "#shared/DTO/reportingDTO";
 
 const props = defineProps<{
   questionId: number;

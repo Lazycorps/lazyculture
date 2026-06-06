@@ -120,7 +120,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { QuestionDataDTO } from "~/models/question";
+import { QuestionDataDTO } from "#shared/question";
 import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
 // Define admin middleware if necessary

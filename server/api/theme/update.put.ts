@@ -1,6 +1,6 @@
-import type { Theme } from "~/models/theme";
-import { themeService } from "~/server/services/ThemeService";
-import { assertAdmin, getAuthenticatedUser } from "~/server/utils/auth";
+import type { Theme } from "#shared/theme";
+import { themeService } from "~~/server/services/ThemeService";
+import { assertAdmin, getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);

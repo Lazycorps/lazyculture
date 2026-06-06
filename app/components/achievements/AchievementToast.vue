@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import type { PropType } from "vue";
 import type { ToastOptions } from "vue3-toastify";
-import type { UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import type { UserAchievementDTO } from "#shared/DTO/achievementDTO";
 
 const props = defineProps<{
   toastProps?: PropType<ToastOptions>;

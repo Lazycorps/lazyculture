@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
+
 const config = useRuntimeConfig();
+
 const prismaClientSingleton = () => {
   return new PrismaClient({
     datasources: {

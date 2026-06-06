@@ -260,8 +260,8 @@ import type {
   QuestionDTO,
   QuestionPropositionDTO,
   QuestionReportingDTO,
-} from "~/models/question";
-import type { Theme, ThemeDTO } from "~/models/theme";
+} from "#shared/question";
+import type { Theme, ThemeDTO } from "#shared/theme";
 
 // Define admin middleware if necessary
 definePageMeta({

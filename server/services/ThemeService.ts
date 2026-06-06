@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
-import prisma from "~/lib/prisma";
-import type { Theme } from "~/models/theme";
+import prisma from "~~/server/utils/prisma";
+import type { Theme } from "#shared/theme";
 
 export class ThemeService {
   async getAllThemes() {

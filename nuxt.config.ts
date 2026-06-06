@@ -2,6 +2,9 @@ import { defineNuxtConfig } from "nuxt/config";
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-04-03",
+  future: {
+    compatibilityVersion: 4,
+  },
   devtools: { enabled: true },
   modules: ["@nuxtjs/supabase", "@pinia/nuxt", "@nuxt/ui", "@vite-pwa/nuxt"],
   // @ts-expect-error
@@ -53,6 +56,7 @@ export default defineNuxtConfig({
       },
     },
   },
+  // @ts-expect-error - routeRules type might not be resolved in default config schema
   routeRules: {
     "/": {
       // Temporary redirect using a 307 status code

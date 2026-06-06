@@ -133,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { QuestionDataDTO } from "~/models/question";
+import { QuestionDataDTO } from "#shared/question";
 import { computed } from "vue";
 
 const questionTypes = ["choix", "boolean"];

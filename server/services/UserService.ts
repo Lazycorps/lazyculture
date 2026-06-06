@@ -1,7 +1,7 @@
-import prisma from "~/lib/prisma";
-import { getRankFromPoints } from "~/server/utils/rankHelper";
-import type { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
-import type { QuestionSeriesResponseData } from "~/models/series";
+import prisma from "~~/server/utils/prisma";
+import { getRankFromPoints } from "~~/server/utils/rankHelper";
+import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
+import type { QuestionSeriesResponseData } from "#shared/series";
 
 export class UserService {
   async getCurrentUser(userId: string, email: string | undefined) {

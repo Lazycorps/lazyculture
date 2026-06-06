@@ -1,56 +1,20 @@
 <template>
   <div
-    class="relative w-full max-w-lg mx-auto flex flex-col justify-center min-h-0 transition-all duration-300"
-    :class="responded ? 'pb-48' : 'pb-28'"
+    class="relative w-full flex flex-col justify-center select-none min-h-[calc(100dvh-240px)] md:min-h-0 transition-all duration-300"
+    :class="responded ? 'pb-60 md:pb-28' : 'pb-36 md:pb-20'"
+    v-if="question"
   >
     <!-- Floating XP Indicator -->
     <div
       v-if="showXP"
-      class="xp-float-anim absolute top-10 right-4 z-50 text-2xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1.5 rounded-full shadow-neon"
+      class="xp-float-anim absolute top-0 right-0 z-50 text-xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1 rounded-full shadow-neon"
     >
-      <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-amber-500" />
+      <UIcon name="i-heroicons-bolt-solid" class="mr-0.5 text-amber-500 animate-bounce" />
       +{{ xpWin }} XP
     </div>
 
-    <!-- Theme Progress Header / Bar -->
-    <div v-if="themeProgress" class="mb-4 select-none flex items-center space-x-3 w-full px-1">
-      <div
-        class="flex-1 h-1.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
-      >
-        <div
-          class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
-          :style="{
-            width: `${themeProgress.questionCount > 0 ? (themeProgress.responseCount / themeProgress.questionCount) * 100 : 0}%`,
-          }"
-        ></div>
-      </div>
-      <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
-        {{ themeProgress.responseCount }} / {{ themeProgress.questionCount }} résolues
-      </span>
-    </div>
-
-    <!-- Skeleton Loader -->
-    <div
-      v-if="firstLoading"
-      class="animate-pulse space-y-3 p-4 bg-slate-900/40 rounded-2xl border border-white/5"
-    >
-      <div class="flex justify-between items-center">
-        <div class="h-4 bg-white/10 rounded w-1/3"></div>
-        <div class="h-8 w-8 bg-white/10 rounded-full"></div>
-      </div>
-      <div class="h-5 bg-white/10 rounded w-3/4"></div>
-      <div class="h-20 bg-white/5 rounded-xl w-full"></div>
-      <div class="space-y-2 pt-2">
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-      </div>
-      <div class="h-9 bg-white/15 rounded-xl w-1/2 mx-auto pt-1"></div>
-    </div>
-
-    <!-- Question View -->
     <QuestionDisplay
-      v-else
+      v-if="question"
       ref="questionDisplay"
       :libelle="question.data.libelle"
       :img="question.data.img"
@@ -77,11 +41,21 @@
           : 'bg-slate-950/80 border-white/10'
       "
     >
-      <div class="max-w-lg mx-auto w-full flex flex-col">
+      <div
+        class="max-w-xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4"
+      >
         <!-- Left Side: Status / Instructions -->
-        <div class="w-full">
+        <div class="flex-1 w-full md:w-auto">
+          <!-- Active Mode Instruction (Before response) -->
+          <div v-if="!responded" class="hidden md:flex items-center space-x-2 text-gray-400">
+            <UIcon name="i-heroicons-information-circle" class="text-lg text-violet-400" />
+            <span class="text-xs font-semibold font-display tracking-wide"
+              >Choisissez une proposition ci-dessus</span
+            >
+          </div>
+
           <!-- Answer Evaluation Banner (After response) -->
-          <div v-if="responded" class="flex items-start space-x-3 md:space-x-4">
+          <div v-else class="flex items-start space-x-3 md:space-x-4">
             <div
               class="w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-lg md:text-xl flex-shrink-0"
               :class="
@@ -95,18 +69,16 @@
             </div>
             <div class="space-y-0.5 min-w-0 flex-1">
               <h4
-                class="font-black font-display text-base tracking-wide flex items-center justify-between"
+                class="font-black font-display text-base tracking-wide"
                 :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
               >
-                <span>{{ isCorrect ? "Excellent travail !" : "Oups, mauvaise réponse" }}</span>
+                {{ isCorrect ? "Bravo !" : "Incorrect" }}
               </h4>
-              <div
-                class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text mb-4"
-              >
-                <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
+              <div class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text">
+                <p class="text-[11px] text-gray-300 font-medium leading-relaxed">
                   {{
                     commentaire ||
-                    (isCorrect ? "C'est exact !" : "Dommage, mais continuez d'apprendre.")
+                    (isCorrect ? "C'est exact !" : "Dommage ! Ouvrez l'œil pour la suite.")
                   }}
                 </p>
               </div>
@@ -115,15 +87,15 @@
         </div>
 
         <!-- Right Side: Exact same centered button spot -->
-        <div class="w-full flex justify-center">
+        <div class="w-full md:w-auto flex-shrink-0 flex justify-center">
           <!-- Validate Button -->
           <UButton
             v-if="!responded"
             size="lg"
-            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="selectedResponse != null ? 'primary' : 'neutral'"
-            :disabled="selectedResponse == null || loading"
-            :loading="loading"
+            :disabled="selectedResponse == null || loading || parentLoading"
+            :loading="loading || parentLoading"
             @click="validateResponse"
           >
             Valider
@@ -132,9 +104,9 @@
           <UButton
             v-else
             size="lg"
-            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="isCorrect ? 'success' : 'error'"
-            :loading="loading"
+            :loading="loading || parentLoading"
             @click="NextQuestion"
           >
             Continuer
@@ -146,16 +118,20 @@
 </template>
 
 <script setup lang="ts">
-import { ResponseDTO } from "~/models/DTO/responseDTO";
-import { QuestionDTO } from "~/models/question";
+import { ReportingDTO } from "#shared/DTO/reportingDTO";
+import { ResponseDTO } from "#shared/DTO/responseDTO";
+import { QuestionDTO } from "#shared/question";
 import QuestionReporting from "./QuestionReporting.vue";
 
-const props = defineProps<{ theme?: string }>();
+const props = defineProps<{
+  question?: QuestionDTO | null;
+  parentLoading: boolean;
+}>();
+
 const achievementStore = useAchievementStore();
 const showBottomNav = useState("showBottomNav", () => true);
-
-const firstLoading = ref(true);
-const loading = ref(true);
+const loading = ref(false);
+const loadingReporting = ref(false);
 const commentaire = ref("");
 const responded = ref(false);
 const selectedResponse = ref<any>(null);
@@ -163,25 +139,13 @@ const redResponse = ref<any>(null);
 const greenResponse = ref<any>(null);
 const xpWin = ref(0);
 const showXP = ref(false);
-const question = ref(new QuestionDTO());
+const reported = ref(false);
 const questionDisplay = ref<any>(null);
 
-const themeProgress = ref<{ questionCount: number; responseCount: number } | null>(null);
-
-async function loadThemeProgress() {
-  if (!props.theme) return;
-  try {
-    const result = await $fetch<any>("/api/theme/progress", {
-      query: { theme: props.theme },
-    });
-    themeProgress.value = {
-      questionCount: result.questionCount,
-      responseCount: result.responseCount,
-    };
-  } catch (e) {
-    console.error("Failed to load theme progress:", e);
-  }
-}
+const emit = defineEmits<{
+  validateResponse: [response: ResponseDTO];
+  nextQuestion: [];
+}>();
 
 const isCorrect = computed(() => {
   return greenResponse.value === redResponse.value
@@ -190,42 +154,37 @@ const isCorrect = computed(() => {
 });
 
 onMounted(() => {
-  try {
-    NextQuestion();
-  } catch (err) {}
   showBottomNav.value = false;
-  if (props.theme) {
-    loadThemeProgress();
-  }
 });
 
 onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
 
-function selectOption(id: any) {
+function selectOption(id: number) {
   if (responded.value) return;
   selectedResponse.value = id;
 }
 
 async function validateResponse() {
-  if (selectedResponse.value == null) return;
+  const question = props.question;
+  if (selectedResponse.value == null || !question) return;
   try {
     loading.value = true;
-    commentaire.value = question.value.data.commentaire;
+    commentaire.value = question.data.commentaire;
+
     const reponseDTO = new ResponseDTO();
-    reponseDTO.questionId = question.value.id;
+    reponseDTO.questionId = question.id;
     reponseDTO.userResponseId = selectedResponse.value;
 
-    // Evaluate answer matching local schema
-    const isAnswerCorrect = selectedResponse.value === question.value.data.response;
+    const isAnswerCorrect = selectedResponse.value === question.data.response;
 
     if (isAnswerCorrect) {
       greenResponse.value = selectedResponse.value;
       redResponse.value = null;
     } else {
       redResponse.value = selectedResponse.value;
-      greenResponse.value = question.value.data.response;
+      greenResponse.value = question.data.response;
     }
 
     const responseResult = await $fetch<any>("/api/response/validate", {
@@ -236,12 +195,9 @@ async function validateResponse() {
     responded.value = true;
     achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
-
-    if (props.theme) {
-      await loadThemeProgress();
-    }
+    emit("validateResponse", reponseDTO);
   } catch (e) {
-    console.error("Failed to validate response:", e);
+    console.error("Failed to validate response in series:", e);
   } finally {
     loading.value = false;
   }
@@ -250,21 +206,19 @@ async function validateResponse() {
 async function NextQuestion() {
   try {
     loading.value = true;
-    const newQuestion = await getNewQuestion();
-
-    questionDisplay.value?.resetReporting();
-
     responded.value = false;
-    question.value = newQuestion;
     commentaire.value = "";
     selectedResponse.value = null;
     redResponse.value = null;
     greenResponse.value = null;
-  } catch (e) {
-    console.error("Failed to load next question:", e);
+    reported.value = false;
+    loadingReporting.value = false;
+
+    questionDisplay.value?.resetReporting();
+
+    emit("nextQuestion");
   } finally {
     loading.value = false;
-    firstLoading.value = false;
   }
 }
 
@@ -274,20 +228,13 @@ function gainXP(amount: number) {
   xpWin.value = amount;
   showXP.value = true;
 
-  // Fade out float text
   setTimeout(() => {
     showXP.value = false;
   }, 1200);
 }
-
-async function getNewQuestion() {
-  if (props.theme) return $fetch<QuestionDTO>("/api/question/random?theme=" + props.theme);
-  else return $fetch<QuestionDTO>("/api/question/random");
-}
 </script>
 
 <style scoped>
-/* Shake animation keyframes */
 @keyframes shake {
   0%,
   100% {

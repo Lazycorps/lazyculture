@@ -1,4 +1,4 @@
-import { questionService } from "~/server/services/QuestionService";
+import { questionService } from "~~/server/services/QuestionService";
 
 export default defineEventHandler((event) => {
   const query = getQuery(event);

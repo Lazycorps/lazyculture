@@ -1,3 +1,3 @@
-import { rankingService } from "~/server/services/RankingService";
+import { rankingService } from "~~/server/services/RankingService";
 
 export default defineEventHandler(() => rankingService.getTopUsers());

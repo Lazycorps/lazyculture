@@ -1,5 +1,5 @@
-import { getAuthenticatedUser } from "~/server/utils/auth";
-import { showdownManager } from "~/server/utils/showdownManager";
+import { getAuthenticatedUser } from "~~/server/utils/auth";
+import { showdownManager } from "~~/server/utils/showdownManager";
 
 export default defineEventHandler((event) => {
   const userConnected = getAuthenticatedUser(event);

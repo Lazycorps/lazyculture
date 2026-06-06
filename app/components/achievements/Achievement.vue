@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 
 const props = defineProps<{
   achievements?: AchievementDTO[];

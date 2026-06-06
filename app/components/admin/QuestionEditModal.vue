@@ -217,8 +217,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import type { QuestionDTO, QuestionPropositionDTO } from "~/models/question";
-import type { Theme } from "~/models/theme";
+import type { QuestionDTO, QuestionPropositionDTO } from "#shared/question";
+import type { Theme } from "#shared/theme";
 
 const props = defineProps<{
   modelValue: boolean;

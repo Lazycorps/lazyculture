@@ -2,8 +2,8 @@ import { serverSupabaseClient } from "#supabase/server";
 import formidable from "formidable";
 import type { Fields, Files } from "formidable";
 import fs from "fs";
-import { pictureService } from "~/server/services/PictureService";
-import { assertAdmin, getAuthenticatedUser } from "~/server/utils/auth";
+import { pictureService } from "~~/server/services/PictureService";
+import { assertAdmin, getAuthenticatedUser } from "~~/server/utils/auth";
 
 export const config = {
   api: {

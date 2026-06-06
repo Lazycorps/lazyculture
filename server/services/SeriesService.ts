@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import prisma from "~/lib/prisma";
+import prisma from "~~/server/utils/prisma";
 import type {
   QuestionSeriesData,
   QuestionSeriesDTO,
@@ -7,10 +7,10 @@ import type {
   QuestionSeriesResponseData,
   QuestionSeriesResponseDataResponse,
   UserSeriesDTO,
-} from "~/models/series";
-import type { QuestionSeriesAscensionResponseData } from "~/models/series/seriesAscension";
-import { QuestionDataDTO } from "~/models/question";
-import type { SeriesResponseDTO } from "~/models/DTO/seriesResponseDTO";
+} from "#shared/series";
+import type { QuestionSeriesAscensionResponseData } from "#shared/series/seriesAscension";
+import { QuestionDataDTO } from "#shared/question";
+import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 
 type DailySeriesRankingDTO = {
   userId: string;

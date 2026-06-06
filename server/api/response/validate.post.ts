@@ -1,6 +1,6 @@
-import type { ResponseDTO } from "~/models/DTO/responseDTO";
-import { responseService } from "~/server/services/ResponseService";
-import { getAuthenticatedUser } from "~/server/utils/auth";
+import type { ResponseDTO } from "#shared/DTO/responseDTO";
+import { responseService } from "~~/server/services/ResponseService";
+import { getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);

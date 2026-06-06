@@ -1,4 +1,4 @@
-import prisma from "~/lib/prisma";
+import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateUserRank } from "./rankHelper";
 

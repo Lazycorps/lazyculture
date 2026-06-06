@@ -1,4 +1,4 @@
-import { userService } from "~/server/services/UserService";
+import { userService } from "~~/server/services/UserService";
 
 export default defineEventHandler((event) => {
   const userConnected = event.context.user;

@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
-import prisma from "~/lib/prisma";
-import { QuestionDataDTO, QuestionDTO, QuestionReportingDTO } from "~/models/question";
-import type { ReportingDTO } from "~/models/DTO/reportingDTO";
+import prisma from "~~/server/utils/prisma";
+import { QuestionDataDTO, QuestionDTO, QuestionReportingDTO } from "#shared/question";
+import type { ReportingDTO } from "#shared/DTO/reportingDTO";
 
 export class QuestionService {
   async getById(id: number) {

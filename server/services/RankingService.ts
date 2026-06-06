@@ -1,7 +1,7 @@
-import prisma from "~/lib/prisma";
-import { UserRankingDTO } from "~/models/DTO/userRankingDTO";
-import { getRankFromPoints } from "~/server/utils/rankHelper";
-import { getShowdownRankFromPoints } from "~/server/utils/showdownRankHelper";
+import prisma from "~~/server/utils/prisma";
+import { UserRankingDTO } from "#shared/DTO/userRankingDTO";
+import { getRankFromPoints } from "~~/server/utils/rankHelper";
+import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 
 export class RankingService {
   async getTopUsers(): Promise<UserRankingDTO[]> {

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import { toast, type ToastOptions } from "vue3-toastify";
 import AchievementToast from "~/components/achievements/AchievementToast.vue";
 

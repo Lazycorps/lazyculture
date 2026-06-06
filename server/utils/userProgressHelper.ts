@@ -1,4 +1,4 @@
-import prisma from "~/lib/prisma";
+import prisma from "~~/server/utils/prisma";
 export async function updateUserProgress(userId: string, xpEarned: number) {
   const userProgress = await prisma.userProgress.findFirst({
     where: { userId: userId },

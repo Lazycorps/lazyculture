@@ -1,6 +1,6 @@
-import prisma from "~/lib/prisma";
-import { checkAndAwardAchievements } from "~/server/utils/achievementHelper";
-import { AchievementDTO, UserAchievementDTO } from "~/models/DTO/achievementDTO";
+import prisma from "~~/server/utils/prisma";
+import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
+import { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 
 export class AchievementService {
   async getUserAchievements(userId: string) {

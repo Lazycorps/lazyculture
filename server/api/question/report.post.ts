@@ -1,6 +1,6 @@
-import type { ReportingDTO } from "~/models/DTO/reportingDTO";
-import { questionService } from "~/server/services/QuestionService";
-import { getAuthenticatedUser } from "~/server/utils/auth";
+import type { ReportingDTO } from "#shared/DTO/reportingDTO";
+import { questionService } from "~~/server/services/QuestionService";
+import { getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);

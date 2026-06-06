@@ -1,7 +1,7 @@
 import { serverSupabaseClient } from "#supabase/server";
-import { importService } from "~/server/services/ImportService";
-import type { QuizzCultureRequestDTO } from "~/server/services/ImportService";
-import { assertApiKeyOrAdmin } from "~/server/utils/auth";
+import { importService } from "~~/server/services/ImportService";
+import type { QuizzCultureRequestDTO } from "~~/server/services/ImportService";
+import { assertApiKeyOrAdmin } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   await assertApiKeyOrAdmin(event);

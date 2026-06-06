@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { UserAchievementDTO } from "~/models/DTO/achievementDTO";
-import prisma from "~/lib/prisma";
+import { UserAchievementDTO } from "#shared/DTO/achievementDTO";
+import prisma from "~~/server/utils/prisma";
 import { updateUserProgress } from "./userProgressHelper";
 
 type ActionType =

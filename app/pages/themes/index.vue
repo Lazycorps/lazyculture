@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import ThemeComponent from "~/components/Theme.vue";
-import type { Theme } from "~/models/theme";
+import type { Theme } from "#shared/theme";
 
 const { data: themes } = await useFetch<Theme[]>("/api/theme/all");
 

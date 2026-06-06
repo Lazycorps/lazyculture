@@ -1,5 +1,5 @@
-import { getAuthenticatedUser } from "~/server/utils/auth";
-import { battleRoyaleManager } from "~/server/utils/battleRoyaleManager";
+import { getAuthenticatedUser } from "~~/server/utils/auth";
+import { battleRoyaleManager } from "~~/server/utils/battleRoyaleManager";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);

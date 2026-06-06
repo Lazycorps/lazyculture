@@ -1,4 +1,4 @@
-import { themeService } from "~/server/services/ThemeService";
+import { themeService } from "~~/server/services/ThemeService";
 
 export default defineEventHandler((event) => {
   const userConnected = event.context.user;

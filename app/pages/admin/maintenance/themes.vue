@@ -229,7 +229,7 @@ definePageMeta({
 });
 
 import { ref, computed } from "vue";
-import type { Theme } from "~/models/theme";
+import type { Theme } from "#shared/theme";
 
 const { data: themes } = (await useFetch<Theme[]>("/api/theme/all")) ?? [];
 const dialog = ref(false);

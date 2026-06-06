@@ -2,7 +2,7 @@ import type { H3Event } from "h3";
 import type { User } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { User as PrismaUser } from "@prisma/client";
-import prisma from "~/lib/prisma";
+import prisma from "~~/server/utils/prisma";
 
 /**
  * Récupère l'utilisateur authentifié depuis le contexte de l'événement

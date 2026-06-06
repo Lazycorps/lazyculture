@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Theme } from "~/models/theme";
+import type { Theme } from "#shared/theme";
 const router = useRouter();
 const props = defineProps<{ theme: Theme }>();
 

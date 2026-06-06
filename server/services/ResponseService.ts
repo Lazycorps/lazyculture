@@ -1,6 +1,6 @@
-import prisma from "~/lib/prisma";
-import type { ResponseDTO } from "~/models/DTO/responseDTO";
-import { QuestionDataDTO } from "~/models/question";
+import prisma from "~~/server/utils/prisma";
+import type { ResponseDTO } from "#shared/DTO/responseDTO";
+import { QuestionDataDTO } from "#shared/question";
 
 export class ResponseService {
   async validateResponse(body: ResponseDTO, userId: string) {

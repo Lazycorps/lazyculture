@@ -139,7 +139,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import type { Theme } from "~/models/theme";
+import type { Theme } from "#shared/theme";
 import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
 // Middleware admin

@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { JSDOM } from "jsdom";
-import prisma from "~/lib/prisma";
-import { QuestionDataDTO, QuestionPropositionDTO } from "~/models/question";
-import type { OpenQuizzDB, OpenQuizzDBQuestion } from "~/models/openQuizzDB";
+import prisma from "~~/server/utils/prisma";
+import { QuestionDataDTO, QuestionPropositionDTO } from "#shared/question";
+import type { OpenQuizzDB, OpenQuizzDBQuestion } from "#shared/openQuizzDB";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type QuizzCultureRequestDTO = {

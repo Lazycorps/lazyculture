@@ -1,4 +1,4 @@
-import prisma from "~/lib/prisma";
+import prisma from "~~/server/utils/prisma";
 
 export interface RankInfo {
   tier: string;
