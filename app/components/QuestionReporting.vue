@@ -35,15 +35,14 @@
             </p>
 
             <!-- Checkboxes for default reasons -->
-            <div class="space-y-3 bg-white/5 p-4 rounded-xl border border-white/5">
-              <UCheckbox
-                v-for="(reason, index) in defaultReasons"
+            <div class="bg-white/5 p-4 rounded-xl border border-white/5">
+              <UCheckboxGroup
                 v-model="selectedReasons"
-                :key="index"
-                :name="`reason-${index}`"
-                :label="reason"
-                :value="reason"
-                :ui="{ label: 'text-sm font-semibold text-gray-300' }"
+                :items="defaultReasons"
+                :ui="{
+                  fieldset: 'gap-y-3',
+                  label: 'text-sm font-semibold text-gray-300',
+                }"
               />
             </div>
 

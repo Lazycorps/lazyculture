@@ -4,16 +4,13 @@
     :ui="{ body: 'p-0 sm:p-0' }"
     @click="router.push('/themes/' + theme.slug)"
   >
-    <!-- Card Top Image with Gradient Overlay -->
+    <!-- Card Top Image -->
     <div class="relative h-44 w-full overflow-hidden bg-slate-950">
       <img
         :src="theme.picture"
         :alt="theme.name"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
       />
-      <div
-        class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"
-      ></div>
 
       <!-- New Questions Badge -->
       <div
