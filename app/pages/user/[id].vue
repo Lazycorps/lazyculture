@@ -109,7 +109,7 @@
         <template #footer>
           <div class="flex justify-between items-center">
             <UButton
-              color="gray"
+              color="neutral"
               variant="ghost"
               icon="i-heroicons-arrow-left"
               class="font-bold uppercase tracking-wider font-display hover:bg-white/5 text-gray-400"

@@ -2,6 +2,7 @@
   <div class="w-full max-w-xl mx-auto py-2 select-none">
     <UCard
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
+      :ui="{ body: 'p-2.5 sm:p-6' }"
     >
       <!-- Non authenticated user -->
       <template v-if="!user">
@@ -114,7 +115,7 @@
               </div>
 
               <UButton
-                color="danger"
+                color="warning"
                 variant="ghost"
                 size="sm"
                 icon="i-heroicons-x-mark"
@@ -176,63 +177,63 @@
             </div>
 
             <!-- List of 10 themes -->
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-2.5 sm:gap-4">
               <div
                 v-for="theme in themePool"
                 :key="theme.slug"
-                class="relative overflow-hidden rounded-xl border p-3 flex flex-col items-center justify-center text-center transition-all min-h-24 bg-slate-950/30 select-none bg-cover bg-center"
-                :style="theme.picture ? { backgroundImage: `url(${theme.picture})` } : {}"
+                class="relative overflow-hidden rounded-2xl border-2 transition-all duration-300 h-28 bg-slate-950 flex flex-col justify-end group/card select-none shadow-lg"
                 :class="getThemeCardClass(theme.slug)"
                 @click="handleSelectTheme(theme.slug)"
               >
-                <!-- Theme image background or overlay -->
-                <div class="absolute inset-0 bg-slate-900/60 z-0"></div>
+                <!-- Theme cover image with hover zoom & selection dimming -->
+                <img
+                  v-if="theme.picture"
+                  :src="theme.picture"
+                  :alt="theme.name"
+                  class="absolute inset-0 w-full h-full object-cover transition-all duration-500 rounded-2xl"
+                  :class="{
+                    'group-hover/card:scale-110': isMyThemeTurn && !isThemeSelected(theme.slug),
+                    'brightness-[0.35]': isThemeSelected(theme.slug),
+                  }"
+                />
 
-                <div class="z-10 font-bold text-sm text-white font-display px-2">
-                  {{ theme.name }}
+                <!-- Bottom glassy label to ensure 100% legibility of the title -->
+                <div
+                  class="absolute bottom-0 inset-x-0 bg-slate-950/75 backdrop-blur-md border-t border-white/10 py-2.5 px-2 text-center z-10 flex items-center justify-center min-h-[40px] transition-colors rounded-b-[14px]"
+                  :class="getThemeLabelClass(theme.slug)"
+                >
+                  <span
+                    class="font-extrabold text-xs text-white tracking-wide font-display group-hover/card:text-indigo-400 transition-colors"
+                  >
+                    {{ theme.name }}
+                  </span>
                 </div>
 
-                <!-- Chosen status badge -->
-                <div class="z-10 mt-1">
+                <!-- Floating Neon Badges (Chosen status) -->
+                <div class="absolute top-2.5 left-2.5 z-10">
                   <span
                     v-if="selectedThemes?.p1?.includes(theme.slug)"
-                    class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-400"
+                    class="text-[9px] font-black uppercase px-2.5 py-1 rounded-full border tracking-widest shadow-lg"
+                    :class="
+                      isP1Me
+                        ? 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/50'
+                        : 'bg-pink-600 text-white border-pink-400 shadow-pink-500/50'
+                    "
                   >
                     {{ isP1Me ? "Mon Choix" : "Adversaire" }}
                   </span>
                   <span
                     v-else-if="selectedThemes?.p2?.includes(theme.slug)"
-                    class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-pink-500/20 border border-pink-500/30 text-pink-400"
+                    class="text-[9px] font-black uppercase px-2.5 py-1 rounded-full border tracking-widest shadow-lg"
+                    :class="
+                      !isP1Me
+                        ? 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/50'
+                        : 'bg-pink-600 text-white border-pink-400 shadow-pink-500/50'
+                    "
                   >
                     {{ !isP1Me ? "Mon Choix" : "Adversaire" }}
                   </span>
                 </div>
-              </div>
-            </div>
-
-            <!-- Selected summary footer -->
-            <div
-              class="p-4 bg-slate-900/30 border border-white/5 rounded-xl text-center text-xs text-gray-400 space-y-1.5"
-            >
-              <div
-                class="font-bold text-white uppercase text-[10px] tracking-widest text-indigo-300"
-              >
-                Thèmes sélectionnés :
-              </div>
-              <div class="flex flex-wrap gap-2 justify-center">
-                <span
-                  v-for="tSlug in [...(selectedThemes?.p1 || []), ...(selectedThemes?.p2 || [])]"
-                  :key="tSlug"
-                  class="px-2 py-0.5 bg-white/5 rounded text-[11px]"
-                >
-                  {{ getThemeName(tSlug) }}
-                </span>
-                <span
-                  v-if="selectedThemes?.random"
-                  class="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[11px] text-amber-400"
-                >
-                  🎲 {{ getThemeName(selectedThemes.random) }}
-                </span>
               </div>
             </div>
           </div>
@@ -604,10 +605,11 @@
 <script setup lang="ts">
 import { useShowdownSession } from "~/composables/useShowdownSession";
 
-const supabase = useSupabaseClient();
-const {
-  data: { user },
-} = await supabase.auth.getUser();
+import { useUserStore } from "~/stores/userStore";
+
+const userStore = useUserStore();
+await userStore.fetchUser();
+const user = computed(() => userStore.user);
 
 const session = useShowdownSession();
 
@@ -667,11 +669,8 @@ const myLevel = ref(1);
 
 onMounted(async () => {
   if (user) {
-    // 1. Fetch user global level
-    const progress = await $fetch<any>("/api/user/progress").catch(() => null);
-    if (progress) {
-      myLevel.value = progress.levelId || 1;
-    }
+    // 1. Get user global level
+    myLevel.value = userStore.level;
 
     // 2. Check if we have an active game to recover
     await session.checkActiveSession();
@@ -688,7 +687,7 @@ onMounted(async () => {
         startElapsedTimeTimer();
         startQueuePolling();
       } else if (statusRes.status === "matched" && statusRes.matchId) {
-        session.connect(statusRes.matchId, user.id);
+        session.connect(statusRes.matchId, user.value?.id || "");
       }
     }
   }
@@ -731,7 +730,7 @@ watch(showRoundResults, (isActive) => {
     }, 1000);
 
     if (lastRoundResults.value) {
-      const isP1 = lastRoundResults.value.p1.userId === user?.id;
+      const isP1 = lastRoundResults.value.p1.userId === user.value?.id;
       const myStats = isP1 ? lastRoundResults.value.p1 : lastRoundResults.value.p2;
       const oppStats = isP1 ? lastRoundResults.value.p2 : lastRoundResults.value.p1;
 
@@ -787,7 +786,7 @@ async function startSearch() {
     });
 
     if (res.status === "matched" && res.matchId) {
-      session.connect(res.matchId, user.id);
+      session.connect(res.matchId, user.value?.id || "");
     } else {
       startQueuePolling();
     }
@@ -799,7 +798,7 @@ async function startSearch() {
 }
 
 async function cancelSearch() {
-  if (!user) return;
+  if (!user.value) return;
   try {
     stopQueuePolling();
     stopElapsedTimeTimer();
@@ -822,7 +821,7 @@ function startQueuePolling() {
       );
       if (res.status === "matched" && res.matchId) {
         stopQueuePolling();
-        session.connect(res.matchId, user?.id || "");
+        session.connect(res.matchId, user.value?.id || "");
       } else if (res.status === "none") {
         stopQueuePolling();
         queueStatus.value = "none";
@@ -864,7 +863,7 @@ function formatElapsedTime(sec: number): string {
 // --- DRAFT SELECTION METHODS ---
 
 const isMyThemeTurn = computed(() => {
-  return themeSelectionTurn.value === user?.id;
+  return themeSelectionTurn.value === (user.value?.id || "");
 });
 
 const isP1Me = computed(() => {
@@ -891,27 +890,52 @@ async function handleSelectTheme(themeSlug: string) {
   }
 }
 
+function isThemeSelected(themeSlug: string): boolean {
+  const p1Choices = selectedThemes.value?.p1 || [];
+  const p2Choices = selectedThemes.value?.p2 || [];
+  return p1Choices.includes(themeSlug) || p2Choices.includes(themeSlug);
+}
+
 function getThemeCardClass(themeSlug: string) {
   const p1Choices = selectedThemes.value?.p1 || [];
   const p2Choices = selectedThemes.value?.p2 || [];
 
   if (p1Choices.includes(themeSlug)) {
     return isP1Me.value
-      ? "border-indigo-500/70 shadow-[0_0_10px_rgba(99,102,241,0.2)] bg-indigo-950/20"
-      : "border-pink-500/50 opacity-60 bg-pink-950/10";
+      ? "border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.65)] z-10 cursor-not-allowed"
+      : "border-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.65)] z-10 cursor-not-allowed";
   }
 
   if (p2Choices.includes(themeSlug)) {
     return !isP1Me.value
-      ? "border-indigo-500/70 shadow-[0_0_10px_rgba(99,102,241,0.2)] bg-indigo-950/20"
-      : "border-pink-500/50 opacity-60 bg-pink-950/10";
+      ? "border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.65)] z-10 cursor-not-allowed"
+      : "border-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.65)] z-10 cursor-not-allowed";
   }
 
   if (!isMyThemeTurn.value) {
-    return "border-white/5 opacity-80 cursor-not-allowed";
+    return "border-white/5 opacity-40 cursor-not-allowed";
   }
 
-  return "border-white/10 hover:border-indigo-500/55 hover:bg-slate-900/60 cursor-pointer active:scale-95";
+  return "border-white/10 hover:border-indigo-400 hover:shadow-[0_0_12px_rgba(99,102,241,0.25)] cursor-pointer active:scale-95";
+}
+
+function getThemeLabelClass(themeSlug: string) {
+  const p1Choices = selectedThemes.value?.p1 || [];
+  const p2Choices = selectedThemes.value?.p2 || [];
+
+  if (p1Choices.includes(themeSlug)) {
+    return isP1Me.value
+      ? "border-t-indigo-500/40 bg-indigo-950/80"
+      : "border-t-pink-500/20 bg-pink-950/70";
+  }
+
+  if (p2Choices.includes(themeSlug)) {
+    return !isP1Me.value
+      ? "border-t-indigo-500/40 bg-indigo-950/80"
+      : "border-t-pink-500/20 bg-pink-950/70";
+  }
+
+  return "";
 }
 
 function getThemeName(slug: string): string {
@@ -1003,7 +1027,7 @@ async function handleSubmitAnswer(optionId: number) {
 // --- ROUND RESULTS OVERLAY INFO ---
 
 const isP1User = computed(() => {
-  return lastRoundResults.value?.p1.userId === user?.id;
+  return lastRoundResults.value?.p1.userId === user.value?.id;
 });
 
 const myRoundStats = computed(() => {
@@ -1037,7 +1061,7 @@ const correctOptionValue = computed(() => {
 // --- PODIUM INFO ---
 
 const isWinner = computed(() => {
-  return winnerId.value === user?.id;
+  return winnerId.value === user.value?.id;
 });
 
 const isDraw = computed(() => {
@@ -1046,7 +1070,7 @@ const isDraw = computed(() => {
 
 const myFinalStats = computed(() => {
   if (status.value !== "FINISHED" || !lastRoundResults.value) return null;
-  return lastRoundResults.value.p1.userId === user?.id
+  return lastRoundResults.value.p1.userId === user.value?.id
     ? lastRoundResults.value.p1
     : lastRoundResults.value.p2;
 });

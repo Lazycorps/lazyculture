@@ -1,19 +1,15 @@
 <template>
-  <UModal v-model:open="isOpen">
-    <template #content>
-      <div
-        class="p-6 bg-[#111827] border border-white/10 rounded-2xl shadow-glass space-y-6 text-gray-200 w-full max-w-3xl overflow-y-auto max-h-[90vh]"
-      >
-        <!-- Title -->
-        <div class="border-b border-white/5 pb-4">
-          <h3 class="text-xl font-black font-display text-white tracking-wide">
-            {{ formTitle }}
-          </h3>
-          <p class="text-xs text-gray-400 mt-1">
-            Modifiez ou complétez les données de la question.
-          </p>
-        </div>
-
+  <UModal
+    :title="formTitle"
+    description="Modifiez ou complétez les données de la question."
+    v-model:open="isOpen"
+    :ui="{
+      content:
+        'sm:max-w-3xl bg-[#111827]/95 border border-white/10 rounded-2xl overflow-hidden text-gray-200',
+    }"
+  >
+    <template #body>
+      <div class="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Left Column: Libelle & Propositions -->
           <div class="space-y-4">
@@ -38,7 +34,7 @@
                   >Propositions & Réponse correcte</span
                 >
                 <span class="text-[10px] text-gray-500 font-semibold font-display"
-                  >Cochez le bouton vert pour la bonne réponse</span
+                  >Cochez pour la bonne réponse</span
                 >
               </div>
 
@@ -189,28 +185,27 @@
             </div>
           </div>
         </div>
-
-        <!-- Footer Actions -->
-        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-white/5">
-          <UButton
-            variant="ghost"
-            color="primary"
-            class="font-bold font-display uppercase tracking-wider text-xs"
-            @click="isOpen = false"
-          >
-            Annuler
-          </UButton>
-          <UButton
-            color="primary"
-            class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon"
-            :disabled="isSaveDisabled"
-            :loading="saving"
-            @click="save"
-          >
-            Sauvegarder
-          </UButton>
-        </div>
       </div>
+    </template>
+
+    <template #footer>
+      <UButton
+        variant="ghost"
+        color="primary"
+        class="font-bold font-display uppercase tracking-wider text-xs"
+        @click="isOpen = false"
+      >
+        Annuler
+      </UButton>
+      <UButton
+        color="primary"
+        class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon"
+        :disabled="isSaveDisabled"
+        :loading="saving"
+        @click="save"
+      >
+        Sauvegarder
+      </UButton>
     </template>
   </UModal>
 </template>

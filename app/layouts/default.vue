@@ -39,20 +39,25 @@
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from "~/stores/userStore";
+
 const router = useRouter();
 const user = useSupabaseUser();
 const showBottomNav = useState("showBottomNav", () => true);
-const userProfile = ref<any>(null);
+const userStore = useUserStore();
 
-const xpProgress = computed(() => {
-  if (!userProfile.value) return 0;
-  const current = userProfile.value.xp ?? 0;
-  const min = userProfile.value.xpThreshold ?? 0;
-  const max = userProfile.value.nextLevelTreshold ?? 100;
-  const diff = max - min;
-  if (diff <= 0) return 0;
-  return ((current - min) / diff) * 100;
+const userProfile = computed(() => {
+  if (!userStore.user) return null;
+  return {
+    name: userStore.user.name || "Joueur",
+    level: userStore.user.UserProgress?.levelId || 1,
+    xp: userStore.user.UserProgress?.xp || 0,
+    xpThreshold: userStore.user.UserProgress?.level?.xp_threshold || 0,
+    nextLevelTreshold: userStore.user.nextLevelTreshold || 100,
+  };
 });
+
+const xpProgress = computed(() => userStore.xpProgress);
 
 const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
@@ -63,41 +68,16 @@ const navItems = computed(() => [
 ]);
 
 onMounted(async () => {
-  await fetchProfile();
+  await userStore.fetchUser();
 });
 
 watch(user, async (newUser) => {
   if (newUser) {
-    await fetchProfile();
+    await userStore.fetchUser(true);
   } else {
-    userProfile.value = null;
+    userStore.clearUser();
   }
 });
-
-async function fetchProfile() {
-  if (user.value) {
-    try {
-      const supabase = useSupabaseClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      const data = await $fetch<any>("/api/user/current", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      userProfile.value = {
-        name: data?.name || "Joueur",
-        level: data?.UserProgress?.levelId || 1,
-        xp: data?.UserProgress?.xp || 0,
-        xpThreshold: data?.UserProgress?.level?.xp_threshold || 0,
-        nextLevelTreshold: data?.nextLevelTreshold || 100,
-      };
-    } catch (e) {
-      console.error("Failed to fetch user in layout:", e);
-    }
-  }
-}
 
 const route = useRoute();
 const mainElement = ref<HTMLElement | null>(null);

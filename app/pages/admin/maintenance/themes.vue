@@ -94,130 +94,125 @@
     </UCard>
 
     <!-- Theme Modal Dialog -->
-    <UModal v-model:open="dialog">
-      <template #content>
-        <div
-          class="p-6 bg-[#111827] border border-white/10 rounded-2xl shadow-glass space-y-6 text-gray-200"
-        >
-          <!-- Title -->
-          <div>
-            <h3 class="text-xl font-black font-display text-white tracking-wide">
-              {{ formTitle }}
-            </h3>
-            <p class="text-xs text-gray-400 mt-1">Renseignez les détails du thème ci-dessous.</p>
-          </div>
+    <UModal
+      :title="formTitle"
+      description="Renseignez les détails du thème ci-dessous."
+      v-model:open="dialog"
+      :ui="{
+        content:
+          'sm:max-w-md bg-[#111827]/95 border border-white/10 rounded-2xl overflow-hidden text-gray-200',
+      }"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <!-- Nom Field -->
+          <UFormField
+            label="Nom du Thème"
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+            }"
+          >
+            <UInput
+              v-model="editedItem.name"
+              placeholder="Ex: Culture Générale"
+              class="w-full"
+              :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+            />
+          </UFormField>
 
-          <div class="space-y-4">
-            <!-- Nom Field -->
-            <UFormField
-              label="Nom du Thème"
-              :ui="{
-                label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-              }"
+          <!-- Slug Field -->
+          <UFormField
+            label="Slug (identifiant unique)"
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+            }"
+          >
+            <UInput
+              v-model="editedItem.slug"
+              placeholder="Ex: culture_generale"
+              class="w-full"
+              :ui="{ base: 'bg-white/5 border border-white/10 text-white font-mono' }"
+            />
+          </UFormField>
+
+          <!-- Picture URL Field -->
+          <UFormField
+            label="URL de l'image"
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+            }"
+          >
+            <UInput
+              v-model="editedItem.picture"
+              placeholder="Ex: https://image.com/pic.jpg"
+              class="w-full"
+              :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+            />
+          </UFormField>
+
+          <!-- Drag and drop zone -->
+          <div class="space-y-2">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display">
+              Téléverser une image
+            </p>
+            <div
+              class="drop-zone border border-dashed border-white/20 rounded-xl p-4 text-center cursor-pointer hover:border-violet-500/50 hover:bg-violet-600/5 transition-all duration-200 flex flex-col items-center justify-center space-y-1.5 select-none"
+              @dragover.prevent
+              @dragenter.prevent
+              @drop.prevent="handleDrop"
+              @click="selectFile"
             >
-              <UInput
-                v-model="editedItem.name"
-                placeholder="Ex: Culture Générale"
-                class="w-full"
-                :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+              <UIcon
+                name="i-heroicons-cloud-arrow-up"
+                class="text-2xl text-gray-400 animate-pulse"
               />
-            </UFormField>
-
-            <!-- Slug Field -->
-            <UFormField
-              label="Slug (identifiant unique)"
-              :ui="{
-                label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-              }"
-            >
-              <UInput
-                v-model="editedItem.slug"
-                placeholder="Ex: culture_generale"
-                class="w-full"
-                :ui="{ base: 'bg-white/5 border border-white/10 text-white font-mono' }"
-              />
-            </UFormField>
-
-            <!-- Picture URL Field -->
-            <UFormField
-              label="URL de l'image"
-              :ui="{
-                label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-              }"
-            >
-              <UInput
-                v-model="editedItem.picture"
-                placeholder="Ex: https://image.com/pic.jpg"
-                class="w-full"
-                :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
-              />
-            </UFormField>
-
-            <!-- Drag and drop zone -->
-            <div class="space-y-2">
-              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display">
-                Téléverser une image
+              <p class="text-xs text-gray-400 font-semibold font-display">
+                Déposez une image ici ou cliquez pour en sélectionner une
               </p>
-              <div
-                class="drop-zone border-2 border-dashed border-white/20 rounded-xl p-6 text-center cursor-pointer hover:border-violet-500/50 hover:bg-violet-600/5 transition-all duration-200 flex flex-col items-center justify-center space-y-2 select-none"
-                @dragover.prevent
-                @dragenter.prevent
-                @drop.prevent="handleDrop"
-                @click="selectFile"
-              >
-                <UIcon
-                  name="i-heroicons-cloud-arrow-up"
-                  class="text-3xl text-gray-400 animate-pulse"
-                />
-                <p class="text-xs text-gray-400 font-semibold font-display">
-                  Déposez une image ici ou cliquez pour en sélectionner une
-                </p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  @change="handleFileSelect"
-                  ref="fileInput"
-                  hidden
-                />
-              </div>
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleFileSelect"
+                ref="fileInput"
+                hidden
+              />
+            </div>
 
-              <!-- Real-time upload preview -->
-              <div
-                v-if="previewUrl || editedItem.picture"
-                class="flex flex-col items-center p-3 rounded-xl border border-white/5 bg-slate-950/40 relative group overflow-hidden w-full max-h-48"
-              >
-                <img
-                  :src="previewUrl || editedItem.picture"
-                  alt="Image Preview"
-                  class="max-h-32 max-w-full object-contain rounded-lg"
-                />
-                <p class="text-[10px] text-gray-500 font-bold truncate mt-2 max-w-xs font-display">
-                  {{ file?.name || "Image actuelle du thème" }}
-                </p>
-              </div>
+            <!-- Real-time upload preview -->
+            <div
+              v-if="previewUrl || editedItem.picture"
+              class="flex flex-col items-center p-2 rounded-xl border border-white/5 bg-slate-950/40 relative group overflow-hidden w-full max-h-40"
+            >
+              <img
+                :src="previewUrl || editedItem.picture"
+                alt="Image Preview"
+                class="max-h-24 max-w-full object-contain rounded-lg"
+              />
+              <p class="text-[10px] text-gray-500 font-bold truncate mt-1 max-w-xs font-display">
+                {{ file?.name || "Image actuelle du thème" }}
+              </p>
             </div>
           </div>
-
-          <!-- Actions -->
-          <div class="flex items-center justify-end space-x-3 pt-4 border-t border-white/5">
-            <UButton
-              variant="ghost"
-              color="primary"
-              class="font-bold font-display uppercase tracking-wider text-xs"
-              @click="cancel"
-            >
-              Annuler
-            </UButton>
-            <UButton
-              color="primary"
-              class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon"
-              :disabled="isSaveDisabled"
-              @click="save"
-            >
-              Sauvegarder
-            </UButton>
-          </div>
         </div>
+      </template>
+
+      <template #footer>
+        <UButton
+          variant="ghost"
+          color="primary"
+          class="font-bold font-display uppercase tracking-wider text-xs"
+          @click="cancel"
+        >
+          Annuler
+        </UButton>
+        <UButton
+          color="primary"
+          class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon"
+          :disabled="isSaveDisabled"
+          @click="save"
+        >
+          Sauvegarder
+        </UButton>
       </template>
     </UModal>
   </div>

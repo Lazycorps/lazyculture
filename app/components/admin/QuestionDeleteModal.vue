@@ -1,11 +1,15 @@
 <template>
-  <UModal v-model:open="isOpen">
-    <template #content>
-      <div
-        class="p-6 bg-[#111827] border border-white/10 rounded-2xl shadow-glass text-center space-y-6"
-      >
+  <UModal
+    v-model:open="isOpen"
+    :ui="{
+      content:
+        'sm:max-w-md bg-[#111827]/95 border border-white/10 rounded-2xl overflow-hidden text-gray-200',
+    }"
+  >
+    <template #body>
+      <div class="flex flex-col items-center space-y-4 text-center py-2">
         <div
-          class="mx-auto w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl"
+          class="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-2xl"
         >
           ⚠️
         </div>
@@ -18,24 +22,27 @@
             irréversible.
           </p>
         </div>
-        <div class="flex items-center justify-center space-x-3 pt-2">
-          <UButton
-            variant="ghost"
-            color="primary"
-            class="font-bold font-display uppercase tracking-wider text-xs"
-            @click="isOpen = false"
-          >
-            Annuler
-          </UButton>
-          <UButton
-            color="error"
-            class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon shadow-red-500/20"
-            :loading="deleting"
-            @click="deleteItemConfirm"
-          >
-            Supprimer
-          </UButton>
-        </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex items-center justify-end space-x-3 w-full">
+        <UButton
+          variant="ghost"
+          color="primary"
+          class="font-bold font-display uppercase tracking-wider text-xs"
+          @click="isOpen = false"
+        >
+          Annuler
+        </UButton>
+        <UButton
+          color="error"
+          class="font-black font-display uppercase tracking-widest text-xs px-6 shadow-neon shadow-red-500/20"
+          :loading="deleting"
+          @click="deleteItemConfirm"
+        >
+          Supprimer
+        </UButton>
       </div>
     </template>
   </UModal>

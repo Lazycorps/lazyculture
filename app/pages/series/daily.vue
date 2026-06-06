@@ -167,11 +167,12 @@ import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 import { QuestionDTO } from "#shared/question";
 import type { UserSeriesDTO } from "#shared/series";
 
-const supabase = useSupabaseClient();
+import { useUserStore } from "~/stores/userStore";
+
 const achievementStore = useAchievementStore();
-const {
-  data: { user },
-} = await supabase.auth.getUser();
+const userStore = useUserStore();
+await userStore.fetchUser();
+const user = computed(() => userStore.user);
 const router = useRouter();
 const question = ref<QuestionDTO | null>(null);
 const loading = ref(false);

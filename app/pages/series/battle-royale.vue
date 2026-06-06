@@ -257,10 +257,11 @@ import PodiumView from "~/components/battle-royale/PodiumView.vue";
 import SpectatorOverlay from "~/components/battle-royale/SpectatorOverlay.vue";
 import { useBattleRoyaleSession } from "~/composables/useBattleRoyaleSession";
 
-const supabase = useSupabaseClient();
-const {
-  data: { user },
-} = await supabase.auth.getUser();
+import { useUserStore } from "~/stores/userStore";
+
+const userStore = useUserStore();
+await userStore.fetchUser();
+const user = computed(() => userStore.user);
 
 const session = useBattleRoyaleSession();
 
@@ -359,8 +360,8 @@ async function joinArena(action: "create" | "join", targetMatchId?: string) {
     });
 
     // 2. Établir la connexion SSE globale
-    if (user) {
-      session.connect(result.matchId, user.id);
+    if (user.value) {
+      session.connect(result.matchId, user.value.id);
     }
   } catch (e: any) {
     console.error("Échec lors de l'entrée dans l'arène :", e);
