@@ -15,22 +15,22 @@
     <!-- Tabs Switcher -->
     <div class="flex justify-center pt-2">
       <div
-        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-md"
+        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-lg"
       >
         <button
-          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
-            currentTab === 'general'
+            currentTab === 'daily'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
               : 'text-gray-400 hover:text-white hover:bg-white/5'
           "
-          @click="currentTab = 'general'"
+          @click="currentTab = 'daily'"
         >
-          <UIcon name="i-heroicons-sparkles" class="text-xs" />
-          <span>XP</span>
+          <UIcon name="i-heroicons-calendar" class="text-xs" />
+          <span>Quotidien</span>
         </button>
         <button
-          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'br'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -42,7 +42,7 @@
           <span>BR</span>
         </button>
         <button
-          class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1.5"
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'showdown'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -52,6 +52,44 @@
         >
           <UIcon name="i-heroicons-bolt" class="text-xs" />
           <span>Showdown</span>
+        </button>
+        <button
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          :class="
+            currentTab === 'general'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'general'"
+        >
+          <UIcon name="i-heroicons-sparkles" class="text-xs" />
+          <span>XP</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Daily Sub-Tabs Switcher -->
+    <div v-if="currentTab === 'daily'" class="flex justify-center -mt-2">
+      <div
+        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex space-x-1 w-full max-w-[240px]"
+      >
+        <button
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          :class="
+            dailyPeriod === 'monthly' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+          "
+          @click="dailyPeriod = 'monthly'"
+        >
+          Mensuel
+        </button>
+        <button
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          :class="
+            dailyPeriod === 'alltime' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+          "
+          @click="dailyPeriod = 'alltime'"
+        >
+          Tout le temps
         </button>
       </div>
     </div>
@@ -108,6 +146,20 @@
                 <span
                   class="block text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5"
                   >{{ secondPlace.rankInfo?.label }}</span
+                >
+              </p>
+              <p
+                class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'daily'"
+              >
+                <span
+                  >🥇{{ secondPlace.firstPlaces }} 🥈{{ secondPlace.secondPlaces }} 🥉{{
+                    secondPlace.thirdPlaces
+                  }}</span
+                >
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ secondPlace.score }} PTS</span
                 >
               </p>
             </div>
@@ -174,6 +226,20 @@
                   >{{ firstPlace.rankInfo?.label }}</span
                 >
               </p>
+              <p
+                class="text-xs font-black text-gray-300 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'daily'"
+              >
+                <span
+                  >🥇{{ firstPlace.firstPlaces }} 🥈{{ firstPlace.secondPlaces }} 🥉{{
+                    firstPlace.thirdPlaces
+                  }}</span
+                >
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ firstPlace.score }} PTS</span
+                >
+              </p>
             </div>
           </NuxtLink>
         </template>
@@ -232,6 +298,20 @@
                 <span
                   class="block text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5"
                   >{{ thirdPlace.rankInfo?.label }}</span
+                >
+              </p>
+              <p
+                class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'daily'"
+              >
+                <span
+                  >🥇{{ thirdPlace.firstPlaces }} 🥈{{ thirdPlace.secondPlaces }} 🥉{{
+                    thirdPlace.thirdPlaces
+                  }}</span
+                >
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ thirdPlace.score }} PTS</span
                 >
               </p>
             </div>
@@ -322,6 +402,16 @@
                 >LP</span
               >
             </div>
+            <div class="text-right flex flex-col items-end" v-else-if="currentTab === 'daily'">
+              <div class="flex items-center space-x-1 text-xs text-gray-400 font-display">
+                <span>🥇{{ userItem.firstPlaces }}</span>
+                <span>🥈{{ userItem.secondPlaces }}</span>
+                <span>🥉{{ userItem.thirdPlaces }}</span>
+              </div>
+              <div class="text-[10px] font-black text-violet-400 font-display mt-0.5">
+                {{ userItem.score }} PTS
+              </div>
+            </div>
 
             <div
               class="w-12 text-right text-xs font-semibold text-gray-400"
@@ -343,17 +433,30 @@
 </template>
 
 <script setup lang="ts">
-const currentTab = ref<"general" | "br" | "showdown">("general");
+const currentTab = ref<"general" | "br" | "showdown" | "daily">("daily");
+const dailyPeriod = ref<"alltime" | "monthly">("monthly");
 
-// Récupération des trois types de classements en parallèle
+// Récupération des différents types de classements en parallèle
 const { data: users } = await useFetch<any[]>("/api/ranking/top");
 const { data: brUsers } = await useFetch<any[]>("/api/ranking/br");
 const { data: showdownUsers } = await useFetch<any[]>("/api/ranking/showdown");
+const { data: dailyAlltimeUsers } = await useFetch<any[]>(
+  "/api/ranking/daily-podium?period=alltime",
+);
+const { data: dailyMonthlyUsers } = await useFetch<any[]>(
+  "/api/ranking/daily-podium?period=monthly",
+);
 
 const activeUsers = computed(() => {
   if (currentTab.value === "general") return users.value || [];
   if (currentTab.value === "br") return brUsers.value || [];
-  return showdownUsers.value || [];
+  if (currentTab.value === "showdown") return showdownUsers.value || [];
+  if (currentTab.value === "daily") {
+    return dailyPeriod.value === "alltime"
+      ? dailyAlltimeUsers.value || []
+      : dailyMonthlyUsers.value || [];
+  }
+  return [];
 });
 
 const firstPlace = computed(() => activeUsers.value?.[0] || null);
