@@ -100,6 +100,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 const router = useRouter();
+const config = useRuntimeConfig();
 
 const passwordType = ref<"password" | "text">("password");
 const email = ref("");
@@ -136,9 +137,15 @@ async function register() {
   try {
     loading.value = true;
     const supabase = useSupabaseClient();
+    const rawBaseUrl = config.public.baseUrl || "http://localhost:3000";
+    const baseUrl = rawBaseUrl.includes("://") ? rawBaseUrl : `https://${rawBaseUrl}`;
+
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
+      options: {
+        redirectTo: baseUrl,
+      },
     });
     if (error) {
       errorDisplay.value = error.message;
