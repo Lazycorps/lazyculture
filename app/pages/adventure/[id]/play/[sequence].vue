@@ -1,7 +1,7 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-4 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 md:p-6"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
     >
       <!-- Top Progress Bar Row (Shown during load & gameplay) -->
       <div v-if="!isFinished" class="w-full flex flex-col space-y-3 mb-6">

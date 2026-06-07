@@ -1,7 +1,7 @@
 <template>
   <div
-    class="relative w-full flex flex-col justify-center select-none min-h-[calc(100dvh-240px)] md:min-h-0 transition-all duration-300"
-    :class="responded ? 'pb-60 md:pb-28' : 'pb-36 md:pb-20'"
+    class="relative w-full flex flex-col justify-center select-none min-h-0 transition-all duration-300"
+    :class="responded ? 'pb-48' : 'pb-28'"
     v-if="question"
   >
     <!-- Floating XP Indicator -->
@@ -41,21 +41,11 @@
           : 'bg-slate-950/80 border-white/10'
       "
     >
-      <div
-        class="max-w-xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4"
-      >
+      <div class="max-w-xl mx-auto w-full flex flex-col">
         <!-- Left Side: Status / Instructions -->
-        <div class="flex-1 w-full md:w-auto">
-          <!-- Active Mode Instruction (Before response) -->
-          <div v-if="!responded" class="hidden md:flex items-center space-x-2 text-gray-400">
-            <UIcon name="i-heroicons-information-circle" class="text-lg text-violet-400" />
-            <span class="text-xs font-semibold font-display tracking-wide"
-              >Choisissez une proposition ci-dessus</span
-            >
-          </div>
-
+        <div class="w-full">
           <!-- Answer Evaluation Banner (After response) -->
-          <div v-else class="flex items-start space-x-3 md:space-x-4">
+          <div v-if="responded" class="flex items-start space-x-3 md:space-x-4">
             <div
               class="w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-lg md:text-xl flex-shrink-0"
               :class="
@@ -69,13 +59,15 @@
             </div>
             <div class="space-y-0.5 min-w-0 flex-1">
               <h4
-                class="font-black font-display text-base tracking-wide"
+                class="font-black font-display text-base tracking-wide flex items-center justify-between"
                 :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
               >
-                {{ isCorrect ? "Bravo !" : "Incorrect" }}
+                <span>{{ isCorrect ? "Bravo !" : "Incorrect" }}</span>
               </h4>
-              <div class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text">
-                <p class="text-[11px] text-gray-300 font-medium leading-relaxed">
+              <div
+                class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text mb-4"
+              >
+                <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
                   {{
                     commentaire ||
                     (isCorrect ? "C'est exact !" : "Dommage ! Ouvrez l'œil pour la suite.")
@@ -87,12 +79,12 @@
         </div>
 
         <!-- Right Side: Exact same centered button spot -->
-        <div class="w-full md:w-auto flex-shrink-0 flex justify-center">
+        <div class="w-full flex justify-center">
           <!-- Validate Button -->
           <UButton
             v-if="!responded"
             size="lg"
-            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="selectedResponse != null ? 'primary' : 'neutral'"
             :disabled="selectedResponse == null || loading || parentLoading"
             :loading="loading || parentLoading"
@@ -104,7 +96,7 @@
           <UButton
             v-else
             size="lg"
-            class="w-full md:w-56 font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="isCorrect ? 'success' : 'error'"
             :loading="loading || parentLoading"
             @click="NextQuestion"
