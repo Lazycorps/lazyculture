@@ -61,6 +61,17 @@
               />
               <span class="font-semibold font-display tracking-wide">Thèmes</span>
             </NuxtLink>
+            <NuxtLink
+              to="/admin/learning-paths"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-map"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">Aventures</span>
+            </NuxtLink>
           </div>
         </div>
 
@@ -179,6 +190,18 @@
           class="text-xl group-hover:scale-110 transition-transform mb-1"
         />
         <span class="text-[10px] font-bold font-display">Thèmes</span>
+      </NuxtLink>
+
+      <NuxtLink
+        to="/admin/learning-paths"
+        class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
+        active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      >
+        <UIcon
+          name="i-heroicons-map"
+          class="text-xl group-hover:scale-110 transition-transform mb-1"
+        />
+        <span class="text-[10px] font-bold font-display">Aventures</span>
       </NuxtLink>
 
       <NuxtLink

@@ -61,6 +61,7 @@ const xpProgress = computed(() => userStore.xpProgress);
 
 const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
+  { label: "Aventures", path: "/adventure", icon: "i-heroicons-map" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
   { label: "Multijoueur", path: "/multiplayer", icon: "i-heroicons-users" },

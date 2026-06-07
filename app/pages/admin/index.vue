@@ -144,6 +144,15 @@
               >
                 Gérer les thèmes
               </UButton>
+              <UButton
+                to="/admin/learning-paths"
+                color="neutral"
+                variant="subtle"
+                icon="i-heroicons-map"
+                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              >
+                Gérer les Aventures
+              </UButton>
             </div>
           </div>
         </UCard>
