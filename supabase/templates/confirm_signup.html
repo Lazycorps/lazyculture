@@ -5,11 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>
       Design Emails - {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and
-      (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len .RedirectTo)
-      20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48)) }}Lazyculture{{ else if or
-      (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len
-      .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 100)) }}LazyDocs{{ else }}Lazycorp{{ end
-      }}
+      (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len .ConfirmationURL) 12)
+      (eq (index .ConfirmationURL 12) 99)) (and (gt (len .ConfirmationURL) 16) (eq (index
+      .ConfirmationURL 16) 99)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq
+      (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 48)) }}Lazyculture{{ else if or (and (gt
+      (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo) 16) (eq
+      (index .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL
+      12) 100)) (and (gt (len .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 100)) (and (gt
+      (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index
+      .RedirectTo 20) 49)) }}LazyDocs{{ else }}Lazycorp{{ end }}
     </title>
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
@@ -78,7 +82,7 @@
                 <tr>
                   <td style="vertical-align: middle; padding-right: 0.625rem">
                     <div
-                      style="height: 2.25rem; width: 2.25rem; line-height: 2.25rem; border-radius: 0.5rem; background-color: {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48)) }}#6d28d9{{ else if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 100)) }}#10b981{{ else }}#3b82f6{{ end }}; text-align: center; color: #ffffff; font-weight: 700; font-size: 1.25rem; font-family: 'Plus Jakarta Sans', sans-serif;"
+                      style="height: 2.25rem; width: 2.25rem; line-height: 2.25rem; border-radius: 0.5rem; background-color: {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 99)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 48)) }}#6d28d9{{ else if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 100)) (and (gt (len .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 100)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 49)) }}#10b981{{ else }}#3b82f6{{ end }}; text-align: center; color: #ffffff; font-weight: 700; font-size: 1.25rem; font-family: 'Plus Jakarta Sans', sans-serif;"
                     >
                       L
                     </div>
@@ -96,11 +100,17 @@
                       "
                     >
                       {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and
-                      (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt
-                      (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo
-                      18) 48)) }}Lazyculture{{ else if or (and (gt (len .RedirectTo) 12) (eq (index
-                      .RedirectTo 12) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index
-                      .ConfirmationURL 12) 100)) }}LazyDocs{{ else }}Lazycorp{{ end }}
+                      (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len
+                      .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len
+                      .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 99)) (and (gt (len
+                      .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48)
+                      (eq (index .RedirectTo 20) 48)) }}Lazyculture{{ else if or (and (gt (len
+                      .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo)
+                      16) (eq (index .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq
+                      (index .ConfirmationURL 12) 100)) (and (gt (len .ConfirmationURL) 16) (eq
+                      (index .ConfirmationURL 16) 100)) (and (gt (len .RedirectTo) 20) (eq (index
+                      .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20)
+                      49)) }}LazyDocs{{ else }}Lazycorp{{ end }}
                     </span>
                   </td>
                 </tr>
@@ -137,11 +147,17 @@
                 Merci de vous être inscrit sur
                 <strong style="color: #09090b; font-weight: 600"
                   >{{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and (gt
-                  (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len
-                  .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48))
-                  }}Lazyculture{{ else if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo
-                  12) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12)
-                  100)) }}LazyDocs{{ else }}Lazycorp{{ end }}</strong
+                  (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len
+                  .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len
+                  .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 99)) (and (gt (len
+                  .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq
+                  (index .RedirectTo 20) 48)) }}Lazyculture{{ else if or (and (gt (len .RedirectTo)
+                  12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo) 16) (eq (index
+                  .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index
+                  .ConfirmationURL 12) 100)) (and (gt (len .ConfirmationURL) 16) (eq (index
+                  .ConfirmationURL 16) 100)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo
+                  17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 49))
+                  }}LazyDocs{{ else }}Lazycorp{{ end }}</strong
                 >. Veuillez confirmer votre adresse e-mail en cliquant sur le bouton ci-dessous pour
                 activer votre compte.
               </p>
@@ -150,7 +166,7 @@
               <div style="margin: 2.25rem 0; text-align: center">
                 <a
                   href="{{ .ConfirmationURL }}"
-                  style="display: inline-block; background-color: {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48)) }}#6d28d9{{ else if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 100)) }}#10b981{{ else }}#3b82f6{{ end }}; color: #ffffff; font-size: 0.875rem; font-weight: 600; text-decoration: none; padding: 0.75rem 1.75rem; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.2s;"
+                  style="display: inline-block; background-color: {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 99)) (and (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 99)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 48)) }}#6d28d9{{ else if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 100)) (and (gt (len .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 100)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 49)) }}#10b981{{ else }}#3b82f6{{ end }}; color: #ffffff; font-size: 0.875rem; font-weight: 600; text-decoration: none; padding: 0.75rem 1.75rem; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.2s;"
                 >
                   Confirmer mon adresse e-mail
                 </a>
@@ -214,12 +230,17 @@
                   "
                 >
                   &copy; 2026 {{ if or (and (gt (len .RedirectTo) 12) (eq (index .RedirectTo 12)
-                  99)) (and (gt (len .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and
-                  (gt (len .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo
-                  18) 48)) }}Lazyculture{{ else if or (and (gt (len .RedirectTo) 12) (eq (index
-                  .RedirectTo 12) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index
-                  .ConfirmationURL 12) 100)) }}LazyDocs{{ else }}Lazycorp{{ end }} Inc. Tous droits
-                  réservés.
+                  99)) (and (gt (len .RedirectTo) 16) (eq (index .RedirectTo 16) 99)) (and (gt (len
+                  .ConfirmationURL) 12) (eq (index .ConfirmationURL 12) 99)) (and (gt (len
+                  .ConfirmationURL) 16) (eq (index .ConfirmationURL 16) 99)) (and (gt (len
+                  .RedirectTo) 20) (eq (index .RedirectTo 17) 51) (eq (index .RedirectTo 18) 48) (eq
+                  (index .RedirectTo 20) 48)) }}Lazyculture{{ else if or (and (gt (len .RedirectTo)
+                  12) (eq (index .RedirectTo 12) 100)) (and (gt (len .RedirectTo) 16) (eq (index
+                  .RedirectTo 16) 100)) (and (gt (len .ConfirmationURL) 12) (eq (index
+                  .ConfirmationURL 12) 100)) (and (gt (len .ConfirmationURL) 16) (eq (index
+                  .ConfirmationURL 16) 100)) (and (gt (len .RedirectTo) 20) (eq (index .RedirectTo
+                  17) 51) (eq (index .RedirectTo 18) 48) (eq (index .RedirectTo 20) 49))
+                  }}LazyDocs{{ else }}Lazycorp{{ end }} Inc. Tous droits réservés.
                 </p>
               </div>
             </div>
