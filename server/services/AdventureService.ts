@@ -368,6 +368,10 @@ export class AdventureService {
       }
 
       // 5. Update Adventure progression
+      const nextStageExists = await prisma.adventureStage.findFirst({
+        where: { adventureId, sequence: sequence + 1 },
+      });
+
       if (isReplay) {
         if (progress) {
           await prisma.userAdventureProgress.update({
@@ -379,10 +383,6 @@ export class AdventureService {
           });
         }
       } else {
-        const nextStageExists = await prisma.adventureStage.findFirst({
-          where: { adventureId, sequence: sequence + 1 },
-        });
-
         if (progress) {
           await prisma.userAdventureProgress.update({
             where: { id: progress.id },
@@ -412,6 +412,7 @@ export class AdventureService {
         total: totalQuestions,
         xpEarnedTotal,
         bonusXp,
+        hasNextStage: !!nextStageExists,
       };
     } else {
       return {

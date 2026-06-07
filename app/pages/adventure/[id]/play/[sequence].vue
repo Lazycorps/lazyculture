@@ -4,26 +4,37 @@
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 md:p-6"
     >
       <!-- Top Progress Bar Row (Shown during load & gameplay) -->
-      <div v-if="!isFinished" class="w-full flex items-center space-x-3 mb-6">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-heroicons-x-mark"
-          class="hover:bg-white/5 text-gray-400 hover:text-white rounded-full p-1.5"
-          @click="confirmExit"
-        />
+      <div v-if="!isFinished" class="w-full flex flex-col space-y-3 mb-6">
+        <div class="flex items-center justify-between w-full">
+          <div class="flex items-center space-x-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-heroicons-x-mark"
+              class="hover:bg-white/5 text-gray-400 hover:text-white rounded-full p-1.5"
+              @click="confirmExit"
+            />
+            <!-- Stage Type & Number Badge -->
+            <span
+              v-if="currentStageDetails"
+              class="text-[10px] font-black font-display uppercase tracking-widest px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-300 border border-violet-500/20"
+            >
+              {{ currentStageDetails.title }}
+            </span>
+          </div>
+          <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
+            Question {{ currentIndex + 1 }} / {{ questions.length }}
+          </span>
+        </div>
         <!-- Progress Bar -->
         <div
-          class="flex-1 h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
+          class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
         >
           <div
             class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
             :style="{ width: `${progressPercent}%` }"
           ></div>
         </div>
-        <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
-          {{ currentIndex + 1 }} / {{ questions.length }}
-        </span>
       </div>
 
       <!-- Loading Skeleton -->
@@ -70,7 +81,14 @@
 
         <!-- Title / Summary -->
         <div class="space-y-2">
-          <h2 class="text-2xl font-black font-display text-white">
+          <!-- Stage badge -->
+          <span
+            v-if="currentStageDetails"
+            class="inline-block text-[10px] font-black font-display uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20"
+          >
+            {{ currentStageDetails.title }}
+          </span>
+          <h2 class="text-2xl font-black font-display text-white mt-1">
             {{ isStagePassed ? "Étape Validée !" : "Étape non validée" }}
           </h2>
           <p class="text-sm text-gray-400 font-medium">
@@ -111,16 +129,34 @@
 
         <!-- Action Buttons -->
         <div class="w-full space-y-3 pt-4">
-          <!-- Next / Return -->
+          <!-- Next Stage (Direct) -->
           <UButton
-            v-if="isStagePassed || isReplay"
+            v-if="isStagePassed && hasNextStage"
             color="primary"
             block
             size="lg"
             class="font-black font-display uppercase tracking-widest py-3 justify-center rounded-xl shadow-lg shadow-violet-600/20"
+            @click="goToNextStage"
+          >
+            Étape suivante
+          </UButton>
+
+          <!-- Next / Return (Primary when no next stage, secondary when next stage exists) -->
+          <UButton
+            v-if="isStagePassed || isReplay"
+            :color="isStagePassed && hasNextStage ? 'neutral' : 'primary'"
+            :variant="isStagePassed && hasNextStage ? 'ghost' : 'solid'"
+            block
+            size="lg"
+            class="font-black font-display uppercase tracking-widest py-3 justify-center rounded-xl"
+            :class="
+              !(isStagePassed && hasNextStage)
+                ? 'shadow-lg shadow-violet-600/20'
+                : 'hover:bg-white/5 text-gray-400 hover:text-white'
+            "
             @click="returnToMap"
           >
-            Continuer
+            {{ isStagePassed && hasNextStage ? "Retour à la carte" : "Continuer" }}
           </UButton>
 
           <!-- Retry -->
@@ -143,14 +179,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import QuestionSeries from "@/components/QuestionSeries.vue";
 
 const route = useRoute();
 const router = useRouter();
 
 const pathId = Number(route.params.id);
-const sequence = Number(route.params.sequence);
 
 const showBottomNav = useState("showBottomNav", () => true);
 
@@ -169,6 +204,8 @@ const isStagePassed = ref(false);
 const isReplay = ref(false);
 const xpEarnedTotal = ref(0);
 const bonusXp = ref(0);
+const hasNextStage = ref(false);
+const pathDetails = ref<any>(null);
 
 const currentQuestion = computed(() => {
   return questions.value[currentIndex.value] || null;
@@ -179,22 +216,58 @@ const progressPercent = computed(() => {
   return (currentIndex.value / questions.value.length) * 100;
 });
 
-onMounted(async () => {
-  showBottomNav.value = false;
+const currentStageDetails = computed(() => {
+  const seq = Number(route.params.sequence);
+  return pathDetails.value?.stages?.find((s: any) => s.sequence === seq) || null;
+});
+
+async function loadStage(seq: number) {
+  loading.value = true;
+  isFinished.value = false;
+  currentIndex.value = 0;
+  userAnswers.value = {};
+  xpEarnedTotal.value = 0;
+  bonusXp.value = 0;
+  hasNextStage.value = false;
+
   try {
     // Fetch randomized questions for this stage
-    questions.value = await $fetch<any[]>(`/api/adventures/${pathId}/stage/${sequence}`);
+    questions.value = await $fetch<any[]>(`/api/adventures/${pathId}/stage/${seq}`);
   } catch (e: any) {
     alert(e.data?.statusMessage || "Impossible de charger cette étape.");
     router.push(`/adventure/${pathId}/map`);
   } finally {
     loading.value = false;
   }
+}
+
+onMounted(async () => {
+  showBottomNav.value = false;
+
+  // Load adventure stages details
+  try {
+    pathDetails.value = await $fetch<any>(`/api/adventures/${pathId}`);
+  } catch (e) {
+    console.error("Error loading adventure details:", e);
+  }
+
+  const currentSeq = Number(route.params.sequence);
+  await loadStage(currentSeq);
 });
 
 onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
+
+// Watch for route sequence changes (e.g. going to next stage directly)
+watch(
+  () => route.params.sequence,
+  async (newSeq) => {
+    if (newSeq) {
+      await loadStage(Number(newSeq));
+    }
+  },
+);
 
 function confirmExit() {
   if (confirm("Voulez-vous vraiment quitter l'étape ? Votre progression sera perdue.")) {
@@ -220,7 +293,8 @@ function nextQuestion() {
 async function submitComplete() {
   try {
     submittingComplete.value = true;
-    const result = await $fetch<any>(`/api/adventures/${pathId}/stage/${sequence}/complete`, {
+    const currentSeq = Number(route.params.sequence);
+    const result = await $fetch<any>(`/api/adventures/${pathId}/stage/${currentSeq}/complete`, {
       method: "post",
       body: { answers: userAnswers.value },
     });
@@ -229,6 +303,7 @@ async function submitComplete() {
     isStagePassed.value = result.success;
     isReplay.value = result.isReplay || false;
     bonusXp.value = result.bonusXp || 0;
+    hasNextStage.value = result.hasNextStage || false;
     isFinished.value = true;
   } catch (e: any) {
     alert(e.data?.statusMessage || "Erreur lors de la validation finale de l'étape.");
@@ -241,25 +316,13 @@ function returnToMap() {
   router.push(`/adventure/${pathId}/map`);
 }
 
-function retryStage() {
-  // Reload questions and reset index
-  loading.value = true;
-  isFinished.value = false;
-  currentIndex.value = 0;
-  userAnswers.value = {};
-  xpEarnedTotal.value = 0;
-  bonusXp.value = 0;
+function goToNextStage() {
+  const nextSeq = Number(route.params.sequence) + 1;
+  router.push(`/adventure/${pathId}/play/${nextSeq}`);
+}
 
-  $fetch<any[]>(`/api/adventures/${pathId}/stage/${sequence}`)
-    .then((data) => {
-      questions.value = data;
-    })
-    .catch((e) => {
-      alert("Erreur lors du rechargement de l'étape.");
-      router.push(`/adventure/${pathId}/map`);
-    })
-    .finally(() => {
-      loading.value = false;
-    });
+function retryStage() {
+  const currentSeq = Number(route.params.sequence);
+  loadStage(currentSeq);
 }
 </script>

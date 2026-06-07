@@ -1,110 +1,72 @@
 <template>
-  <div class="flex-1 flex flex-col min-h-0 select-none pb-12">
-    <!-- Map Header -->
-    <div class="flex-shrink-0 flex items-center space-x-4 mb-4">
-      <UButton
-        to="/adventure"
-        color="neutral"
-        variant="ghost"
-        icon="i-heroicons-arrow-left"
-        class="hover:bg-white/5 text-gray-400 hover:text-white rounded-xl"
-      >
-        Retour aux Aventures
-      </UButton>
-    </div>
-
-    <!-- Adventure Premium Card Header -->
+  <div class="flex-1 flex flex-col min-h-0 select-none pb-12 relative">
+    <!-- Adventure Premium Card Header (Positioned absolutely over the map) -->
     <div
       v-if="pathDetails"
-      class="flex-shrink-0 relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 p-6 md:p-8 shadow-glass mb-8 flex flex-col md:flex-row items-center md:justify-between gap-6"
+      class="absolute top-4 left-4 right-4 z-20 overflow-hidden rounded-xl border border-white/10 bg-slate-950/70 backdrop-blur-md p-3 shadow-glass flex flex-col space-y-2.5"
     >
-      <!-- Background glow or card illustration background -->
-      <div class="absolute inset-0 z-0 opacity-15 pointer-events-none">
-        <img
-          :src="getThemePicture(pathDetails.themeSlug)"
-          alt=""
-          class="w-full h-full object-cover filter blur-[2px] scale-105"
-        />
+      <!-- Row 1: Title & Stats badges -->
+      <div class="relative z-10 flex flex-row items-center justify-between gap-3 w-full">
+        <h2 class="text-lg md:text-xl font-black font-display text-white truncate flex-1 min-w-0">
+          {{ pathDetails.title }}
+        </h2>
+
+        <!-- Stats Badges -->
         <div
-          class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent"
-        ></div>
-      </div>
-
-      <div class="relative z-10 flex-1 space-y-4 w-full">
-        <div>
-          <span
-            class="text-xs text-violet-400 font-extrabold font-display uppercase tracking-wider"
-          >
-            Aventure : {{ getThemeName(pathDetails.themeSlug) }}
-          </span>
-          <h2 class="text-2xl md:text-3xl font-black font-display text-white mt-1">
-            {{ pathDetails.title }}
-          </h2>
-        </div>
-
-        <!-- Progress Bar & Count -->
-        <div class="space-y-2 max-w-md">
-          <div class="flex justify-between text-xs font-bold font-display text-gray-300">
-            <span
-              >Progression :
-              {{
-                pathDetails.completed ? "Complété ! 🎉" : `Étape ${currentStage} / ${totalStages}`
-              }}</span
-            >
-            <span>{{ percentProgress }}%</span>
-          </div>
+          class="flex items-center gap-1.5 text-[11px] font-bold font-display select-none flex-shrink-0"
+        >
+          <!-- Perfect Badge -->
           <div
-            class="w-full h-3 bg-slate-950/85 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+            class="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-950/80 border border-white/5 backdrop-blur-md"
           >
-            <div
-              class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
-              :style="{ width: `${percentProgress}%` }"
-            ></div>
+            <span class="text-xs">🏆</span>
+            <span class="text-amber-400">{{ perfectStagesCount }}/{{ totalStages }}</span>
+          </div>
+
+          <!-- Status Badge -->
+          <div
+            class="flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-950/80 border border-white/5 backdrop-blur-md"
+          >
+            <span class="text-xs">✨</span>
+            <span :class="pathDetails.completed ? 'text-emerald-400' : 'text-violet-400'">
+              {{ pathDetails.completed ? "Validé" : "En cours" }}
+            </span>
           </div>
         </div>
       </div>
 
-      <!-- Stats / Performance Box -->
-      <div
-        class="relative z-10 bg-slate-950/70 border border-white/5 backdrop-blur-md rounded-2xl p-4 flex flex-row md:flex-col gap-4 text-center justify-around w-full md:w-auto md:min-w-[180px]"
-      >
-        <div class="flex flex-col items-center">
-          <span class="text-2xl">🏆</span>
+      <!-- Row 2: Progress Bar -->
+      <div class="relative z-10 space-y-1 max-w-md w-full">
+        <div class="flex justify-between text-[10px] font-bold font-display text-gray-300">
           <span
-            class="text-[10px] text-gray-400 uppercase font-semibold font-display tracking-wider mt-1"
-            >Score Perfect</span
+            >Progression :
+            {{
+              pathDetails.completed ? "Complété ! 🎉" : `Étape ${currentStage} / ${totalStages}`
+            }}</span
           >
-          <span class="text-sm font-black text-amber-400 font-display">
-            {{ perfectStagesCount }} / {{ totalStages }}
-          </span>
+          <span>{{ percentProgress }}%</span>
         </div>
-
-        <div class="w-px md:w-full h-8 md:h-px bg-white/10"></div>
-
-        <div class="flex flex-col items-center">
-          <span class="text-2xl">✨</span>
-          <span
-            class="text-[10px] text-gray-400 uppercase font-semibold font-display tracking-wider mt-1"
-            >Statut</span
-          >
-          <span
-            class="text-xs font-black font-display uppercase mt-0.5"
-            :class="pathDetails.completed ? 'text-emerald-400' : 'text-violet-400'"
-          >
-            {{ pathDetails.completed ? "Validé" : "En cours" }}
-          </span>
+        <div
+          class="w-full h-2 bg-slate-950/85 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+        >
+          <div
+            class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
+            :style="{ width: `${percentProgress}%` }"
+          ></div>
         </div>
       </div>
     </div>
 
-    <!-- Map Area -->
+    <!-- Map Area (Fills the entire parent container) -->
     <div v-if="loading" class="flex-1 flex items-center justify-center">
       <UIcon name="i-heroicons-arrow-path" class="text-3xl animate-spin text-violet-400" />
     </div>
 
     <div
       v-else
-      class="flex-1 flex flex-col items-center justify-start relative max-w-lg mx-auto w-full px-4 py-8"
+      ref="scrollContainerRef"
+      class="flex-1 overflow-y-auto overflow-x-hidden w-full relative flex flex-col items-center pt-28 pb-36 hide-scrollbar"
+      @scroll="handleMapScroll"
     >
       <!-- Background glows -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
@@ -116,176 +78,201 @@
         ></div>
       </div>
 
-      <!-- Floating decoration icons -->
-      <div
-        class="absolute left-[-100px] top-[15%] text-3xl opacity-20 animate-float-slow select-none hidden lg:block pointer-events-none"
-      >
-        💡
-      </div>
-      <div
-        class="absolute right-[-100px] top-[40%] text-4xl opacity-15 animate-float-normal select-none hidden lg:block pointer-events-none"
-      >
-        📚
-      </div>
-      <div
-        class="absolute left-[-120px] top-[60%] text-3xl opacity-20 animate-float-slower select-none hidden lg:block pointer-events-none"
-      >
-        🧠
-      </div>
-      <div
-        class="absolute right-[-80px] top-[80%] text-4xl opacity-15 animate-float-slow select-none hidden lg:block pointer-events-none"
-      >
-        🏆
-      </div>
-
-      <!-- Winding Path Column -->
-      <div ref="containerRef" class="relative w-full flex flex-col items-center py-12 space-y-12">
-        <!-- Connecting SVG Path for Candy Crush feel -->
-        <svg
-          class="absolute top-0 bottom-0 left-0 right-0 w-full h-full pointer-events-none"
-          style="z-index: 0"
+      <!-- Central Map Wrapper -->
+      <div class="max-w-lg w-full px-4 relative flex flex-col items-center justify-start z-10">
+        <!-- Floating decoration icons -->
+        <div
+          class="absolute left-[-100px] top-[15%] text-3xl opacity-20 animate-float-slow select-none hidden lg:block pointer-events-none"
         >
-          <defs>
-            <linearGradient id="progress-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" stop-color="#8b5cf6" />
-              <stop offset="100%" stop-color="#6366f1" />
-            </linearGradient>
-          </defs>
-          <!-- Locked/Future path -->
-          <path
-            :d="pathSvgD"
-            fill="none"
-            stroke-width="6"
-            stroke-dasharray="8 8"
-            class="stroke-slate-800"
-          />
-          <!-- Completed/Active path overlay -->
-          <path
-            v-if="progressSvgD"
-            :d="progressSvgD"
-            fill="none"
-            stroke="url(#progress-gradient)"
-            stroke-width="6"
-            stroke-dasharray="6 6"
-            class="stroke-violet-500 stroke-dash-animated"
-            style="filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.4))"
-          />
-        </svg>
+          💡
+        </div>
+        <div
+          class="absolute right-[-100px] top-[40%] text-4xl opacity-15 animate-float-normal select-none hidden lg:block pointer-events-none"
+        >
+          📚
+        </div>
+        <div
+          class="absolute left-[-120px] top-[60%] text-3xl opacity-20 animate-float-slower select-none hidden lg:block pointer-events-none"
+        >
+          🧠
+        </div>
+        <div
+          class="absolute right-[-80px] top-[80%] text-4xl opacity-15 animate-float-slow select-none hidden lg:block pointer-events-none"
+        >
+          🏆
+        </div>
 
-        <!-- Stage Nodes & Chapter Dividers -->
-        <template v-for="(stage, index) in reversedStages" :key="stage.id">
-          <!-- Dynamic Chapter Divider (Placed ABOVE the stage in DOM, representing chapter transition after the control) -->
-          <div
-            v-if="shouldShowDividerAbove(stage)"
-            class="w-full flex items-center justify-center py-6 select-none"
-            style="z-index: 5"
+        <!-- Winding Path Column -->
+        <div ref="containerRef" class="relative w-full flex flex-col items-center py-12 space-y-12">
+          <!-- Connecting SVG Path for Candy Crush feel -->
+          <svg
+            class="absolute top-0 bottom-0 left-0 right-0 w-full h-full pointer-events-none"
+            style="z-index: 0"
           >
-            <div class="flex items-center space-x-4 w-full max-w-[280px]">
-              <div class="flex-1 h-px bg-gradient-to-r from-transparent to-white/10"></div>
-              <div
-                class="px-3 py-1 rounded-full bg-slate-950/80 border border-white/5 backdrop-blur-md text-[9px] font-black font-display uppercase tracking-widest text-violet-300"
-              >
-                Chapitre {{ getChapterNumber(stage) }}
-              </div>
-              <div class="flex-1 h-px bg-gradient-to-l from-transparent to-white/10"></div>
-            </div>
-          </div>
+            <defs>
+              <linearGradient id="progress-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                <stop offset="0%" stop-color="#8b5cf6" />
+                <stop offset="100%" stop-color="#6366f1" />
+              </linearGradient>
+            </defs>
+            <!-- Locked/Future path -->
+            <path
+              :d="pathSvgD"
+              fill="none"
+              stroke-width="6"
+              stroke-dasharray="8 8"
+              class="stroke-slate-800"
+            />
+            <!-- Completed/Active path overlay -->
+            <path
+              v-if="progressSvgD"
+              :d="progressSvgD"
+              fill="none"
+              stroke="url(#progress-gradient)"
+              stroke-width="6"
+              stroke-dasharray="6 6"
+              class="stroke-violet-500 stroke-dash-animated"
+              style="filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.4))"
+            />
+          </svg>
 
-          <!-- Stage Node Wrapper -->
-          <div
-            :id="'stage-node-' + stage.sequence"
-            class="relative flex items-center justify-center transition-all duration-300"
-            :style="{
-              transform: `translateX(${getXOffset(reversedStages.length - 1 - index)}px)`,
-              zIndex: 10,
-            }"
-          >
-            <!-- Node Container -->
-            <div class="flex flex-col items-center relative">
-              <!-- Mascot Standing Above Active Stage -->
-              <div
-                v-if="isActive(stage.sequence)"
-                class="absolute -top-10 left-1/2 -translate-x-1/2 flex flex-col items-center z-30 pointer-events-none select-none"
-              >
-                <!-- Avatar circle -->
+          <!-- Stage Nodes & Chapter Dividers -->
+          <template v-for="(stage, index) in reversedStages" :key="stage.id">
+            <!-- Dynamic Chapter Divider (Placed ABOVE the stage in DOM, representing chapter transition after the control) -->
+            <div
+              v-if="shouldShowDividerAbove(stage)"
+              class="w-full flex items-center justify-center py-6 select-none"
+              style="z-index: 5"
+            >
+              <div class="flex items-center space-x-4 w-full max-w-[280px]">
+                <div class="flex-1 h-px bg-gradient-to-r from-transparent to-white/10"></div>
                 <div
-                  class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 border-2 border-white shadow-neon flex items-center justify-center animate-bob"
+                  class="px-3 py-1 rounded-full bg-slate-950/80 border border-white/5 backdrop-blur-md text-[9px] font-black font-display uppercase tracking-widest text-violet-300"
                 >
-                  <span class="text-xs font-black text-white uppercase select-none">
-                    {{ userStore.username ? userStore.username[0] : "🦥" }}
-                  </span>
+                  Chapitre {{ getChapterNumber(stage) }}
                 </div>
+                <div class="flex-1 h-px bg-gradient-to-l from-transparent to-white/10"></div>
               </div>
+            </div>
 
-              <!-- Node Button -->
-              <button
-                :disabled="isLocked(stage.sequence)"
-                class="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center border-2 transition-all"
-                :class="getNodeClass(stage)"
-                @click="selectStage(stage)"
-              >
-                <!-- Locked state icon -->
-                <UIcon
-                  v-if="isLocked(stage.sequence)"
-                  name="i-heroicons-lock-closed"
-                  class="text-lg text-slate-600"
-                />
-
-                <template v-else>
-                  <!-- Completed Icon / Score -->
-                  <template v-if="isCompleted(stage.sequence)">
-                    <span
-                      v-if="isCompletedButNotPerfect(stage)"
-                      class="text-[10px] md:text-xs font-black font-display text-white"
-                    >
-                      {{ getStageScore(stage.sequence) }}/{{ getStageMaxQuestions(stage.type) }}
+            <!-- Stage Node Wrapper -->
+            <div
+              :id="'stage-node-' + stage.sequence"
+              class="relative flex items-center justify-center transition-all duration-300"
+              :style="{
+                transform: `translateX(${getXOffset(reversedStages.length - 1 - index)}px)`,
+                zIndex: 10,
+              }"
+            >
+              <!-- Node Container -->
+              <div class="flex flex-col items-center relative">
+                <!-- Mascot Standing Above Active Stage -->
+                <div
+                  v-if="isActive(stage.sequence)"
+                  class="absolute -top-10 left-1/2 -translate-x-1/2 flex flex-col items-center z-30 pointer-events-none select-none"
+                >
+                  <!-- Avatar circle -->
+                  <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 border-2 border-white shadow-neon flex items-center justify-center animate-bob"
+                  >
+                    <span class="text-xs font-black text-white uppercase select-none">
+                      {{ userStore.username ? userStore.username[0] : "🦥" }}
                     </span>
-                    <UIcon v-else name="i-heroicons-check" class="text-2xl text-white font-bold" />
+                  </div>
+                </div>
+
+                <!-- Node Button -->
+                <button
+                  :disabled="isLocked(stage.sequence)"
+                  class="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center border-2 transition-all"
+                  :class="getNodeClass(stage)"
+                  @click="selectStage(stage)"
+                >
+                  <!-- Locked state icon -->
+                  <UIcon
+                    v-if="isLocked(stage.sequence)"
+                    name="i-heroicons-lock-closed"
+                    class="text-lg text-slate-600"
+                  />
+
+                  <template v-else>
+                    <!-- Completed Icon / Score -->
+                    <template v-if="isCompleted(stage.sequence)">
+                      <span
+                        v-if="isCompletedButNotPerfect(stage)"
+                        class="text-[10px] md:text-xs font-black font-display text-white"
+                      >
+                        {{ getStageScore(stage.sequence) }}/{{ getStageMaxQuestions(stage.type) }}
+                      </span>
+                      <UIcon
+                        v-else
+                        name="i-heroicons-check"
+                        class="text-2xl text-white font-bold"
+                      />
+                    </template>
+
+                    <!-- Active Node Icon based on type -->
+                    <span v-else class="flex items-center justify-center">
+                      <UIcon
+                        v-if="stage.type === 'CONTROL'"
+                        name="i-heroicons-academic-cap"
+                        class="text-2xl text-white"
+                      />
+                      <UIcon
+                        v-else-if="stage.type === 'EXAM'"
+                        name="i-heroicons-trophy"
+                        class="text-2xl text-white"
+                      />
+                      <span v-else class="text-sm font-extrabold font-display text-white">
+                        {{ stage.sequence }}
+                      </span>
+                    </span>
                   </template>
 
-                  <!-- Active Node Icon based on type -->
-                  <span v-else class="flex items-center justify-center">
-                    <UIcon
-                      v-if="stage.type === 'CONTROL'"
-                      name="i-heroicons-academic-cap"
-                      class="text-2xl text-white"
-                    />
-                    <UIcon
-                      v-else-if="stage.type === 'EXAM'"
-                      name="i-heroicons-trophy"
-                      class="text-2xl text-white"
-                    />
-                    <span v-else class="text-sm font-extrabold font-display text-white">
-                      {{ stage.sequence }}
-                    </span>
-                  </span>
-                </template>
+                  <!-- Pulse rings for current active stage -->
+                  <span
+                    v-if="isActive(stage.sequence)"
+                    class="absolute -inset-1 rounded-full border border-violet-500/50 animate-ping opacity-60 pointer-events-none"
+                  ></span>
+                </button>
 
-                <!-- Pulse rings for current active stage -->
+                <!-- Node Label -->
                 <span
-                  v-if="isActive(stage.sequence)"
-                  class="absolute -inset-1 rounded-full border border-violet-500/50 animate-ping opacity-60 pointer-events-none"
-                ></span>
-              </button>
-
-              <!-- Node Label -->
-              <span
-                class="mt-2 text-[10px] md:text-xs font-black font-display tracking-wide uppercase px-2 py-0.5 rounded-full select-none"
-                :class="getLabelClass(stage)"
-              >
-                {{
-                  stage.type === "STEP"
-                    ? `Étape ${stage.sequence}`
-                    : stage.type === "CONTROL"
-                      ? "Contrôle"
-                      : "Examen"
-                }}
-              </span>
+                  class="mt-2 text-[10px] md:text-xs font-black font-display tracking-wide uppercase px-2 py-0.5 rounded-full select-none"
+                  :class="getLabelClass(stage)"
+                >
+                  {{
+                    stage.type === "STEP"
+                      ? `Étape ${stage.sequence}`
+                      : stage.type === "CONTROL"
+                        ? "Contrôle"
+                        : "Examen"
+                  }}
+                </span>
+              </div>
             </div>
-          </div>
-        </template>
+          </template>
+
+          <!-- Spacer to prevent the last stage node from being hidden under the bottom navigation -->
+          <div class="h-36 w-full flex-shrink-0 pointer-events-none" />
+        </div>
       </div>
     </div>
+
+    <!-- Floating Scroll to Active Stage Button -->
+    <Transition name="fade-scale">
+      <button
+        v-if="!isActiveStageVisible && pathDetails"
+        class="fixed bottom-24 right-6 z-30 w-12 h-12 rounded-full bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-600/30 flex flex-col items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 border border-violet-400/30 backdrop-blur-md"
+        @click="scrollToActiveStage"
+      >
+        <UIcon
+          :name="isTargetAbove ? 'i-heroicons-arrow-up' : 'i-heroicons-arrow-down'"
+          class="text-xl animate-bounce-gentle"
+        />
+        <span class="text-[8px] font-black uppercase tracking-wider -mt-1 font-display">Étape</span>
+      </button>
+    </Transition>
 
     <!-- Duolingo-style bottom slide-up drawer for details -->
     <Transition name="slide-up">
@@ -364,6 +351,10 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { useUserStore } from "~/stores/userStore";
 
+definePageMeta({
+  fullscreen: true,
+});
+
 const route = useRoute();
 const router = useRouter();
 
@@ -378,6 +369,86 @@ const points = ref<{ x: number; y: number }[]>([]);
 
 const userStore = useUserStore();
 let resizeObserver: ResizeObserver | null = null;
+
+const scrollContainerRef = ref<HTMLElement | null>(null);
+const isActiveStageVisible = ref(true);
+const isTargetAbove = ref(true);
+const activeNodeObserver = ref<IntersectionObserver | null>(null);
+
+// Reverse stages list to draw Stage 1 at the bottom (Candy Crush style)
+const reversedStages = computed(() => {
+  if (!pathDetails.value?.stages) return [];
+  return [...pathDetails.value.stages].reverse();
+});
+
+const totalStages = computed(() => pathDetails.value?.stages?.length ?? 0);
+const currentStage = computed(() => {
+  if (pathDetails.value?.completed) return totalStages.value;
+  return pathDetails.value?.currentStage ?? 1;
+});
+
+const percentProgress = computed(() => {
+  if (totalStages.value === 0) return 0;
+  if (pathDetails.value?.completed) return 100;
+  return Math.min(Math.round(((currentStage.value - 1) / totalStages.value) * 100), 99);
+});
+
+const perfectStagesCount = computed(() => {
+  if (!pathDetails.value?.stages) return 0;
+  let count = 0;
+  for (const stage of pathDetails.value.stages) {
+    const score = getStageScore(stage.sequence);
+    if (score !== null) {
+      const max = getStageMaxQuestions(stage.type);
+      if (score === max) {
+        count++;
+      }
+    }
+  }
+  return count;
+});
+
+function checkScrollDirection() {
+  const container = scrollContainerRef.value;
+  const current = currentStage.value;
+  const el = document.getElementById(`stage-node-${current}`);
+  if (!container || !el) return;
+
+  const containerRect = container.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+
+  isTargetAbove.value = elRect.top < containerRect.top;
+}
+
+function handleMapScroll() {
+  checkScrollDirection();
+}
+
+function setupActiveNodeObserver() {
+  if (activeNodeObserver.value) {
+    activeNodeObserver.value.disconnect();
+  }
+
+  const container = scrollContainerRef.value;
+  const current = currentStage.value;
+  const el = document.getElementById(`stage-node-${current}`);
+
+  if (!container || !el) return;
+
+  activeNodeObserver.value = new IntersectionObserver(
+    ([entry]) => {
+      isActiveStageVisible.value = entry?.isIntersecting ?? true;
+      if (!isActiveStageVisible.value) {
+        checkScrollDirection();
+      }
+    },
+    {
+      root: container,
+      threshold: 0.2,
+    },
+  );
+  activeNodeObserver.value.observe(el);
+}
 
 function updatePoints() {
   const container = containerRef.value;
@@ -413,6 +484,7 @@ onMounted(async () => {
     loading.value = false;
     await nextTick();
     scrollToActiveStage();
+    setupActiveNodeObserver();
 
     if (containerRef.value) {
       updatePoints();
@@ -432,6 +504,15 @@ onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect();
   }
+  if (activeNodeObserver.value) {
+    activeNodeObserver.value.disconnect();
+  }
+});
+
+watch(currentStage, () => {
+  nextTick(() => {
+    setupActiveNodeObserver();
+  });
 });
 
 function scrollToActiveStage() {
@@ -444,39 +525,6 @@ function scrollToActiveStage() {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
-
-// Reverse stages list to draw Stage 1 at the bottom (Candy Crush style)
-const reversedStages = computed(() => {
-  if (!pathDetails.value?.stages) return [];
-  return [...pathDetails.value.stages].reverse();
-});
-
-const totalStages = computed(() => pathDetails.value?.stages?.length ?? 0);
-const currentStage = computed(() => {
-  if (pathDetails.value?.completed) return totalStages.value;
-  return pathDetails.value?.currentStage ?? 1;
-});
-
-const percentProgress = computed(() => {
-  if (totalStages.value === 0) return 0;
-  if (pathDetails.value?.completed) return 100;
-  return Math.min(Math.round(((currentStage.value - 1) / totalStages.value) * 100), 99);
-});
-
-const perfectStagesCount = computed(() => {
-  if (!pathDetails.value?.stages) return 0;
-  let count = 0;
-  for (const stage of pathDetails.value.stages) {
-    const score = getStageScore(stage.sequence);
-    if (score !== null) {
-      const max = getStageMaxQuestions(stage.type);
-      if (score === max) {
-        count++;
-      }
-    }
-  }
-  return count;
-});
 
 function getThemeName(slug: string) {
   const theme = themes.value?.find((t) => t.slug === slug);
@@ -770,5 +818,24 @@ function getChapterNumber(stage: any) {
 }
 .stroke-dash-animated {
   animation: dash 1.5s linear infinite;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+/* fade-scale transition for FAB */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  transform: scale(0.5);
+  opacity: 0;
 }
 </style>

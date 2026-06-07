@@ -17,11 +17,17 @@
     <!-- Main Page Content -->
     <main
       ref="mainElement"
-      class="flex-1 overflow-y-auto px-4 py-6 md:p-8 mt-16 md:mt-0 flex flex-col min-h-0"
-      :class="showBottomNav ? 'pb-28 md:pb-8' : 'pb-8'"
+      :class="[
+        'flex-1 flex flex-col min-h-0 mt-16 md:mt-0',
+        route.meta.fullscreen
+          ? 'overflow-hidden p-0'
+          : ['overflow-y-auto px-4 py-6 md:p-8', showBottomNav ? 'pb-28 md:pb-8' : 'pb-8'],
+      ]"
       @scroll="handleScroll"
     >
-      <div class="max-w-6xl mx-auto w-full h-full flex flex-col">
+      <div
+        :class="['w-full h-full flex flex-col', route.meta.fullscreen ? '' : 'max-w-6xl mx-auto']"
+      >
         <slot />
       </div>
     </main>
@@ -63,7 +69,7 @@ const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
   { label: "Aventures", path: "/adventure", icon: "i-heroicons-map" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
-  { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
+  // { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
   { label: "Multijoueur", path: "/multiplayer", icon: "i-heroicons-users" },
   { label: "Classement", path: "/ranking", icon: "i-heroicons-chart-bar" },
 ]);
