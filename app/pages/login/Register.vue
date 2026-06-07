@@ -144,7 +144,7 @@ async function register() {
       email: email.value,
       password: password.value,
       options: {
-        redirectTo: baseUrl,
+        emailRedirectTo: baseUrl,
       },
     });
     if (error) {
