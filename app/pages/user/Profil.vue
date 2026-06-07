@@ -151,27 +151,6 @@
                 />
                 <span class="font-medium leading-relaxed">{{ pushStatusMessage }}</span>
               </div>
-
-              <!-- Option de test rapide -->
-              <div
-                v-if="isSubscribed"
-                class="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl p-3"
-              >
-                <span class="text-xs text-gray-400 font-semibold font-display"
-                  >Tester la configuration</span
-                >
-                <UButton
-                  color="violet"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-heroicons-paper-airplane"
-                  :loading="loadingPushTest"
-                  class="font-black font-display uppercase tracking-wider text-[10px]"
-                  @click="sendTestNotification"
-                >
-                  Envoyer un test
-                </UButton>
-              </div>
             </div>
           </div>
 
@@ -893,7 +872,6 @@ const config = useRuntimeConfig();
 const isPushSupported = ref(false);
 const isSubscribed = ref(false);
 const loadingPush = ref(false);
-const loadingPushTest = ref(false);
 const pushStatusMessage = ref("");
 
 const pushButtonText = computed(() => {
@@ -1177,27 +1155,6 @@ async function unsubscribeFromPush() {
     pushStatusMessage.value = "Une erreur est survenue lors de la désactivation des notifications.";
   } finally {
     loadingPush.value = false;
-  }
-}
-
-async function sendTestNotification() {
-  loadingPushTest.value = true;
-  pushStatusMessage.value = "";
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-
-    await $fetch("/api/notifications/send-alerts", {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: { testNotification: true },
-    });
-    pushStatusMessage.value = "Notification de test envoyée avec succès ! 🔔";
-  } catch (err: any) {
-    console.error("Erreur lors de l'envoi du test :", err);
-    pushStatusMessage.value = "Impossible d'envoyer la notification de test.";
-  } finally {
-    loadingPushTest.value = false;
   }
 }
 </script>

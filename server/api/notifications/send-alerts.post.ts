@@ -231,7 +231,13 @@ export default defineEventHandler(async (event) => {
         successCount++;
         results.push({ endpoint: sub.endpoint, success: true });
       } catch (err: any) {
-        console.error(`Erreur d'envoi à l'endpoint : ${sub.endpoint}`, err);
+        console.error(`Erreur d'envoi à l'endpoint : ${sub.endpoint}`);
+        console.error(`Statut d'erreur HTTP : ${err.statusCode}`);
+        console.error(`Corps de la réponse HTTP : ${err.body}`);
+        console.error(
+          `VAPID Public Key length: ${publicKey?.length}, Private Key length: ${privateKey?.length}`,
+        );
+
         // Supprimer l'abonnement s'il est expiré ou invalide
         if (err.statusCode === 410 || err.statusCode === 404) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
