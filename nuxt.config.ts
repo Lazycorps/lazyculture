@@ -1,6 +1,7 @@
 import { defineNuxtConfig } from "nuxt/config";
 
 export default defineNuxtConfig({
+  ssr: false,
   compatibilityDate: "2024-04-03",
   future: {
     compatibilityVersion: 4,
@@ -16,24 +17,28 @@ export default defineNuxtConfig({
       description: "Découvrez et apprenez avec Lazyculture",
       theme_color: "#070a13",
       background_color: "#070a13",
+      display: "standalone",
+      start_url: "/",
+      scope: "/",
+      orientation: "any",
       icons: [
         {
-          src: "pwa-64x64.png",
+          src: "/pwa-64x64.png",
           sizes: "64x64",
           type: "image/png",
         },
         {
-          src: "pwa-192x192.png",
+          src: "/pwa-192x192.png",
           sizes: "192x192",
           type: "image/png",
         },
         {
-          src: "pwa-512x512.png",
+          src: "/pwa-512x512.png",
           sizes: "512x512",
           type: "image/png",
         },
         {
-          src: "maskable-icon-512x512.png",
+          src: "/maskable-icon-512x512.png",
           sizes: "512x512",
           type: "image/png",
           purpose: "maskable",
@@ -42,6 +47,7 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: "/",
+      cleanupOutdatedCaches: true,
     },
     devOptions: {
       enabled: true,
