@@ -48,6 +48,7 @@ export default defineNuxtConfig({
     workbox: {
       navigateFallback: "/",
       cleanupOutdatedCaches: true,
+      importScripts: ["/sw-push.js"],
     },
     devOptions: {
       enabled: true,
@@ -74,8 +75,10 @@ export default defineNuxtConfig({
     databaseUrl: process.env.DATABASE_URL,
     directUrl: process.env.DIRECT_URL,
     shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
+    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
     public: {
       baseUrl: process.env.BASE_URL || "http://localhost:3000",
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     },
   },
   supabase: {

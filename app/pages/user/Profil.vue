@@ -96,6 +96,83 @@
                 </UButton>
               </div>
             </UFormField>
+
+            <!-- Notifications Push Section -->
+            <div class="pt-5 border-t border-white/5 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4
+                    class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display flex items-center"
+                  >
+                    <UIcon name="i-heroicons-bell" class="mr-1.5 text-violet-400 text-sm" />
+                    Notifications Push
+                  </h4>
+                  <p class="text-[11px] text-gray-500 mt-1 max-w-md leading-relaxed">
+                    Recevez des rappels pour ne pas rater votre défi quotidien ou perdre votre série
+                    de connexion.
+                  </p>
+                </div>
+                <div class="flex items-center shrink-0">
+                  <UButton
+                    v-if="isSubscribed"
+                    color="error"
+                    variant="soft"
+                    size="sm"
+                    icon="i-heroicons-bell-slash"
+                    :loading="loadingPush"
+                    class="font-bold font-display uppercase tracking-wide text-xs"
+                    @click="unsubscribeFromPush"
+                  >
+                    Désactiver
+                  </UButton>
+                  <UButton
+                    v-else
+                    color="primary"
+                    size="sm"
+                    icon="i-heroicons-bell"
+                    :loading="loadingPush"
+                    :disabled="!isPushSupported"
+                    class="font-bold font-display uppercase tracking-wide text-xs"
+                    @click="subscribeToPush"
+                  >
+                    {{ pushButtonText }}
+                  </UButton>
+                </div>
+              </div>
+
+              <!-- Message d'état ou d'erreur -->
+              <div
+                v-if="pushStatusMessage"
+                class="flex items-start bg-violet-500/5 border border-violet-500/10 rounded-xl p-3 text-xs text-violet-300"
+              >
+                <UIcon
+                  name="i-heroicons-information-circle"
+                  class="mr-2 text-base text-violet-400 shrink-0"
+                />
+                <span class="font-medium leading-relaxed">{{ pushStatusMessage }}</span>
+              </div>
+
+              <!-- Option de test rapide -->
+              <div
+                v-if="isSubscribed"
+                class="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl p-3"
+              >
+                <span class="text-xs text-gray-400 font-semibold font-display"
+                  >Tester la configuration</span
+                >
+                <UButton
+                  color="violet"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-heroicons-paper-airplane"
+                  :loading="loadingPushTest"
+                  class="font-black font-display uppercase tracking-wider text-[10px]"
+                  @click="sendTestNotification"
+                >
+                  Envoyer un test
+                </UButton>
+              </div>
+            </div>
           </div>
 
           <template #footer>
@@ -812,6 +889,22 @@ const xpThreshold = ref(0);
 const xpMax = ref(0);
 const loadingUpdateUser = ref(false);
 
+const config = useRuntimeConfig();
+const isPushSupported = ref(false);
+const isSubscribed = ref(false);
+const loadingPush = ref(false);
+const loadingPushTest = ref(false);
+const pushStatusMessage = ref("");
+
+const pushButtonText = computed(() => {
+  if (typeof window !== "undefined" && "Notification" in window) {
+    if (Notification.permission === "denied") {
+      return "Bloqué";
+    }
+  }
+  return "Activer";
+});
+
 const isUsernameSaveable = computed(() => {
   return (
     username.value !== initialUsername.value &&
@@ -839,6 +932,7 @@ const xpProgress = computed(() => {
 
 onMounted(async () => {
   await fetchUser();
+  checkPushSupport();
 });
 
 async function fetchUser() {
@@ -976,6 +1070,134 @@ function getMasteryColorClass(mastery: number) {
       badge: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
       icon: "text-emerald-500",
     };
+  }
+}
+
+function checkPushSupport() {
+  if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+    isPushSupported.value = true;
+    checkSubscription();
+  } else {
+    isPushSupported.value = false;
+    pushStatusMessage.value = "Les notifications push ne sont pas supportées par votre navigateur.";
+  }
+}
+
+async function checkSubscription() {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    isSubscribed.value = !!subscription;
+  } catch (e) {
+    console.error("Erreur lors de la vérification de l'abonnement push :", e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function subscribeToPush() {
+  loadingPush.value = true;
+  pushStatusMessage.value = "";
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      pushStatusMessage.value =
+        "Permission de notification refusée. Veuillez autoriser les notifications dans les paramètres du navigateur pour continuer.";
+      loadingPush.value = false;
+      return;
+    }
+
+    const vapidKey = config.public.vapidPublicKey;
+    if (!vapidKey) {
+      pushStatusMessage.value = "Configuration serveur manquante (clé publique VAPID introuvable).";
+      loadingPush.value = false;
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    await $fetch("/api/notifications/subscribe", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: { subscription },
+    });
+
+    isSubscribed.value = true;
+    pushStatusMessage.value =
+      "Notifications push activées avec succès ! 🎉 Vous recevrez des alertes pour votre streak et vos défis quotidiens.";
+  } catch (err: any) {
+    console.error("Erreur lors de l'abonnement push :", err);
+    pushStatusMessage.value = "Une erreur est survenue lors de l'abonnement aux notifications.";
+  } finally {
+    loadingPush.value = false;
+  }
+}
+
+async function unsubscribeFromPush() {
+  loadingPush.value = true;
+  pushStatusMessage.value = "";
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+
+    if (subscription) {
+      const endpoint = subscription.endpoint;
+      await subscription.unsubscribe();
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      await $fetch("/api/notifications/unsubscribe", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: { endpoint },
+      });
+    }
+
+    isSubscribed.value = false;
+    pushStatusMessage.value = "Les notifications push ont été désactivées.";
+  } catch (err: any) {
+    console.error("Erreur lors de la désinscription push :", err);
+    pushStatusMessage.value = "Une erreur est survenue lors de la désactivation des notifications.";
+  } finally {
+    loadingPush.value = false;
+  }
+}
+
+async function sendTestNotification() {
+  loadingPushTest.value = true;
+  pushStatusMessage.value = "";
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    await $fetch("/api/notifications/send-alerts", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: { testNotification: true },
+    });
+    pushStatusMessage.value = "Notification de test envoyée avec succès ! 🔔";
+  } catch (err: any) {
+    console.error("Erreur lors de l'envoi du test :", err);
+    pushStatusMessage.value = "Impossible d'envoyer la notification de test.";
+  } finally {
+    loadingPushTest.value = false;
   }
 }
 </script>

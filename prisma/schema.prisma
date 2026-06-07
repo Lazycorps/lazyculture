@@ -27,6 +27,7 @@ model User {
     ShowdownPlayer         ShowdownPlayer[]
     ShowdownRank           ShowdownRank?
     AdventureProgress      UserAdventureProgress[]
+    PushSubscription       PushSubscription[]
 }
 
 model UserProgress {
@@ -255,4 +256,14 @@ model UserAdventureProgress {
     updateDate  DateTime  @default(now())
 
     @@unique([userId, adventureId])
+}
+
+model PushSubscription {
+    id         String   @id @default(uuid())
+    userId     String
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    endpoint   String   @unique
+    p256dh     String
+    auth       String
+    createDate DateTime @default(now())
 }

@@ -62,7 +62,7 @@
           <div class="flex justify-end mt-1 px-1">
             <NuxtLink
               to="/login/forgotpassword"
-              class="text-[10px] font-bold font-display text-violet-400 hover:text-violet-300 hover:underline transition-colors"
+              class="text-[14px] font-bold font-display text-violet-400 hover:text-violet-300 hover:underline transition-colors"
             >
               Mot de passe oublié ?
             </NuxtLink>

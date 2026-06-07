@@ -25,12 +25,14 @@
     "sass": "^1.100.0",
     "typescript": "^5.9.3",
     "vue": "^3.5.35",
-    "vue3-toastify": "^0.2.9"
+    "vue3-toastify": "^0.2.9",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
     "@types/formidable": "^3.5.1",
     "@types/jsdom": "^28.0.3",
+    "@types/web-push": "^3.6.4",
     "prisma": "^5.22.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "latest",
