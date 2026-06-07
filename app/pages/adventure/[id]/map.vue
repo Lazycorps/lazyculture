@@ -31,7 +31,7 @@
       class="flex-1 flex flex-col items-center justify-start relative max-w-lg mx-auto w-full px-4 py-8"
     >
       <!-- Winding Path Column -->
-      <div class="relative w-full flex flex-col items-center py-12 space-y-12">
+      <div ref="containerRef" class="relative w-full flex flex-col items-center py-12 space-y-12">
         <!-- Connecting SVG Path for Candy Crush feel -->
         <svg
           class="absolute top-0 bottom-0 left-0 right-0 w-full h-full pointer-events-none stroke-slate-800"
@@ -198,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -208,17 +208,57 @@ const pathId = Number(route.params.id);
 const pathDetails = ref<any>(null);
 const loading = ref(true);
 const selectedStage = ref<any>(null);
+const containerRef = ref<HTMLElement | null>(null);
+const points = ref<{ x: number; y: number }[]>([]);
+
+let resizeObserver: ResizeObserver | null = null;
+
+function updatePoints() {
+  const container = containerRef.value;
+  if (!container || !pathDetails.value?.stages) return;
+
+  const containerRect = container.getBoundingClientRect();
+  const newPoints: { x: number; y: number }[] = [];
+
+  for (const stage of reversedStages.value) {
+    const el = document.getElementById(`stage-node-${stage.sequence}`);
+    if (el) {
+      const button = el.querySelector("button");
+      if (button) {
+        const rect = button.getBoundingClientRect();
+        const x = rect.left + rect.width / 2 - containerRect.left;
+        const y = rect.top + rect.height / 2 - containerRect.top;
+        newPoints.push({ x, y });
+      }
+    }
+  }
+  points.value = newPoints;
+}
 
 onMounted(async () => {
   try {
-    pathDetails.value = await $fetch(`/api/learning-paths/${pathId}`);
+    pathDetails.value = await $fetch(`/api/adventures/${pathId}`);
     loading.value = false;
     await nextTick();
     scrollToActiveStage();
+
+    if (containerRef.value) {
+      updatePoints();
+      resizeObserver = new ResizeObserver(() => {
+        updatePoints();
+      });
+      resizeObserver.observe(containerRef.value);
+    }
   } catch (e) {
     console.error("Error loading path map:", e);
     router.push("/adventure");
     loading.value = false;
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
   }
 });
 
@@ -244,25 +284,22 @@ const getXOffset = (index: number) => {
   return Math.sin(index * 0.9) * 60;
 };
 
+watch(reversedStages, async () => {
+  await nextTick();
+  updatePoints();
+});
+
 // Generate SVG curve D path connecting nodes
 const pathSvgD = computed(() => {
-  if (reversedStages.value.length === 0) return "";
+  if (points.value.length === 0) return "";
   let d = "";
-  const nodeSpacing = 92; // Approx distance between nodes including layout spacing (56px node height + 48px space-y = 104px)
-
-  // Build dynamic snake coordinate points
-  const points = reversedStages.value.map((_, index) => {
-    const y = index * nodeSpacing + 28; // Start offset
-    const x = 200 + getXOffset(reversedStages.value.length - 1 - index); // Center is 200px
-    return { x, y };
-  });
 
   // Generate smooth cubic bezier curves or straight lines
-  if (points[0]) {
-    d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const p0 = points[i - 1]!;
-      const p1 = points[i]!;
+  if (points.value[0]) {
+    d = `M ${points.value[0].x} ${points.value[0].y}`;
+    for (let i = 1; i < points.value.length; i++) {
+      const p0 = points.value[i - 1]!;
+      const p1 = points.value[i]!;
       // Control points for smooth winding
       const cy = (p0.y + p1.y) / 2;
       d += ` C ${p0.x} ${cy}, ${p1.x} ${cy}, ${p1.x} ${p1.y}`;

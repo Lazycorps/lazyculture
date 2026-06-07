@@ -26,7 +26,7 @@ model User {
     BattleRoyaleRank       BattleRoyaleRank?
     ShowdownPlayer         ShowdownPlayer[]
     ShowdownRank           ShowdownRank?
-    LearningPathProgress   UserLearningPathProgress[]
+    AdventureProgress      UserAdventureProgress[]
 }
 
 model UserProgress {
@@ -223,36 +223,36 @@ model ShowdownRank {
     updateDate  DateTime @default(now())
 }
 
-model LearningPath {
-    id         Int                        @id @default(autoincrement())
+model Adventure {
+    id         Int                     @id @default(autoincrement())
     title      String
     themeSlug  String
-    createDate DateTime                   @default(now())
-    updateDate DateTime                   @default(now())
-    stages     LearningPathStage[]
-    progresses UserLearningPathProgress[]
+    createDate DateTime                @default(now())
+    updateDate DateTime                @default(now())
+    stages     AdventureStage[]
+    progresses UserAdventureProgress[]
 }
 
-model LearningPathStage {
-    id             Int          @id @default(autoincrement())
-    learningPathId Int
-    learningPath   LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
-    sequence       Int          // 1, 2, 3...
-    type           String       // "STEP", "CONTROL", "EXAM"
-    title          String
-    questionIds    Int[]
+model AdventureStage {
+    id          Int       @id @default(autoincrement())
+    adventureId Int
+    adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+    sequence    Int       // 1, 2, 3...
+    type        String    // "STEP", "CONTROL", "EXAM"
+    title       String
+    questionIds Int[]
 }
 
-model UserLearningPathProgress {
-    id             Int          @id @default(autoincrement())
-    userId         String
-    user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-    learningPathId Int
-    learningPath   LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
-    currentStage   Int          @default(1)
-    completed      Boolean      @default(false)
-    stageScores    Json?        @default("{}")
-    updateDate     DateTime     @default(now())
+model UserAdventureProgress {
+    id          Int       @id @default(autoincrement())
+    userId      String
+    user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    adventureId Int
+    adventure   Adventure @relation(fields: [adventureId], references: [id], onDelete: Cascade)
+    currentStage Int       @default(1)
+    completed   Boolean   @default(false)
+    stageScores Json?     @default("{}")
+    updateDate  DateTime  @default(now())
 
-    @@unique([userId, learningPathId])
+    @@unique([userId, adventureId])
 }

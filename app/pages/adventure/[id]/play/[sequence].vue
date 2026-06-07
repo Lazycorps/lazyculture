@@ -183,7 +183,7 @@ onMounted(async () => {
   showBottomNav.value = false;
   try {
     // Fetch randomized questions for this stage
-    questions.value = await $fetch<any[]>(`/api/learning-paths/${pathId}/stage/${sequence}`);
+    questions.value = await $fetch<any[]>(`/api/adventures/${pathId}/stage/${sequence}`);
   } catch (e: any) {
     alert(e.data?.statusMessage || "Impossible de charger cette étape.");
     router.push(`/adventure/${pathId}/map`);
@@ -220,7 +220,7 @@ function nextQuestion() {
 async function submitComplete() {
   try {
     submittingComplete.value = true;
-    const result = await $fetch<any>(`/api/learning-paths/${pathId}/stage/${sequence}/complete`, {
+    const result = await $fetch<any>(`/api/adventures/${pathId}/stage/${sequence}/complete`, {
       method: "post",
       body: { answers: userAnswers.value },
     });
@@ -250,7 +250,7 @@ function retryStage() {
   xpEarnedTotal.value = 0;
   bonusXp.value = 0;
 
-  $fetch<any[]>(`/api/learning-paths/${pathId}/stage/${sequence}`)
+  $fetch<any[]>(`/api/adventures/${pathId}/stage/${sequence}`)
     .then((data) => {
       questions.value = data;
     })

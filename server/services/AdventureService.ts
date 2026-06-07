@@ -1,7 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import { responseService } from "~~/server/services/ResponseService";
 
-export class LearningPathService {
+export class AdventureService {
   /**
    * Generates an Adventure path based on all non-deleted questions matching themeSlug
    */
@@ -102,8 +102,8 @@ export class LearningPathService {
       }
     }
 
-    // 6. Create the learning path in the database with nested stages
-    const newPath = await prisma.learningPath.create({
+    // 6. Create the adventure path in the database with nested stages
+    const newPath = await prisma.adventure.create({
       data: {
         title,
         themeSlug,
@@ -120,10 +120,10 @@ export class LearningPathService {
   }
 
   /**
-   * Delete a learning path
+   * Delete an adventure path
    */
   async deletePath(id: number) {
-    return prisma.learningPath.delete({
+    return prisma.adventure.delete({
       where: { id },
     });
   }
@@ -132,7 +132,7 @@ export class LearningPathService {
    * Fetch paths with progression for the current user
    */
   async getPathsAndProgress(userId: string) {
-    const paths = await prisma.learningPath.findMany({
+    const paths = await prisma.adventure.findMany({
       orderBy: { createDate: "desc" },
       include: {
         stages: {
@@ -162,9 +162,9 @@ export class LearningPathService {
   /**
    * Get detailed questions for a stage (checks unlock status)
    */
-  async getStageQuestions(userId: string, pathId: number, sequence: number) {
-    const progress = await prisma.userLearningPathProgress.findUnique({
-      where: { userId_learningPathId: { userId, learningPathId: pathId } },
+  async getStageQuestions(userId: string, adventureId: number, sequence: number) {
+    const progress = await prisma.userAdventureProgress.findUnique({
+      where: { userId_adventureId: { userId, adventureId } },
     });
 
     const currentUnlocked = progress?.currentStage ?? 1;
@@ -178,8 +178,8 @@ export class LearningPathService {
       });
     }
 
-    const stage = await prisma.learningPathStage.findFirst({
-      where: { learningPathId: pathId, sequence },
+    const stage = await prisma.adventureStage.findFirst({
+      where: { adventureId, sequence },
     });
 
     if (!stage) {
@@ -195,9 +195,9 @@ export class LearningPathService {
       targetQuestionIds = stage.questionIds;
     } else if (stage.type === "CONTROL") {
       // Pick 10 random questions from preceding 4 steps
-      const precedingSteps = await prisma.learningPathStage.findMany({
+      const precedingSteps = await prisma.adventureStage.findMany({
         where: {
-          learningPathId: pathId,
+          adventureId,
           sequence: { lt: sequence },
           type: "STEP",
         },
@@ -208,9 +208,9 @@ export class LearningPathService {
       targetQuestionIds = this.shuffleArray(allIds).slice(0, 10);
     } else if (stage.type === "EXAM") {
       // Pick 20 random questions from ALL preceding steps in the entire path
-      const precedingSteps = await prisma.learningPathStage.findMany({
+      const precedingSteps = await prisma.adventureStage.findMany({
         where: {
-          learningPathId: pathId,
+          adventureId,
           sequence: { lt: sequence },
           type: "STEP",
         },
@@ -257,12 +257,12 @@ export class LearningPathService {
    */
   async completeStage(
     userId: string,
-    pathId: number,
+    adventureId: number,
     sequence: number,
     answers: Record<number, number>,
   ) {
-    const progress = await prisma.userLearningPathProgress.findUnique({
-      where: { userId_learningPathId: { userId, learningPathId: pathId } },
+    const progress = await prisma.userAdventureProgress.findUnique({
+      where: { userId_adventureId: { userId, adventureId } },
     });
 
     const currentUnlocked = progress?.currentStage ?? 1;
@@ -276,8 +276,8 @@ export class LearningPathService {
       });
     }
 
-    const stage = await prisma.learningPathStage.findFirst({
-      where: { learningPathId: pathId, sequence },
+    const stage = await prisma.adventureStage.findFirst({
+      where: { adventureId, sequence },
     });
 
     if (!stage) {
@@ -370,7 +370,7 @@ export class LearningPathService {
       // 5. Update Adventure progression
       if (isReplay) {
         if (progress) {
-          await prisma.userLearningPathProgress.update({
+          await prisma.userAdventureProgress.update({
             where: { id: progress.id },
             data: {
               stageScores,
@@ -379,12 +379,12 @@ export class LearningPathService {
           });
         }
       } else {
-        const nextStageExists = await prisma.learningPathStage.findFirst({
-          where: { learningPathId: pathId, sequence: sequence + 1 },
+        const nextStageExists = await prisma.adventureStage.findFirst({
+          where: { adventureId, sequence: sequence + 1 },
         });
 
         if (progress) {
-          await prisma.userLearningPathProgress.update({
+          await prisma.userAdventureProgress.update({
             where: { id: progress.id },
             data: {
               currentStage: nextStageExists ? sequence + 1 : sequence,
@@ -394,10 +394,10 @@ export class LearningPathService {
             },
           });
         } else {
-          await prisma.userLearningPathProgress.create({
+          await prisma.userAdventureProgress.create({
             data: {
               userId,
-              learningPathId: pathId,
+              adventureId,
               currentStage: nextStageExists ? sequence + 1 : sequence,
               completed: !nextStageExists,
               stageScores,
@@ -436,4 +436,4 @@ export class LearningPathService {
   }
 }
 
-export const learningPathService = new LearningPathService();
+export const adventureService = new AdventureService();

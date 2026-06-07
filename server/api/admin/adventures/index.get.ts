@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
   await assertAdmin(userConnected.id);
 
-  const paths = await prisma.learningPath.findMany({
+  const paths = await prisma.adventure.findMany({
     orderBy: { createDate: "desc" },
     include: {
       stages: {

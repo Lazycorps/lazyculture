@@ -145,7 +145,7 @@
                 Gérer les thèmes
               </UButton>
               <UButton
-                to="/admin/learning-paths"
+                to="/admin/adventures"
                 color="neutral"
                 variant="subtle"
                 icon="i-heroicons-map"

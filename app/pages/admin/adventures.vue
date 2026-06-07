@@ -177,7 +177,7 @@ const deletingId = ref<number | null>(null);
 
 // Fetch datasets
 const { data: themes } = await useFetch<Theme[]>("/api/theme/all");
-const { data: paths, refresh: refreshPaths } = await useFetch<any[]>("/api/admin/learning-paths");
+const { data: paths, refresh: refreshPaths } = await useFetch<any[]>("/api/admin/adventures");
 
 // Watch theme selection to fetch question count and populate form
 watch(selectedThemeName, async (newThemeName) => {
@@ -219,7 +219,7 @@ async function generatePath() {
 
   try {
     generating.value = true;
-    await $fetch("/api/admin/learning-paths/generate", {
+    await $fetch("/api/admin/adventures/generate", {
       method: "post",
       body: { ...form },
     });
@@ -247,7 +247,7 @@ async function deletePath(id: number) {
 
   try {
     deletingId.value = id;
-    await $fetch(`/api/admin/learning-paths/delete?id=${id}`, {
+    await $fetch(`/api/admin/adventures/delete?id=${id}`, {
       method: "delete",
     });
     await refreshPaths();

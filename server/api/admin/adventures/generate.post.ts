@@ -1,4 +1,4 @@
-import { learningPathService } from "~~/server/services/LearningPathService";
+import { adventureService } from "~~/server/services/AdventureService";
 import { getAuthenticatedUser, assertAdmin } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
@@ -14,5 +14,5 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  return learningPathService.generatePath(body.title, body.themeSlug);
+  return adventureService.generatePath(body.title, body.themeSlug);
 });

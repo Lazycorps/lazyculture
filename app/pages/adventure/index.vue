@@ -140,7 +140,7 @@ onMounted(async () => {
   if (user.value) {
     try {
       const [pathsData, themesData] = await Promise.all([
-        $fetch<any[]>("/api/learning-paths"),
+        $fetch<any[]>("/api/adventures"),
         $fetch<any[]>("/api/theme/all"),
       ]);
       paths.value = pathsData;

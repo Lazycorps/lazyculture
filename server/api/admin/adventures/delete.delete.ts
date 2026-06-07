@@ -1,4 +1,4 @@
-import { learningPathService } from "~~/server/services/LearningPathService";
+import { adventureService } from "~~/server/services/AdventureService";
 import { getAuthenticatedUser, assertAdmin } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
@@ -11,9 +11,9 @@ export default defineEventHandler(async (event) => {
   if (isNaN(id)) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Un identifiant valide de parcours est requis.",
+      statusMessage: "Un identifiant valide d'aventure est requis.",
     });
   }
 
-  return learningPathService.deletePath(id);
+  return adventureService.deletePath(id);
 });

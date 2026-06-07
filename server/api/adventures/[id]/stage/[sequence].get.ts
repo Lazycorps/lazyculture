@@ -1,4 +1,4 @@
-import { learningPathService } from "~~/server/services/LearningPathService";
+import { adventureService } from "~~/server/services/AdventureService";
 import { getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
@@ -10,9 +10,9 @@ export default defineEventHandler(async (event) => {
   if (isNaN(id) || isNaN(sequence)) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Identifiant du parcours ou de l'étape invalide.",
+      statusMessage: "Identifiant de l'aventure ou de l'étape invalide.",
     });
   }
 
-  return learningPathService.getStageQuestions(userConnected.id, id, sequence);
+  return adventureService.getStageQuestions(userConnected.id, id, sequence);
 });

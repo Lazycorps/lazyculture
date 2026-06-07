@@ -3,17 +3,17 @@ import { getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
-  const pathId = Number(event.context.params?.id);
+  const adventureId = Number(event.context.params?.id);
 
-  if (isNaN(pathId)) {
+  if (isNaN(adventureId)) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Identifiant du parcours invalide.",
+      statusMessage: "Identifiant de l'aventure invalide.",
     });
   }
 
-  const path = await prisma.learningPath.findUnique({
-    where: { id: pathId },
+  const adventure = await prisma.adventure.findUnique({
+    where: { id: adventureId },
     include: {
       stages: {
         orderBy: { sequence: "asc" },
@@ -30,20 +30,20 @@ export default defineEventHandler(async (event) => {
     },
   });
 
-  if (!path) {
+  if (!adventure) {
     throw createError({
       statusCode: 404,
-      statusMessage: "Parcours d'aventure introuvable.",
+      statusMessage: "Aventure introuvable.",
     });
   }
 
-  const progress = path.progresses[0];
+  const progress = adventure.progresses[0];
 
   return {
-    id: path.id,
-    title: path.title,
-    themeSlug: path.themeSlug,
-    stages: path.stages,
+    id: adventure.id,
+    title: adventure.title,
+    themeSlug: adventure.themeSlug,
+    stages: adventure.stages,
     currentStage: progress ? progress.currentStage : 1,
     completed: progress ? progress.completed : false,
     stageScores: progress ? progress.stageScores || {} : {},
