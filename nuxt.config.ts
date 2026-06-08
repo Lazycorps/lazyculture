@@ -46,7 +46,7 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: "/",
+      navigateFallback: "/200.html",
       cleanupOutdatedCaches: true,
       importScripts: ["/sw-push.js"],
     },
