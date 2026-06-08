@@ -190,6 +190,33 @@
             </div>
           </div>
         </UCard>
+
+        <!-- Communication Card -->
+        <UCard
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4"
+        >
+          <div class="space-y-4">
+            <h4
+              class="text-sm font-extrabold uppercase tracking-wider text-fuchsia-400 font-display"
+            >
+              📣 Communication
+            </h4>
+            <p class="text-xs text-gray-400 font-medium">
+              Envoyez une notification push manuelle à tous les utilisateurs abonnés pour annoncer
+              une nouveauté ou un événement.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+              <UButton
+                to="/admin/notifications"
+                color="primary"
+                icon="i-heroicons-bell-alert"
+                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              >
+                Envoyer une notification
+              </UButton>
+            </div>
+          </div>
+        </UCard>
       </div>
     </div>
   </div>
