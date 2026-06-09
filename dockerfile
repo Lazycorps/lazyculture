@@ -1,31 +1,15 @@
-ARG NODE_VERSION=26.3.0
-
-# Create build stage
+# Étape 1 : Build de l'application
+ARG NODE_VERSION=24.16.0
 FROM node:${NODE_VERSION}-slim AS build
 
-# Installer curl et bash (requis pour récupérer le script d'installation de Vite+)
-RUN apt-get update && apt-get install -y curl bash && rm -rf /var/lib/apt/lists/*
+# Installer les dépendances système nécessaires
+RUN apt-get update && apt-get install -y curl bash openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Installer la CLI Vite+ (vp) globalement dans le conteneur
 RUN curl -fsSL https://vite.plus | bash
 
 # Ajouter le binaire vp au PATH pour que Docker le trouve
 ENV PATH="/root/.vite-plus/bin:$PATH"
-
-ARG BASE_URL
-ENV BASE_URL=$BASE_URL
-ARG DIRECT_URL
-ENV DIRECT_URL=$DIRECT_URL
-ARG DATABASE_URL
-ENV DATABASE_URL=$DATABASE_URL
-ARG SHADOW_DATABASE_URL
-ENV SHADOW_DATABASE_URL=$SHADOW_DATABASE_URL
-ARG NUXT_API_KEY
-ENV NUXT_API_KEY=$NUXT_API_KEY
-ARG SUPABASE_URL
-ENV SUPABASE_URL=$SUPABASE_URL
-ARG SUPABASE_KEY
-ENV SUPABASE_KEY=$SUPABASE_KEY
 
 # Définir le répertoire de travail
 WORKDIR /app
@@ -36,25 +20,33 @@ COPY package*.json ./
 # Installer les dépendances via Vite+
 RUN vp install
 
-# Copier le reste des fichiers
+# Copier le reste du code de l'application
 COPY . .
 
 # Générer le client Prisma
 RUN npx prisma generate
 
-# Construire l'application Nuxt.js
+# Construire l'application Nuxt
 RUN vp run build
 
-# Étape 2 : Exécuter l'application (Pas besoin de vp ici, le build final est autonome)
-FROM node:26-slim
+# Étape 2 : Exécution de l'application
+FROM node:24-slim
 
+# Installer openssl et ca-certificates requis pour Prisma et Supabase au runtime
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# Copier uniquement la sortie autonome générée par Nuxt (Nitro)
+# Copier la build autonome générée par Nuxt (Nitro)
 COPY --from=build /app/.output ./.output
 
-# Exposer le port
+# Copier les fichiers requis pour Prisma et les migrations
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+
+# Exposer le port de l'application (Nuxt/Nitro écoute sur le port 3000 par défaut)
 EXPOSE 3000
 
-# Lancer l'application
-CMD ["node", ".output/server/index.mjs"]
+# Lancer les migrations puis démarrer le serveur Nuxt
+CMD npx prisma migrate deploy && node .output/server/index.mjs
