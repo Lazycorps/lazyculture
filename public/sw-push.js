@@ -12,7 +12,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "Ne manquez pas votre défi du jour ! 🧠",
     icon: payload.icon || "/pwa-192x192.png",
-    badge: payload.badge || "/task-bar-icon.ico",
+    badge: payload.badge || "/task-bar-icon.png",
     data: payload.data || { url: "/" },
     vibrate: [100, 50, 100],
   };
