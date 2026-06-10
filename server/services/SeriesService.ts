@@ -11,6 +11,7 @@ import type {
 import type { QuestionSeriesAscensionResponseData } from "#shared/series/seriesAscension";
 import { QuestionDataDTO } from "#shared/question";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
+import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
 
 type DailySeriesRankingDTO = {
   userId: string;
@@ -132,6 +133,28 @@ export class SeriesService {
         },
       });
     }
+  }
+
+  /** Participation du jour : joueurs ayant commencé / terminé la série quotidienne. */
+  async getDailyStats(): Promise<DailyStatsDTO> {
+    const today = new Date().toJSON().slice(0, 10);
+    const currentDailySeries = await prisma.questionSeries.findFirst({
+      where: { type: "daily", date: new Date(today) },
+    });
+    if (!currentDailySeries) return { participants: 0, finishers: 0 };
+
+    const questionCount = (currentDailySeries.data as any as QuestionSeriesData).questionsIds
+      .length;
+    const responses = await prisma.questionSeriesResponse.findMany({
+      where: { seriesId: currentDailySeries.id },
+      select: { data: true },
+    });
+    const finishers = responses.filter(
+      (r) =>
+        ((r.data as any as QuestionSeriesResponseData).responses?.length ?? 0) >= questionCount,
+    ).length;
+
+    return { participants: responses.length, finishers };
   }
 
   async getDailyRanking() {

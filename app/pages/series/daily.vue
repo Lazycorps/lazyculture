@@ -5,7 +5,7 @@
     >
       <!-- Non-authenticated user view -->
       <template v-if="!user">
-        <div class="text-center py-10 px-6 space-y-6">
+        <div class="text-center py-8 px-4 space-y-6">
           <div
             class="w-16 h-16 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-3xl text-violet-400 mx-auto animate-pulse"
           >
@@ -20,6 +20,9 @@
               grimpez dans le classement.
             </p>
           </div>
+
+          <SeriesDailyIntro :stats="dailyStats ?? null" />
+
           <UButton
             to="/login"
             color="primary"
@@ -75,18 +78,22 @@
               @next-question="nextQuestion"
             />
 
-            <!-- Start/Resume button -->
-            <div v-else class="text-center py-6">
-              <UButton
-                size="lg"
-                color="primary"
-                :loading="loading"
-                class="font-black font-display uppercase tracking-widest px-8 py-3.5"
-                icon="i-heroicons-play-solid"
-                @click="startSeries"
-              >
-                {{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série
-              </UButton>
+            <!-- Intro & Start/Resume -->
+            <div v-else class="space-y-6">
+              <SeriesDailyIntro :stats="dailyStats ?? null" />
+
+              <div class="text-center pb-2">
+                <UButton
+                  size="lg"
+                  color="primary"
+                  :loading="loading"
+                  class="font-black font-display uppercase tracking-widest px-8 py-3.5"
+                  icon="i-heroicons-play-solid"
+                  @click="startSeries"
+                >
+                  {{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série
+                </UButton>
+              </div>
             </div>
           </div>
         </template>
@@ -110,6 +117,13 @@
               </h3>
               <p class="text-xs text-gray-400 max-w-sm">
                 Excellent travail ! Vous avez complété votre série quotidienne avec succès.
+              </p>
+              <p
+                v-if="dailyStats && dailyStats.finishers > 1"
+                class="text-xs text-violet-300 font-semibold"
+              >
+                🔥 Vous faites partie des {{ dailyStats.finishers }} joueurs à avoir relevé le défi
+                aujourd'hui !
               </p>
             </div>
 
@@ -143,6 +157,9 @@
               >Revenez demain pour un nouveau quiz !</b
             >
 
+            <!-- Incitation installation app / notifications (rétention) -->
+            <PwaEngagementPrompt class="max-w-sm" />
+
             <!-- Leaderboard Redirect Button -->
             <div class="pt-2 w-full max-w-sm">
               <UButton
@@ -166,6 +183,7 @@
 <script setup lang="ts">
 import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
+import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
 import { QuestionDTO } from "#shared/question";
 import type { UserSeriesDTO } from "#shared/series";
 
@@ -181,6 +199,8 @@ const loading = ref(false);
 const seriesStarted = ref(false);
 const showBottomNav = useState("showBottomNav", () => true);
 const { data: userSeries } = await useFetch<UserSeriesDTO>("/api/series/daily");
+const { data: dailyStats, refresh: refreshDailyStats } =
+  await useFetch<DailyStatsDTO>("/api/series/dailyStats");
 const nbrQuestion = computed(() => {
   return userSeries.value?.series?.data?.questionsIds?.length || 0;
 });
@@ -200,6 +220,11 @@ watch(
   },
   { immediate: true },
 );
+
+// Rafraîchit le compteur de finishers à l'arrivée sur l'écran de fin
+watch(completed, (comp) => {
+  if (comp) refreshDailyStats();
+});
 
 onBeforeUnmount(() => {
   showBottomNav.value = true;

@@ -212,19 +212,23 @@ const xpThreshold = ref(0);
 const xpMax = ref(0);
 const loadingUpdateUser = ref(false);
 
-const config = useRuntimeConfig();
-const isPushSupported = ref(false);
-const isSubscribed = ref(false);
-const loadingPush = ref(false);
-const pushStatusMessage = ref("");
+const {
+  isSupported: isPushSupported,
+  isSubscribed,
+  loading: loadingPush,
+  statusMessage: pushStatusMessage,
+  permission: pushPermission,
+  checkSupport: checkPushSupport,
+  subscribe: subscribePush,
+  unsubscribe: unsubscribeFromPush,
+} = usePushSubscription();
+
+async function subscribeToPush() {
+  await subscribePush();
+}
 
 const pushButtonText = computed(() => {
-  if (typeof window !== "undefined" && "Notification" in window) {
-    if (Notification.permission === "denied") {
-      return "Bloqué";
-    }
-  }
-  return "Activer";
+  return pushPermission.value === "denied" ? "Bloqué" : "Activer";
 });
 
 const isUsernameSaveable = computed(() => {
@@ -344,105 +348,6 @@ async function signOut() {
     console.error("Sign out error:", e);
   } finally {
     loading.value = false;
-  }
-}
-
-function checkPushSupport() {
-  if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
-    isPushSupported.value = true;
-    checkSubscription();
-  } else {
-    isPushSupported.value = false;
-    pushStatusMessage.value = "Les notifications push ne sont pas supportées par votre navigateur.";
-  }
-}
-
-async function checkSubscription() {
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    isSubscribed.value = !!subscription;
-  } catch (e) {
-    console.error("Erreur lors de la vérification de l'abonnement push :", e);
-  }
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-async function subscribeToPush() {
-  loadingPush.value = true;
-  pushStatusMessage.value = "";
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      pushStatusMessage.value =
-        "Permission de notification refusée. Veuillez autoriser les notifications dans les paramètres du navigateur pour continuer.";
-      loadingPush.value = false;
-      return;
-    }
-
-    const vapidKey = config.public.vapidPublicKey;
-    if (!vapidKey) {
-      pushStatusMessage.value = "Configuration serveur manquante (clé publique VAPID introuvable).";
-      loadingPush.value = false;
-      return;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    });
-
-    await authFetch("/api/notifications/subscribe", {
-      method: "POST",
-      body: { subscription },
-    });
-
-    isSubscribed.value = true;
-    pushStatusMessage.value =
-      "Notifications push activées avec succès ! 🎉 Vous recevrez des alertes pour votre streak et vos défis quotidiens.";
-  } catch (err: any) {
-    console.error("Erreur lors de l'abonnement push :", err);
-    pushStatusMessage.value = "Une erreur est survenue lors de l'abonnement aux notifications.";
-  } finally {
-    loadingPush.value = false;
-  }
-}
-
-async function unsubscribeFromPush() {
-  loadingPush.value = true;
-  pushStatusMessage.value = "";
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-
-    if (subscription) {
-      const endpoint = subscription.endpoint;
-      await subscription.unsubscribe();
-
-      await authFetch("/api/notifications/unsubscribe", {
-        method: "POST",
-        body: { endpoint },
-      });
-    }
-
-    isSubscribed.value = false;
-    pushStatusMessage.value = "Les notifications push ont été désactivées.";
-  } catch (err: any) {
-    console.error("Erreur lors de la désinscription push :", err);
-    pushStatusMessage.value = "Une erreur est survenue lors de la désactivation des notifications.";
-  } finally {
-    loadingPush.value = false;
   }
 }
 </script>

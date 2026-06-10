@@ -48,18 +48,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Formatage des dates locales
-  const toLocalDateStr = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  const todayStrLocal = toLocalDateStr(new Date());
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStrLocal = toLocalDateStr(yesterday);
 
   // Récupérer aujourd'hui pour les Dailies (UTC selon le standard du projet)
   const todayStrUTC = new Date().toJSON().slice(0, 10);
@@ -83,7 +73,11 @@ export default defineEventHandler(async (event) => {
   }
 
   if (subscriptions.length === 0) {
-    return { success: true, message: "Aucun abonnement trouvé.", notificationsSent: 0 };
+    return {
+      success: true,
+      message: "Aucun abonnement trouvé.",
+      notificationsSent: 0,
+    };
   }
 
   // Regrouper par utilisateur
@@ -114,52 +108,7 @@ export default defineEventHandler(async (event) => {
       continue;
     }
 
-    // Récupérer les données de progression
-    const userResponses = await prisma.questionResponse.findMany({
-      where: { userId },
-      select: { date: true },
-      orderBy: { date: "desc" },
-      take: 100,
-    });
-
-    const dates = userResponses.map((r) => toLocalDateStr(r.date));
-    const uniqueDates = Array.from(new Set(dates));
-
-    const hasAnsweredToday = uniqueDates.includes(todayStrLocal);
-    const hasAnsweredYesterday = uniqueDates.includes(yesterdayStrLocal);
-
-    // Calcul de la série (streak)
-    let currentStreak = 0;
-    if (uniqueDates.includes(todayStrLocal)) {
-      currentStreak = 1;
-      const checkDate = new Date();
-      while (true) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        const checkStr = toLocalDateStr(checkDate);
-        if (uniqueDates.includes(checkStr)) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-    } else if (uniqueDates.includes(yesterdayStrLocal)) {
-      currentStreak = 1;
-      const checkDate = new Date(yesterday);
-      while (true) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        const checkStr = toLocalDateStr(checkDate);
-        if (uniqueDates.includes(checkStr)) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-    }
-
-    // 1. Alerte Streak en danger : a répondu hier mais pas aujourd'hui et a un streak > 0
-    const streakAtRisk = !hasAnsweredToday && hasAnsweredYesterday && currentStreak > 0;
-
-    // 2. Alerte Daily manquée : n'a pas terminé le défi quotidien d'aujourd'hui
+    // Alerte Daily manquée : n'a pas terminé le défi quotidien d'aujourd'hui
     let dailyIncomplete = true;
     if (currentDailySeries) {
       const dailyResponse = await prisma.questionSeriesResponse.findFirst({
@@ -180,24 +129,17 @@ export default defineEventHandler(async (event) => {
       dailyIncomplete = false; // Pas de daily aujourd'hui
     }
 
-    if (streakAtRisk) {
-      const title = "Série en danger ! 🔥";
-      const bodyText = `Répondez à une question aujourd'hui pour conserver votre série de ${currentStreak} jour${currentStreak > 1 ? "s" : ""} ! ⚡`;
-      const sendResult = await sendPush(userSubs, title, bodyText, "/themes");
-      notificationsSentCount += sendResult.successCount;
-      details.push({
-        userId,
-        type: "streak_alert",
-        streak: currentStreak,
-        results: sendResult.results,
-      });
-    } else if (dailyIncomplete) {
+    if (dailyIncomplete) {
       const title = "Défi Quotidien disponible 📅";
       const bodyText =
         "Votre défi quotidien vous attend ! Relevez-le maintenant pour booster votre score et gagner de l'XP. 🧠";
       const sendResult = await sendPush(userSubs, title, bodyText, "/series/daily");
       notificationsSentCount += sendResult.successCount;
-      details.push({ userId, type: "daily_alert", results: sendResult.results });
+      details.push({
+        userId,
+        type: "daily_alert",
+        results: sendResult.results,
+      });
     }
   }
 
@@ -242,7 +184,11 @@ export default defineEventHandler(async (event) => {
         if (err.statusCode === 410 || err.statusCode === 404) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         }
-        results.push({ endpoint: sub.endpoint, success: false, error: err.message });
+        results.push({
+          endpoint: sub.endpoint,
+          success: false,
+          error: err.message,
+        });
       }
     }
 
