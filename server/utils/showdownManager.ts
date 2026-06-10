@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateShowdownUserRank } from "./showdownRankHelper";
@@ -65,9 +66,23 @@ interface QueueEntry {
   joinedAt: Date;
 }
 
+interface ShowdownChallenge {
+  id: string;
+  challengerId: string;
+  challengerName: string;
+  targetId: string;
+  status: "pending" | "accepted" | "declined";
+  matchId?: string;
+  createdAt: Date;
+}
+
+// Durée de vie d'un défi avant expiration (2 minutes)
+const CHALLENGE_TTL_MS = 2 * 60 * 1000;
+
 class ShowdownManager {
   private activeMatches: Record<string, ShowdownMatchInMemory> = {};
   private matchmakingQueue: QueueEntry[] = [];
+  private pendingChallenges: Record<string, ShowdownChallenge> = {};
 
   constructor() {
     void this.cleanupOrphanedMatches();
@@ -211,7 +226,142 @@ class ShowdownManager {
     }
   }
 
-  private async createMatch(p1: QueueEntry, p2: QueueEntry) {
+  // --- DÉFIS DIRECTS (entre amis) ---
+
+  private cleanupExpiredChallenges() {
+    const now = Date.now();
+    for (const challenge of Object.values(this.pendingChallenges)) {
+      const expired = now - challenge.createdAt.getTime() > CHALLENGE_TTL_MS;
+      // Les défis résolus sont conservés un peu pour que le challenger lise le statut final
+      if (expired) {
+        delete this.pendingChallenges[challenge.id];
+      }
+    }
+  }
+
+  async createChallenge(
+    challenger: { id: string; name: string },
+    targetId: string,
+  ): Promise<
+    | { ok: true; challengeId: string }
+    | { ok: false; reason: "challenger_busy" | "target_busy" | "already_pending" }
+  > {
+    this.cleanupExpiredChallenges();
+
+    if (this.getActiveMatchIdForUser(challenger.id)) {
+      return { ok: false, reason: "challenger_busy" };
+    }
+    if (this.getActiveMatchIdForUser(targetId)) {
+      return { ok: false, reason: "target_busy" };
+    }
+    const existing = Object.values(this.pendingChallenges).find(
+      (c) => c.challengerId === challenger.id && c.targetId === targetId && c.status === "pending",
+    );
+    if (existing) {
+      return { ok: false, reason: "already_pending" };
+    }
+
+    const challenge: ShowdownChallenge = {
+      id: randomUUID(),
+      challengerId: challenger.id,
+      challengerName: challenger.name,
+      targetId,
+      status: "pending",
+      createdAt: new Date(),
+    };
+    this.pendingChallenges[challenge.id] = challenge;
+    return { ok: true, challengeId: challenge.id };
+  }
+
+  getChallengeStatus(
+    challengeId: string,
+    userId: string,
+  ): {
+    status: "pending" | "accepted" | "declined" | "expired";
+    matchId?: string;
+    challengerName?: string;
+  } {
+    this.cleanupExpiredChallenges();
+    const challenge = this.pendingChallenges[challengeId];
+    if (!challenge) {
+      return { status: "expired" };
+    }
+    if (challenge.challengerId !== userId && challenge.targetId !== userId) {
+      return { status: "expired" };
+    }
+    return {
+      status: challenge.status,
+      matchId: challenge.matchId,
+      challengerName: challenge.challengerName,
+    };
+  }
+
+  async respondChallenge(
+    challengeId: string,
+    userId: string,
+    accept: boolean,
+  ): Promise<
+    | { ok: true; accepted: true; matchId: string }
+    | { ok: true; accepted: false }
+    | { ok: false; reason: "not_found" | "not_target" | "creation_failed" }
+  > {
+    this.cleanupExpiredChallenges();
+    const challenge = this.pendingChallenges[challengeId];
+    if (!challenge || challenge.status !== "pending") {
+      return { ok: false, reason: "not_found" };
+    }
+    if (challenge.targetId !== userId) {
+      return { ok: false, reason: "not_target" };
+    }
+
+    if (!accept) {
+      challenge.status = "declined";
+      return { ok: true, accepted: false };
+    }
+
+    // Le challenger a pu rejoindre une autre partie entre-temps
+    if (this.getActiveMatchIdForUser(challenge.challengerId)) {
+      delete this.pendingChallenges[challengeId];
+      return { ok: false, reason: "not_found" };
+    }
+    // Retirer le challenger de la file classique s'il s'y trouvait
+    this.leaveQueue(challenge.challengerId);
+
+    // Construire les entrées joueurs comme le ferait le matchmaking
+    const [challengerInfo, targetInfo, challengerRank, targetRank] = await Promise.all([
+      this.getPlayerInfo(challenge.challengerId),
+      this.getPlayerInfo(challenge.targetId),
+      prisma.showdownRank.findUnique({ where: { userId: challenge.challengerId } }),
+      prisma.showdownRank.findUnique({ where: { userId: challenge.targetId } }),
+    ]);
+
+    const matchId = await this.createMatch(
+      {
+        userId: challenge.challengerId,
+        name: challengerInfo.name,
+        level: challengerInfo.level,
+        rankPoints: challengerRank?.points || 0,
+        joinedAt: new Date(),
+      },
+      {
+        userId: challenge.targetId,
+        name: targetInfo.name,
+        level: targetInfo.level,
+        rankPoints: targetRank?.points || 0,
+        joinedAt: new Date(),
+      },
+    );
+
+    if (!matchId) {
+      return { ok: false, reason: "creation_failed" };
+    }
+
+    challenge.status = "accepted";
+    challenge.matchId = matchId;
+    return { ok: true, accepted: true, matchId };
+  }
+
+  private async createMatch(p1: QueueEntry, p2: QueueEntry): Promise<string | null> {
     try {
       // 1. Enregistrer dans la DB
       const dbMatch = await prisma.showdownMatch.create({
@@ -302,8 +452,10 @@ class ShowdownManager {
 
       // Démarrer le compte à rebours de choix de thèmes
       this.startThemeSelectionCountdown(match.matchId);
+      return match.matchId;
     } catch (e) {
       console.error("Erreur lors de la création du match Showdown:", e);
+      return null;
     }
   }
 

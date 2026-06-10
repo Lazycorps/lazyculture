@@ -62,6 +62,41 @@
             </UButton>
           </div>
 
+          <!-- Incoming challenge banner -->
+          <div
+            v-if="incomingChallenge"
+            class="w-full max-w-md bg-gradient-to-r from-indigo-500/10 to-pink-500/10 border border-indigo-500/30 rounded-2xl p-4 shadow-lg text-center space-y-3"
+          >
+            <div class="text-2xl animate-bounce">⚔️</div>
+            <div class="space-y-1">
+              <h3 class="text-sm font-black font-display text-white uppercase tracking-wider">
+                {{ incomingChallenge.challengerName }} te défie en duel !
+              </h3>
+              <p class="text-xs text-gray-400">Acceptez-vous le défi Showdown ?</p>
+            </div>
+            <div class="flex gap-2">
+              <UButton
+                color="neutral"
+                variant="soft"
+                size="md"
+                icon="i-heroicons-x-mark"
+                class="flex-1 font-black uppercase font-display tracking-wider py-2.5"
+                @click="respondToChallenge(false)"
+              >
+                Refuser
+              </UButton>
+              <UButton
+                color="primary"
+                size="md"
+                icon="i-heroicons-bolt"
+                class="flex-1 font-black uppercase font-display tracking-wider py-2.5 bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500"
+                @click="respondToChallenge(true)"
+              >
+                Accepter
+              </UButton>
+            </div>
+          </div>
+
           <!-- Mode Introduction -->
           <div class="text-center space-y-2">
             <div
@@ -126,6 +161,34 @@
               </UButton>
             </div>
 
+            <!-- Waiting for challenged friend -->
+            <div
+              v-else-if="outgoingChallenge"
+              class="flex flex-col items-center py-6 px-4 bg-slate-900/50 border border-white/5 rounded-2xl space-y-6"
+            >
+              <div class="text-4xl animate-pulse">⚔️</div>
+              <div class="text-center space-y-1">
+                <h3
+                  class="text-sm font-bold text-indigo-400 uppercase tracking-widest animate-pulse font-display"
+                >
+                  En attente de {{ outgoingChallenge.name }}...
+                </h3>
+                <p class="text-[10px] text-gray-500">
+                  Votre ami a reçu une notification. Le défi expire après 2 minutes.
+                </p>
+              </div>
+              <UButton
+                color="warning"
+                variant="ghost"
+                size="sm"
+                icon="i-heroicons-x-mark"
+                class="hover:bg-red-500/15"
+                @click="cancelChallenge"
+              >
+                Annuler le défi
+              </UButton>
+            </div>
+
             <div v-else class="flex flex-col space-y-3">
               <UButton
                 color="primary"
@@ -137,6 +200,17 @@
               >
                 Lancer la recherche de duel
               </UButton>
+              <UButton
+                color="neutral"
+                variant="soft"
+                size="lg"
+                block
+                icon="i-heroicons-user-group"
+                class="font-black uppercase font-display tracking-wider py-3.5"
+                @click="challengeModalOpen = true"
+              >
+                Défier un ami
+              </UButton>
               <div class="text-center">
                 <span class="text-[10px] text-gray-500">
                   Recherche avec tolérance de ±200 LP puis élargissement automatique.
@@ -144,6 +218,14 @@
               </div>
             </div>
           </div>
+
+          <SocialInviteFriendsModal
+            v-model:open="challengeModalOpen"
+            mode="single"
+            title="Défier un ami"
+            confirm-label="Défier"
+            @select="challengeFriend"
+          />
         </div>
 
         <!-- ACTIVE GAME STATES -->
@@ -642,6 +724,14 @@ let queuePollInterval: any = null;
 const elapsedTime = ref(0);
 let timerInterval: any = null;
 
+// Challenge (défi direct entre amis) states
+const route = useRoute();
+const toast = useToast();
+const challengeModalOpen = ref(false);
+const outgoingChallenge = ref<{ id: string; name: string } | null>(null);
+const incomingChallenge = ref<{ id: string; challengerName: string } | null>(null);
+let challengePollInterval: any = null;
+
 const showBottomNav = useState("showBottomNav", () => true);
 
 watch(
@@ -676,6 +766,9 @@ onMounted(async () => {
     await session.checkActiveSession();
     if (session.recoverableMatchId.value) {
       // Prompt will be shown
+    } else if (route.query.challenge) {
+      // Deeplink de défi reçu : afficher la carte Accepter/Refuser si le défi est valide
+      await loadIncomingChallenge(route.query.challenge as string);
     } else {
       // Check if we are already matched/searching
       const statusRes = await $fetch<{
@@ -696,6 +789,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopQueuePolling();
   stopElapsedTimeTimer();
+  stopChallengePolling();
   stopDuelTimer();
   if (status.value === "FINISHED") {
     session.disconnect();
@@ -858,6 +952,119 @@ function formatElapsedTime(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${s < 10 ? "0" : ""}${s}`;
+}
+
+// --- CHALLENGE (DÉFI ENTRE AMIS) METHODS ---
+
+async function challengeFriend(friend: { userId: string; name: string }) {
+  try {
+    const res = await $fetch<{ challengeId: string }>("/api/multiplayer/showdown/challenge", {
+      method: "post",
+      body: { targetUserId: friend.userId },
+    });
+    outgoingChallenge.value = { id: res.challengeId, name: friend.name };
+    startChallengePolling();
+  } catch (e: any) {
+    console.error("Erreur lors de la création du défi :", e);
+    toast.add({
+      title: "Défi impossible",
+      description: e?.data?.statusMessage || "Impossible de créer le défi.",
+      color: "error",
+    });
+  }
+}
+
+function startChallengePolling() {
+  stopChallengePolling();
+  challengePollInterval = setInterval(async () => {
+    if (!outgoingChallenge.value) {
+      stopChallengePolling();
+      return;
+    }
+    try {
+      const res = await $fetch<{ status: string; matchId?: string }>(
+        `/api/multiplayer/showdown/challenge-status?challengeId=${outgoingChallenge.value.id}`,
+      );
+      if (res.status === "accepted" && res.matchId) {
+        stopChallengePolling();
+        outgoingChallenge.value = null;
+        session.connect(res.matchId, user.value?.id || "");
+      } else if (res.status === "declined" || res.status === "expired") {
+        stopChallengePolling();
+        toast.add({
+          title: res.status === "declined" ? "Défi refusé" : "Défi expiré",
+          description:
+            res.status === "declined"
+              ? `${outgoingChallenge.value.name} a refusé le duel.`
+              : "Votre ami n'a pas répondu à temps.",
+          color: "warning",
+        });
+        outgoingChallenge.value = null;
+      }
+    } catch (e) {
+      console.error("Erreur lors du suivi du défi :", e);
+    }
+  }, 1500);
+}
+
+function stopChallengePolling() {
+  if (challengePollInterval) {
+    clearInterval(challengePollInterval);
+    challengePollInterval = null;
+  }
+}
+
+function cancelChallenge() {
+  // Le défi expirera côté serveur ; on arrête simplement le suivi
+  stopChallengePolling();
+  outgoingChallenge.value = null;
+}
+
+async function loadIncomingChallenge(challengeId: string) {
+  try {
+    const res = await $fetch<{ status: string; challengerName?: string }>(
+      `/api/multiplayer/showdown/challenge-status?challengeId=${challengeId}`,
+    );
+    if (res.status === "pending") {
+      incomingChallenge.value = {
+        id: challengeId,
+        challengerName: res.challengerName || "Un joueur",
+      };
+    } else {
+      toast.add({
+        title: "Défi indisponible",
+        description: "Ce défi n'est plus valide ou a expiré.",
+        color: "warning",
+      });
+    }
+  } catch (e) {
+    console.error("Erreur lors du chargement du défi :", e);
+  }
+}
+
+async function respondToChallenge(accept: boolean) {
+  if (!incomingChallenge.value) return;
+  try {
+    const res = await $fetch<{ accepted: boolean; matchId?: string }>(
+      "/api/multiplayer/showdown/challenge-respond",
+      {
+        method: "post",
+        body: { challengeId: incomingChallenge.value.id, accept },
+      },
+    );
+    incomingChallenge.value = null;
+    if (res.accepted && res.matchId) {
+      session.connect(res.matchId, user.value?.id || "");
+    }
+  } catch (e: any) {
+    console.error("Erreur lors de la réponse au défi :", e);
+    incomingChallenge.value = null;
+    toast.add({
+      title: "Défi indisponible",
+      description: e?.data?.statusMessage || "Ce défi n'est plus valide.",
+      color: "warning",
+    });
+  }
 }
 
 // --- DRAFT SELECTION METHODS ---

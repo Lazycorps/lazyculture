@@ -4,6 +4,7 @@ import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import type { QuestionSeriesResponseData } from "#shared/series";
 import { themeService } from "~~/server/services/ThemeService";
+import { followService } from "~~/server/services/FollowService";
 
 export class UserService {
   async getCurrentUser(userId: string, email: string | undefined) {
@@ -103,7 +104,7 @@ export class UserService {
     };
   }
 
-  async getProfile(targetId: string) {
+  async getProfile(targetId: string, viewerId?: string) {
     // Trouver l'utilisateur ciblé par son ID ou son Slug
     const user = await prisma.user.findFirst({
       where: {
@@ -387,7 +388,23 @@ export class UserService {
       }
     }
 
+    // Données sociales (abonnés/abonnements) vis-à-vis du visiteur
+    const { followersCount, followingCount } = await followService.getCounts(user.id);
+    const [isFollowing, isFollowedBy] =
+      viewerId && viewerId !== user.id
+        ? await Promise.all([
+            followService.isFollowing(viewerId, user.id),
+            followService.isFollowing(user.id, viewerId),
+          ])
+        : [false, false];
+
     return {
+      social: {
+        followersCount,
+        followingCount,
+        isFollowing,
+        isFollowedBy,
+      },
       user: {
         id: user.id,
         name: user.name,

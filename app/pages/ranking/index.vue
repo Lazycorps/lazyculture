@@ -65,6 +65,19 @@
           <UIcon name="i-heroicons-sparkles" class="text-xs" />
           <span>XP</span>
         </button>
+        <button
+          v-if="userStore.isLoggedIn"
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          :class="
+            currentTab === 'friends'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'friends'"
+        >
+          <UIcon name="i-heroicons-user-group" class="text-xs" />
+          <span>Amis</span>
+        </button>
       </div>
     </div>
 
@@ -134,7 +147,7 @@
               </p>
               <p
                 class="text-[10px] font-extrabold text-slate-400/80 font-display"
-                v-if="currentTab === 'general'"
+                v-if="currentTab === 'general' || currentTab === 'friends'"
               >
                 {{ secondPlace.xp }} XP
               </p>
@@ -212,7 +225,7 @@
               </p>
               <p
                 class="text-xs font-black text-amber-300/80 font-display"
-                v-if="currentTab === 'general'"
+                v-if="currentTab === 'general' || currentTab === 'friends'"
               >
                 {{ firstPlace.xp }} XP
               </p>
@@ -286,7 +299,7 @@
               </p>
               <p
                 class="text-[10px] font-extrabold text-amber-700/80 font-display"
-                v-if="currentTab === 'general'"
+                v-if="currentTab === 'general' || currentTab === 'friends'"
               >
                 {{ thirdPlace.xp }} XP
               </p>
@@ -340,6 +353,7 @@
           :key="userItem.userId"
           :to="'/user/' + userItem.userId"
           class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group cursor-pointer block"
+          :class="userItem.isMe ? 'bg-violet-600/10 border-l-2 border-violet-500' : ''"
         >
           <!-- Rank & Avatar -->
           <div class="flex items-center space-x-4">
@@ -358,6 +372,9 @@
                 class="font-bold text-sm text-gray-200 group-hover:text-white transition-colors"
               >
                 {{ userItem.name || "Joueur Anonyme" }}
+                <span v-if="userItem.isMe" class="text-violet-400 text-xs font-display"
+                  >(vous)</span
+                >
               </span>
               <!-- League badge and winrate detail for BR/Showdown tab -->
               <div
@@ -388,7 +405,7 @@
 
           <!-- XP / LP Score -->
           <div class="flex items-center space-x-6 text-sm">
-            <div class="text-right" v-if="currentTab === 'general'">
+            <div class="text-right" v-if="currentTab === 'general' || currentTab === 'friends'">
               <span class="font-extrabold text-white font-display">{{ userItem.xp }}</span>
               <span
                 class="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-display ml-1"
@@ -424,17 +441,57 @@
       </div>
       <div
         v-else-if="!activeUsers || activeUsers.length === 0"
-        class="text-center py-10 text-gray-500 font-medium"
+        class="text-center py-10 text-gray-500 font-medium space-y-4"
       >
-        Aucun joueur dans ce classement pour le moment.
+        <p>
+          {{
+            currentTab === "friends"
+              ? "Suivez des joueurs pour les voir apparaître ici !"
+              : "Aucun joueur dans ce classement pour le moment."
+          }}
+        </p>
+        <UButton
+          v-if="currentTab === 'friends'"
+          to="/user/friends"
+          color="primary"
+          variant="soft"
+          icon="i-heroicons-user-plus"
+          class="font-bold uppercase tracking-wider font-display"
+        >
+          Ajouter des amis
+        </UButton>
       </div>
     </UCard>
   </div>
 </template>
 
 <script setup lang="ts">
-const currentTab = ref<"general" | "br" | "showdown" | "daily">("daily");
+import type { FriendRankingDTO } from "#shared/DTO/followDTO";
+
+const currentTab = ref<"general" | "br" | "showdown" | "daily" | "friends">("daily");
 const dailyPeriod = ref<"alltime" | "monthly">("monthly");
+
+const userStore = useUserStore();
+const { authFetch } = useAuthFetch();
+
+// Classement amis : chargé à la demande car il nécessite l'authentification
+const friendsUsers = ref<FriendRankingDTO[]>([]);
+const friendsLoaded = ref(false);
+
+watch(currentTab, (tab) => {
+  if (tab === "friends" && !friendsLoaded.value) {
+    fetchFriendsRanking();
+  }
+});
+
+async function fetchFriendsRanking() {
+  try {
+    friendsUsers.value = await authFetch<FriendRankingDTO[]>("/api/ranking/friends");
+    friendsLoaded.value = true;
+  } catch (e) {
+    console.error("Failed to fetch friends ranking:", e);
+  }
+}
 
 // Récupération des différents types de classements en parallèle
 const { data: users } = await useFetch<any[]>("/api/ranking/top");
@@ -456,6 +513,7 @@ const activeUsers = computed(() => {
       ? dailyAlltimeUsers.value || []
       : dailyMonthlyUsers.value || [];
   }
+  if (currentTab.value === "friends") return friendsUsers.value || [];
   return [];
 });
 

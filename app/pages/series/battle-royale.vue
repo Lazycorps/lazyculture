@@ -198,14 +198,36 @@
         <!-- Active game states -->
         <div v-else class="py-2">
           <!-- 1. Lobby Waiting State -->
-          <LobbyView
-            v-if="status === 'WAITING'"
-            :players="players"
-            :countdown="countdown"
-            :is-countdown-running="isCountdownRunning"
-            :my-user-id="user.id"
-            @toggle-ready="handleToggleReady"
-          />
+          <template v-if="status === 'WAITING'">
+            <LobbyView
+              :players="players"
+              :countdown="countdown"
+              :is-countdown-running="isCountdownRunning"
+              :my-user-id="user.id"
+              @toggle-ready="handleToggleReady"
+            />
+
+            <div class="mt-4 max-w-md mx-auto">
+              <UButton
+                color="neutral"
+                variant="soft"
+                block
+                icon="i-heroicons-user-plus"
+                class="font-bold uppercase tracking-wider font-display"
+                @click="inviteModalOpen = true"
+              >
+                Inviter des amis
+              </UButton>
+            </div>
+
+            <SocialInviteFriendsModal
+              v-model:open="inviteModalOpen"
+              mode="multi"
+              title="Inviter des amis"
+              confirm-label="Inviter"
+              @confirm="sendInvites"
+            />
+          </template>
 
           <!-- 2. Active Game State -->
           <GameView
@@ -263,7 +285,35 @@ const userStore = useUserStore();
 await userStore.fetchUser();
 const user = computed(() => userStore.user);
 
+const route = useRoute();
+const toast = useToast();
 const session = useBattleRoyaleSession();
+
+const inviteModalOpen = ref(false);
+
+async function sendInvites(friendIds: string[]) {
+  try {
+    const result = await $fetch<{ sent: number; invited: number }>("/api/battle-royale/invite", {
+      method: "post",
+      body: {
+        matchId: matchId.value,
+        friendIds,
+      },
+    });
+    toast.add({
+      title: "Invitations envoyées !",
+      description: `${result.invited} ami${result.invited > 1 ? "s" : ""} invité${result.invited > 1 ? "s" : ""} à rejoindre le salon.`,
+      color: "success",
+    });
+  } catch (e) {
+    console.error("Erreur lors de l'envoi des invitations :", e);
+    toast.add({
+      title: "Erreur",
+      description: "Impossible d'envoyer les invitations.",
+      color: "error",
+    });
+  }
+}
 
 const showBottomNav = useState("showBottomNav", () => true);
 
@@ -330,6 +380,14 @@ function stopLobbyPolling() {
 onMounted(async () => {
   if (user) {
     await session.checkActiveSession();
+
+    // Deeplink d'invitation : rejoindre directement le salon indiqué dans l'URL
+    const invitedMatchId = route.query.matchId as string | undefined;
+    if (invitedMatchId && !session.matchId.value) {
+      await joinArena("join", invitedMatchId);
+      return;
+    }
+
     // Si l'utilisateur n'est pas déjà dans un salon actif et qu'aucun salon n'est récupérable
     if (!session.matchId.value && !session.recoverableMatchId.value) {
       startLobbyPolling();
@@ -365,6 +423,11 @@ async function joinArena(action: "create" | "join", targetMatchId?: string) {
     }
   } catch (e: any) {
     console.error("Échec lors de l'entrée dans l'arène :", e);
+    toast.add({
+      title: "Impossible de rejoindre le salon",
+      description: e?.data?.statusMessage || "Le salon n'existe pas ou a déjà démarré.",
+      color: "error",
+    });
     // En cas d'échec, relancer le polling
     startLobbyPolling();
   } finally {

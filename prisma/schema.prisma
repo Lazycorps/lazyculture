@@ -28,6 +28,33 @@ model User {
     ShowdownRank           ShowdownRank?
     AdventureProgress      UserAdventureProgress[]
     PushSubscription       PushSubscription[]
+    Following              Follow[]                 @relation("UserFollowing")
+    Followers              Follow[]                 @relation("UserFollowers")
+    FollowNotifSent        FollowNotification[]     @relation("FollowNotifFollower")
+    FollowNotifReceived    FollowNotification[]     @relation("FollowNotifFollowing")
+}
+
+model Follow {
+    followerId  String
+    follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+    followingId String
+    following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+    createDate  DateTime @default(now())
+
+    @@id([followerId, followingId])
+    @@index([followingId])
+}
+
+// Trace de la dernière notification "nouvel abonné" par paire, conservée après
+// un unfollow pour empêcher le spam via des cycles follow/unfollow répétés
+model FollowNotification {
+    followerId  String
+    follower    User     @relation("FollowNotifFollower", fields: [followerId], references: [id], onDelete: Cascade)
+    followingId String
+    following   User     @relation("FollowNotifFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+    sentDate    DateTime @default(now())
+
+    @@id([followerId, followingId])
 }
 
 model UserProgress {

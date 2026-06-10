@@ -1,9 +1,8 @@
-import { userService } from "~~/server/services/UserService";
+import { followService } from "~~/server/services/FollowService";
 import { getAuthenticatedUser } from "~~/server/utils/auth";
 
 export default defineEventHandler((event) => {
-  // Route protégée : nécessite un utilisateur authentifié
-  const viewer = getAuthenticatedUser(event);
+  const user = getAuthenticatedUser(event);
 
   const targetId = getRouterParam(event, "id");
   if (!targetId) {
@@ -13,5 +12,5 @@ export default defineEventHandler((event) => {
     });
   }
 
-  return userService.getProfile(targetId, viewer.id);
+  return followService.follow(user.id, targetId);
 });
