@@ -136,6 +136,15 @@
               class="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-slate-900"
               :class="p.isOnline ? 'bg-emerald-500' : 'bg-slate-500'"
             ></span>
+            <!-- Emote bubble -->
+            <transition name="pop-in">
+              <div
+                v-if="(p as any).activeEmote"
+                class="absolute -top-3 -right-3 bg-slate-950 border border-violet-500/50 rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-lg animate-emote-bounce z-10"
+              >
+                {{ (p as any).activeEmote }}
+              </div>
+            </transition>
           </div>
 
           <div class="overflow-hidden flex-1 text-left">

@@ -184,3 +184,31 @@ body,
   background: rgba(109, 40, 217, 0.15);
   color: #a78bfa !important;
 }
+
+/* Emote pop-in and floating animations */
+@keyframes emoteBounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.08);
+  }
+}
+
+.animate-emote-bounce {
+  animation: emoteBounce 1s ease-in-out infinite;
+}
+
+.pop-in-enter-active {
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.pop-in-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.pop-in-leave-to {
+  transform: scale(0.6);
+  opacity: 0;
+}

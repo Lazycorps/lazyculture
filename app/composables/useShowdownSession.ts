@@ -37,6 +37,9 @@ export const useShowdownSession = () => {
   const lastRoundResults = useState<any>("sd-last-round-results", () => null);
   const opponentHasAnswered = useState<boolean>("sd-opponent-has-answered", () => false);
 
+  const myActiveEmote = useState<string | null>("sd-my-active-emote", () => null);
+  const opponentActiveEmote = useState<string | null>("sd-opponent-active-emote", () => null);
+
   const isJoined = computed(() => !!matchId.value);
 
   function disconnect() {
@@ -69,6 +72,8 @@ export const useShowdownSession = () => {
     showRoundResults.value = false;
     lastRoundResults.value = null;
     opponentHasAnswered.value = false;
+    myActiveEmote.value = null;
+    opponentActiveEmote.value = null;
   }
 
   function connect(id: string, userId: string) {
@@ -237,16 +242,43 @@ export const useShowdownSession = () => {
             }
           });
         }
-
-        // Fermer la liaison SSE tout en conservant le state local pour le podium
-        if (eventSource.value) {
-          try {
-            eventSource.value.close();
-          } catch (e) {}
-          eventSource.value = null;
-        }
       }, 3500);
     });
+
+    // Emote received
+    source.addEventListener("emote", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.userId === userId) {
+        myActiveEmote.value = data.emote;
+        setTimeout(() => {
+          if (myActiveEmote.value === data.emote) {
+            myActiveEmote.value = null;
+          }
+        }, 3000);
+      } else {
+        opponentActiveEmote.value = data.emote;
+        setTimeout(() => {
+          if (opponentActiveEmote.value === data.emote) {
+            opponentActiveEmote.value = null;
+          }
+        }, 3000);
+      }
+    });
+  }
+
+  async function sendEmote(emote: string) {
+    if (!matchId.value) return;
+    try {
+      await $fetch("/api/multiplayer/showdown/send-emote", {
+        method: "post",
+        body: {
+          matchId: matchId.value,
+          emote,
+        },
+      });
+    } catch (e) {
+      console.error("Erreur lors de l'envoi de l'emote Showdown :", e);
+    }
   }
 
   async function checkActiveSession() {
@@ -292,8 +324,11 @@ export const useShowdownSession = () => {
     showRoundResults,
     lastRoundResults,
     opponentHasAnswered,
+    myActiveEmote,
+    opponentActiveEmote,
     connect,
     disconnect,
     checkActiveSession,
+    sendEmote,
   };
 };

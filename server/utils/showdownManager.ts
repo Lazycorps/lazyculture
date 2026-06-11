@@ -1024,6 +1024,29 @@ class ShowdownManager {
     return { success: true, message: "Réponse incorrecte enregistrée." };
   }
 
+  /**
+   * Envoie une emote à tous les participants d'un match de Showdown.
+   */
+  sendEmote(matchId: string, userId: string, emote: string): { success: boolean; message: string } {
+    const match = this.getMatch(matchId);
+    if (!match) {
+      return { success: false, message: "Partie non active" };
+    }
+
+    const player = match.players.find((p) => p.userId === userId);
+    if (!player) {
+      return { success: false, message: "Vous ne participez pas à ce match" };
+    }
+
+    this.broadcast(matchId, "emote", {
+      userId,
+      name: player.name,
+      emote,
+    });
+
+    return { success: true, message: "Emote envoyée" };
+  }
+
   private async resolveRound(matchId: string) {
     const match = this.getMatch(matchId);
     if (!match || match.status !== "PLAYING") return;

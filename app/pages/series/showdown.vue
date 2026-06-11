@@ -1,7 +1,7 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-2 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden relative"
       :ui="{ body: 'p-2.5 sm:p-6' }"
     >
       <!-- Non authenticated user -->
@@ -229,7 +229,220 @@
         </div>
 
         <!-- ACTIVE GAME STATES -->
-        <div v-else class="py-2">
+        <div v-else class="py-2 space-y-4">
+          <!-- HUD Combat (Shared between Theme Draft, Playing Duel and Finished Screen) -->
+          <div
+            v-if="status === 'THEME_SELECTION' || status === 'PLAYING' || status === 'FINISHED'"
+            class="grid grid-cols-7 items-center gap-2 px-2 py-3 bg-slate-900/40 border border-white/5 rounded-2xl"
+          >
+            <!-- Player A (Moi) -->
+            <div class="col-span-3 text-left space-y-1">
+              <div class="flex items-center space-x-2 pl-1 relative">
+                <span class="text-xl relative">
+                  {{ isP1Me ? "🦁" : "🦊" }}
+                  <!-- Emote Bubble -->
+                  <transition name="pop-in">
+                    <div
+                      v-if="myActiveEmote"
+                      class="absolute -top-10 -left-2 bg-slate-950 border border-indigo-500/50 rounded-xl px-1.5 py-0.5 flex items-center justify-center text-base shadow-lg animate-emote-bounce z-30"
+                    >
+                      {{ myActiveEmote }}
+                    </div>
+                  </transition>
+                </span>
+                <div class="truncate">
+                  <div class="text-xs font-black text-white truncate leading-tight">
+                    {{ user?.name || "Moi" }}
+                  </div>
+                  <div class="text-[9px] text-indigo-400 font-medium">Lvl. {{ myLevel }}</div>
+                </div>
+                <!-- Floating Damage Indicator -->
+                <transition name="float-up">
+                  <span
+                    v-if="myDamageTaken !== null"
+                    class="absolute -top-6 right-1 text-lg font-black text-[#ff2e54] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_0_12px_rgba(255,46,84,0.8)] animate-damage-pop z-20"
+                  >
+                    -{{ myDamageTaken }} HP
+                  </span>
+                </transition>
+              </div>
+              <!-- HP Bar -->
+              <div
+                class="relative w-full h-5 bg-slate-950 rounded-full border border-white/10 overflow-hidden"
+                :class="{ 'flash-red-border': myHpFlash }"
+              >
+                <div
+                  class="h-full bg-gradient-to-r transition-all duration-500"
+                  :class="
+                    myHpFlash
+                      ? 'from-red-600 to-rose-500'
+                      : myHp > 50
+                        ? 'from-emerald-500 to-green-400'
+                        : myHp > 25
+                          ? 'from-amber-500 to-yellow-400'
+                          : 'from-red-600 to-rose-500'
+                  "
+                  :style="{ width: `${myHp}%` }"
+                ></div>
+                <!-- HP text overlay -->
+                <div
+                  class="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow"
+                >
+                  {{ myHp }}/100 HP
+                </div>
+              </div>
+              <!-- Combo Streak -->
+              <div
+                class="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/25 rounded text-[9px] text-amber-400 font-black uppercase transition-all duration-300"
+                :class="
+                  myStreak > 0
+                    ? 'opacity-100 animate-pulse'
+                    : 'opacity-0 pointer-events-none select-none'
+                "
+              >
+                <span>🔥 Combo x{{ myStreak || 1 }}</span>
+              </div>
+            </div>
+
+            <!-- VS / TIMER -->
+            <div class="col-span-1 flex flex-col items-center justify-center">
+              <template v-if="status === 'THEME_SELECTION'">
+                <div
+                  class="w-9 h-9 rounded-full bg-indigo-600/10 border border-indigo-500/30 flex items-center justify-center text-xs font-black text-indigo-400 font-display tracking-wide font-extrabold"
+                >
+                  VS
+                </div>
+              </template>
+              <template v-else-if="status === 'FINISHED'">
+                <div
+                  class="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-xs font-black text-amber-400 font-display tracking-wide font-extrabold"
+                >
+                  🏆
+                </div>
+              </template>
+              <template v-else>
+                <div
+                  class="text-[9px] font-bold text-gray-500 uppercase tracking-widest leading-none mb-1"
+                >
+                  RD {{ currentRound }}
+                </div>
+                <div class="relative w-10 h-10 flex items-center justify-center">
+                  <template v-if="showRoundResults">
+                    <span class="text-lg font-mono font-black text-amber-400 z-10 animate-bounce">
+                      {{ roundEndCountdown }}
+                    </span>
+                  </template>
+                  <template v-else-if="isReading">
+                    <span class="text-base z-10 animate-pulse" title="Temps de lecture">📖</span>
+                    <span
+                      class="absolute -bottom-1 text-[9px] font-mono font-black text-sky-400 z-10"
+                    >
+                      {{ readingTimeLeft }}s
+                    </span>
+                  </template>
+                  <template v-else>
+                    <!-- Circular progress outline -->
+                    <svg class="absolute w-full h-full transform -rotate-90">
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="18"
+                        stroke="rgba(255,255,255,0.05)"
+                        stroke-width="2.5"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="18"
+                        stroke="#6366f1"
+                        stroke-width="2.5"
+                        fill="transparent"
+                        :stroke-dasharray="113"
+                        :stroke-dashoffset="dashOffset"
+                        class="transition-all duration-1000"
+                      />
+                    </svg>
+                    <span class="text-xs font-mono font-black text-white z-10">{{
+                      timerLeft
+                    }}</span>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <!-- Player B (Opponent) -->
+            <div class="col-span-3 text-right space-y-1">
+              <div class="flex items-center justify-end space-x-2 pr-1 relative">
+                <!-- Floating Damage Indicator -->
+                <transition name="float-up">
+                  <span
+                    v-if="opponentDamageTaken !== null"
+                    class="absolute -top-6 left-1 text-lg font-black text-[#ff2e54] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_0_12px_rgba(255,46,84,0.8)] animate-damage-pop z-20"
+                  >
+                    -{{ opponentDamageTaken }} HP
+                  </span>
+                </transition>
+                <div class="truncate">
+                  <div class="text-xs font-black text-white truncate leading-tight">
+                    {{ opponent?.name || "Adversaire" }}
+                  </div>
+                  <div class="text-[9px] text-pink-400 font-medium">
+                    Lvl. {{ opponent?.level || 1 }}
+                  </div>
+                </div>
+                <span class="text-xl relative">
+                  {{ !isP1Me ? "🦁" : "🦊" }}
+                  <!-- Emote Bubble -->
+                  <transition name="pop-in">
+                    <div
+                      v-if="opponentActiveEmote"
+                      class="absolute -top-10 -right-2 bg-slate-950 border border-pink-500/50 rounded-xl px-1.5 py-0.5 flex items-center justify-center text-base shadow-lg animate-emote-bounce z-30"
+                    >
+                      {{ opponentActiveEmote }}
+                    </div>
+                  </transition>
+                </span>
+              </div>
+              <!-- HP Bar -->
+              <div
+                class="relative w-full h-5 bg-slate-950 rounded-full border border-white/10 overflow-hidden"
+                :class="{ 'flash-red-border': opponentHpFlash }"
+              >
+                <div
+                  class="h-full bg-gradient-to-l transition-all duration-500 ml-auto"
+                  :class="
+                    opponentHpFlash
+                      ? 'from-red-600 to-rose-500'
+                      : (opponent?.hp || 0) > 50
+                        ? 'from-emerald-500 to-green-400'
+                        : (opponent?.hp || 0) > 25
+                          ? 'from-amber-500 to-yellow-400'
+                          : 'from-red-600 to-rose-500'
+                  "
+                  :style="{ width: `${opponent?.hp || 0}%` }"
+                ></div>
+                <!-- HP text overlay -->
+                <div
+                  class="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow"
+                >
+                  {{ opponent?.hp || 0 }}/100 HP
+                </div>
+              </div>
+              <!-- Combo Streak -->
+              <div
+                class="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/25 rounded text-[9px] text-amber-400 font-black uppercase transition-all duration-300"
+                :class="
+                  (opponent?.streak || 0) > 0
+                    ? 'opacity-100 animate-pulse'
+                    : 'opacity-0 pointer-events-none select-none'
+                "
+              >
+                <span>🔥 Combo x{{ opponent?.streak || 1 }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 2. THEME SELECTION DRAFT STATE -->
           <div v-if="status === 'THEME_SELECTION'" class="space-y-6">
             <div class="text-center space-y-2">
@@ -326,180 +539,6 @@
             class="space-y-6"
             :class="{ 'shake-animation': shakeActive }"
           >
-            <!-- HUD Combat -->
-            <div
-              class="grid grid-cols-7 items-center gap-2 px-2 py-3 bg-slate-900/40 border border-white/5 rounded-2xl"
-            >
-              <!-- Player A (Moi) -->
-              <div class="col-span-3 text-left space-y-1">
-                <div class="flex items-center space-x-2 pl-1 relative">
-                  <span class="text-xl">{{ isP1Me ? "🦁" : "🦊" }}</span>
-                  <div class="truncate">
-                    <div class="text-xs font-black text-white truncate leading-tight">
-                      {{ user.name || "Moi" }}
-                    </div>
-                    <div class="text-[9px] text-indigo-400 font-medium">Lvl. {{ myLevel }}</div>
-                  </div>
-                  <!-- Floating Damage Indicator -->
-                  <transition name="float-up">
-                    <span
-                      v-if="myDamageTaken !== null"
-                      class="absolute -top-6 right-1 text-lg font-black text-[#ff2e54] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_0_12px_rgba(255,46,84,0.8)] animate-damage-pop z-20"
-                    >
-                      -{{ myDamageTaken }} HP
-                    </span>
-                  </transition>
-                </div>
-                <!-- HP Bar -->
-                <div
-                  class="relative w-full h-5 bg-slate-950 rounded-full border border-white/10 overflow-hidden"
-                  :class="{ 'flash-red-border': myHpFlash }"
-                >
-                  <div
-                    class="h-full bg-gradient-to-r transition-all duration-500"
-                    :class="
-                      myHpFlash
-                        ? 'from-red-600 to-rose-500'
-                        : myHp > 50
-                          ? 'from-emerald-500 to-green-400'
-                          : myHp > 25
-                            ? 'from-amber-500 to-yellow-400'
-                            : 'from-red-600 to-rose-500'
-                    "
-                    :style="{ width: `${myHp}%` }"
-                  ></div>
-                  <!-- HP text overlay -->
-                  <div
-                    class="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow"
-                  >
-                    {{ myHp }}/100 HP
-                  </div>
-                </div>
-                <!-- Combo Streak -->
-                <div
-                  class="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/25 rounded text-[9px] text-amber-400 font-black uppercase transition-all duration-300"
-                  :class="
-                    myStreak > 0
-                      ? 'opacity-100 animate-pulse'
-                      : 'opacity-0 pointer-events-none select-none'
-                  "
-                >
-                  <span>🔥 Combo x{{ myStreak || 1 }}</span>
-                </div>
-              </div>
-
-              <!-- VS / TIMER -->
-              <div class="col-span-1 flex flex-col items-center justify-center">
-                <div
-                  class="text-[9px] font-bold text-gray-500 uppercase tracking-widest leading-none mb-1"
-                >
-                  RD {{ currentRound }}
-                </div>
-                <div class="relative w-10 h-10 flex items-center justify-center">
-                  <template v-if="showRoundResults">
-                    <span class="text-lg font-mono font-black text-amber-400 z-10 animate-bounce">
-                      {{ roundEndCountdown }}
-                    </span>
-                  </template>
-                  <template v-else-if="isReading">
-                    <span class="text-base z-10 animate-pulse" title="Temps de lecture">📖</span>
-                    <span
-                      class="absolute -bottom-1 text-[9px] font-mono font-black text-sky-400 z-10"
-                    >
-                      {{ readingTimeLeft }}s
-                    </span>
-                  </template>
-                  <template v-else>
-                    <!-- Circular progress outline -->
-                    <svg class="absolute w-full h-full transform -rotate-90">
-                      <circle
-                        cx="20"
-                        cy="20"
-                        r="18"
-                        stroke="rgba(255,255,255,0.05)"
-                        stroke-width="2.5"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="20"
-                        cy="20"
-                        r="18"
-                        stroke="#6366f1"
-                        stroke-width="2.5"
-                        fill="transparent"
-                        :stroke-dasharray="113"
-                        :stroke-dashoffset="dashOffset"
-                        class="transition-all duration-1000"
-                      />
-                    </svg>
-                    <span class="text-xs font-mono font-black text-white z-10">{{
-                      timerLeft
-                    }}</span>
-                  </template>
-                </div>
-              </div>
-
-              <!-- Player B (Opponent) -->
-              <div class="col-span-3 text-right space-y-1">
-                <div class="flex items-center justify-end space-x-2 pr-1 relative">
-                  <!-- Floating Damage Indicator -->
-                  <transition name="float-up">
-                    <span
-                      v-if="opponentDamageTaken !== null"
-                      class="absolute -top-6 left-1 text-lg font-black text-[#ff2e54] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_0_12px_rgba(255,46,84,0.8)] animate-damage-pop z-20"
-                    >
-                      -{{ opponentDamageTaken }} HP
-                    </span>
-                  </transition>
-                  <div class="truncate">
-                    <div class="text-xs font-black text-white truncate leading-tight">
-                      {{ opponent?.name || "Adversaire" }}
-                    </div>
-                    <div class="text-[9px] text-pink-400 font-medium">
-                      Lvl. {{ opponent?.level || 1 }}
-                    </div>
-                  </div>
-                  <span class="text-xl">{{ !isP1Me ? "🦁" : "🦊" }}</span>
-                </div>
-                <!-- HP Bar -->
-                <div
-                  class="relative w-full h-5 bg-slate-950 rounded-full border border-white/10 overflow-hidden"
-                  :class="{ 'flash-red-border': opponentHpFlash }"
-                >
-                  <div
-                    class="h-full bg-gradient-to-l transition-all duration-500 ml-auto"
-                    :class="
-                      opponentHpFlash
-                        ? 'from-red-600 to-rose-500'
-                        : (opponent?.hp || 0) > 50
-                          ? 'from-emerald-500 to-green-400'
-                          : (opponent?.hp || 0) > 25
-                            ? 'from-amber-500 to-yellow-400'
-                            : 'from-red-600 to-rose-500'
-                    "
-                    :style="{ width: `${opponent?.hp || 0}%` }"
-                  ></div>
-                  <!-- HP text overlay -->
-                  <div
-                    class="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow"
-                  >
-                    {{ opponent?.hp || 0 }}/100 HP
-                  </div>
-                </div>
-                <!-- Combo Streak -->
-                <div
-                  class="inline-flex items-center space-x-1 px-2 py-0.5 bg-amber-500/10 border border-amber-500/25 rounded text-[9px] text-amber-400 font-black uppercase transition-all duration-300"
-                  :class="
-                    (opponent?.streak || 0) > 0
-                      ? 'opacity-100 animate-pulse'
-                      : 'opacity-0 pointer-events-none select-none'
-                  "
-                >
-                  <span>🔥 Combo x{{ opponent?.streak || 1 }}</span>
-                </div>
-              </div>
-            </div>
-
             <!-- Active theme display -->
             <div class="text-center">
               <span
@@ -678,6 +717,10 @@
               Retour au menu
             </UButton>
           </div>
+          <!-- Floating Emote Selector -->
+          <div v-if="matchId" class="absolute bottom-4 right-4 z-40">
+            <MultiplayerEmoteSelector @select="session.sendEmote" />
+          </div>
         </div>
       </template>
     </UCard>
@@ -717,6 +760,9 @@ const winnerId = session.winnerId;
 const showRoundResults = session.showRoundResults;
 const lastRoundResults = session.lastRoundResults;
 const opponentHasAnswered = session.opponentHasAnswered;
+
+const myActiveEmote = session.myActiveEmote;
+const opponentActiveEmote = session.opponentActiveEmote;
 
 // Matchmaking local states
 const queueStatus = ref<"none" | "searching" | "matched">("none");
@@ -814,6 +860,7 @@ let roundEndInterval: any = null;
 // Watch for round end results to trigger shake effect if I took damage, and handle 3s countdown
 watch(showRoundResults, (isActive) => {
   if (isActive) {
+    stopDuelTimer();
     const { stopSound } = useAudio();
     stopSound("timer");
     roundEndCountdown.value = 3;
@@ -1296,7 +1343,7 @@ const myFinalStats = computed(() => {
 });
 
 watch(timerLeft, (newVal) => {
-  if (newVal === 5 && !responded.value && status.value === "PLAYING") {
+  if (newVal === 5 && !responded.value && !showRoundResults.value && status.value === "PLAYING") {
     const { playSound } = useAudio();
     playSound("timer");
   }

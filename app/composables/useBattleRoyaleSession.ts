@@ -198,6 +198,37 @@ export const useBattleRoyaleSession = () => {
         }
       }, 4000);
     });
+
+    // Emote received
+    source.addEventListener("emote", (event: any) => {
+      const data = JSON.parse(event.data);
+      const player = players.value.find((p: any) => p.userId === data.userId);
+      if (player) {
+        player.activeEmote = data.emote;
+        players.value = [...players.value];
+        setTimeout(() => {
+          if (player.activeEmote === data.emote) {
+            player.activeEmote = null;
+            players.value = [...players.value];
+          }
+        }, 3000);
+      }
+    });
+  }
+
+  async function sendEmote(emote: string) {
+    if (!matchId.value) return;
+    try {
+      await $fetch("/api/battle-royale/send-emote", {
+        method: "post",
+        body: {
+          matchId: matchId.value,
+          emote,
+        },
+      });
+    } catch (e) {
+      console.error("Erreur lors de l'envoi de l'emote :", e);
+    }
   }
 
   async function checkActiveSession() {
@@ -242,5 +273,6 @@ export const useBattleRoyaleSession = () => {
     connect,
     disconnect,
     checkActiveSession,
+    sendEmote,
   };
 };

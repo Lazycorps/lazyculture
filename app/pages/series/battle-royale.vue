@@ -1,6 +1,8 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-2 select-none">
-    <UCard class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl">
+    <UCard
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative"
+    >
       <!-- Non-authenticated user view -->
       <template v-if="!user">
         <div class="text-center py-10 px-6 space-y-6">
@@ -266,6 +268,11 @@
             :question="currentQuestion"
             :myUserId="user.id"
           />
+        </div>
+
+        <!-- Floating Emote Selector -->
+        <div v-if="matchId && status !== 'FINISHED'" class="absolute bottom-4 right-4 z-40">
+          <MultiplayerEmoteSelector @select="session.sendEmote" />
         </div>
       </template>
     </UCard>
