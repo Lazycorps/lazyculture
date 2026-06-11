@@ -135,8 +135,26 @@ export async function updateShowdownUserRank(userId: string, opponentId: string,
   const lpChange = calculateShowdownLPGainOrLoss(oldPoints, opponentRank.points, won);
 
   // Les LP ne peuvent pas descendre en dessous de 0
-  const newPoints = Math.max(0, oldPoints + lpChange);
+  let newPoints = Math.max(0, oldPoints + lpChange);
   const winIncrement = won ? 1 : 0;
+
+  const oldRank = getShowdownRankFromPoints(oldPoints);
+  let newRank = getShowdownRankFromPoints(newPoints);
+
+  // Protection contre la relégation immédiate si l'utilisateur a des LP dans sa division actuelle
+  const wouldBeDemoted =
+    newPoints < oldPoints &&
+    (oldRank.tier !== newRank.tier || oldRank.division !== newRank.division);
+
+  let finalLpChange = lpChange;
+  if (wouldBeDemoted && oldRank.pointsInDivision > 0) {
+    newPoints = oldPoints - oldRank.pointsInDivision;
+    newRank = getShowdownRankFromPoints(newPoints);
+    finalLpChange = newPoints - oldPoints;
+  } else {
+    // Si pas de rétrogradation bloquée, on ajuste la perte réelle au cas où on a été bloqué à 0
+    finalLpChange = newPoints - oldPoints;
+  }
 
   // 3. Sauvegarder les données
   const updated = await prisma.showdownRank.update({
@@ -149,9 +167,6 @@ export async function updateShowdownUserRank(userId: string, opponentId: string,
     },
   });
 
-  const oldRank = getShowdownRankFromPoints(oldPoints);
-  const newRank = getShowdownRankFromPoints(newPoints);
-
   const isPromoted =
     newPoints > oldPoints &&
     (oldRank.tier !== newRank.tier || oldRank.division !== newRank.division);
@@ -160,7 +175,7 @@ export async function updateShowdownUserRank(userId: string, opponentId: string,
     (oldRank.tier !== newRank.tier || oldRank.division !== newRank.division);
 
   return {
-    lpChange,
+    lpChange: finalLpChange,
     oldPoints,
     newPoints,
     oldRank,

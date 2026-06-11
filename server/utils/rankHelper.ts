@@ -138,8 +138,26 @@ export async function updateUserRank(userId: string, matchRank: number, totalPla
   const lpChange = calculateLPGainOrLoss(matchRank, totalPlayers);
 
   // Les LP ne peuvent pas descendre en dessous de 0
-  const newPoints = Math.max(0, oldPoints + lpChange);
+  let newPoints = Math.max(0, oldPoints + lpChange);
   const winIncrement = matchRank === 1 ? 1 : 0;
+
+  const oldRank = getRankFromPoints(oldPoints);
+  let newRank = getRankFromPoints(newPoints);
+
+  // Protection contre la relégation immédiate si l'utilisateur a des LP dans sa division actuelle
+  const wouldBeDemoted =
+    newPoints < oldPoints &&
+    (oldRank.tier !== newRank.tier || oldRank.division !== newRank.division);
+
+  let finalLpChange = lpChange;
+  if (wouldBeDemoted && oldRank.pointsInDivision > 0) {
+    newPoints = oldPoints - oldRank.pointsInDivision;
+    newRank = getRankFromPoints(newPoints);
+    finalLpChange = newPoints - oldPoints;
+  } else {
+    // Si pas de rétrogradation bloquée, on ajuste la perte réelle au cas où on a été bloqué à 0
+    finalLpChange = newPoints - oldPoints;
+  }
 
   // 2. Mettre à jour en Base de Données
   const updatedRank = await prisma.battleRoyaleRank.update({
@@ -152,9 +170,6 @@ export async function updateUserRank(userId: string, matchRank: number, totalPla
     },
   });
 
-  const oldRank = getRankFromPoints(oldPoints);
-  const newRank = getRankFromPoints(newPoints);
-
   // Une promotion ou relégation se produit si le palier (tier) ou la division change
   const isPromoted =
     newPoints > oldPoints &&
@@ -164,7 +179,7 @@ export async function updateUserRank(userId: string, matchRank: number, totalPla
     (oldRank.tier !== newRank.tier || oldRank.division !== newRank.division);
 
   return {
-    lpChange,
+    lpChange: finalLpChange,
     oldPoints,
     newPoints,
     oldRank,
