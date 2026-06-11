@@ -188,6 +188,13 @@ const statusTextClass = computed(() => {
   if (myLivesAfter.value === 0) return "text-red-500 animate-bounce";
   return "text-rose-400";
 });
+
+onMounted(() => {
+  if (isCorrect.value) {
+    const { playSound } = useAudio();
+    playSound("response-success");
+  }
+});
 </script>
 
 <style scoped>

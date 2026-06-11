@@ -272,7 +272,39 @@ const timerTextColor = computed(() => {
 function selectOption(id: number) {
   if (props.responded || props.isSpectator || timeLeft.value <= 0) return;
   emit("submitAnswer", id);
+  const { stopSound } = useAudio();
+  stopSound("timer");
 }
+
+watch(timeLeft, (newVal) => {
+  if (newVal === 5 && !props.responded && !props.isSpectator) {
+    const { playSound } = useAudio();
+    playSound("timer");
+  }
+});
+
+watch(
+  () => props.responded,
+  (hasResponded) => {
+    if (hasResponded) {
+      const { stopSound } = useAudio();
+      stopSound("timer");
+    }
+  },
+);
+
+watch(
+  () => props.question,
+  () => {
+    const { stopSound } = useAudio();
+    stopSound("timer");
+  },
+);
+
+onBeforeUnmount(() => {
+  const { stopSound } = useAudio();
+  stopSound("timer");
+});
 </script>
 
 <style scoped>

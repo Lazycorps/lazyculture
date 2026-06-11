@@ -469,6 +469,17 @@ async function handleToggleReady(isReady: boolean) {
     console.error("Erreur lors de la modification du statut prêt :", e);
   }
 }
+
+watch(status, (newStatus) => {
+  if (newStatus === "FINISHED" && user.value) {
+    const { playSound } = useAudio();
+    if (winnerId.value === user.value.id) {
+      playSound("winner");
+    } else {
+      playSound("fail-br");
+    }
+  }
+});
 </script>
 
 <style scoped>

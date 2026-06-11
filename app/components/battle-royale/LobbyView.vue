@@ -216,6 +216,31 @@ function getRankIcon(points?: number) {
 function getRankLabel(points?: number) {
   return getRankFromPoints(points || 0).label;
 }
+
+watch(
+  () => props.countdown,
+  (newVal) => {
+    if (props.isCountdownRunning && newVal === 5) {
+      const { playSound } = useAudio();
+      playSound("timer");
+    }
+  },
+);
+
+watch(
+  () => props.isCountdownRunning,
+  (isRunning) => {
+    if (!isRunning) {
+      const { stopSound } = useAudio();
+      stopSound("timer");
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  const { stopSound } = useAudio();
+  stopSound("timer");
+});
 </script>
 
 <style scoped>

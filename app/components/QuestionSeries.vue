@@ -204,6 +204,8 @@ async function validateResponse() {
     if (isAnswerCorrect) {
       greenResponse.value = selectedResponse.value;
       redResponse.value = null;
+      const { playSound } = useAudio();
+      playSound("response-success");
     } else {
       redResponse.value = selectedResponse.value;
       greenResponse.value = question.data.response;

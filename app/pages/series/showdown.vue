@@ -814,6 +814,8 @@ let roundEndInterval: any = null;
 // Watch for round end results to trigger shake effect if I took damage, and handle 3s countdown
 watch(showRoundResults, (isActive) => {
   if (isActive) {
+    const { stopSound } = useAudio();
+    stopSound("timer");
     roundEndCountdown.value = 3;
     if (roundEndInterval) clearInterval(roundEndInterval);
     roundEndInterval = setInterval(() => {
@@ -827,6 +829,11 @@ watch(showRoundResults, (isActive) => {
       const isP1 = lastRoundResults.value.p1.userId === user.value?.id;
       const myStats = isP1 ? lastRoundResults.value.p1 : lastRoundResults.value.p2;
       const oppStats = isP1 ? lastRoundResults.value.p2 : lastRoundResults.value.p1;
+
+      if (myStats.correct) {
+        const { playSound } = useAudio();
+        playSound("response-success");
+      }
 
       if (myStats.damageTaken > 0) {
         shakeActive.value = true;
@@ -1084,6 +1091,9 @@ async function handleSelectTheme(themeSlug: string) {
   const p2Choices = selectedThemes.value?.p2 || [];
   if (p1Choices.includes(themeSlug) || p2Choices.includes(themeSlug)) return; // déjà pris
 
+  const { stopSound } = useAudio();
+  stopSound("timer");
+
   try {
     await $fetch("/api/multiplayer/showdown/select-theme", {
       method: "post",
@@ -1215,6 +1225,9 @@ async function handleSubmitAnswer(optionId: number) {
   selectedOptionId.value = optionId;
   responded.value = true;
 
+  const { stopSound } = useAudio();
+  stopSound("timer");
+
   try {
     await $fetch("/api/multiplayer/showdown/submit", {
       method: "post",
@@ -1280,6 +1293,38 @@ const myFinalStats = computed(() => {
   return lastRoundResults.value.p1.userId === user.value?.id
     ? lastRoundResults.value.p1
     : lastRoundResults.value.p2;
+});
+
+watch(timerLeft, (newVal) => {
+  if (newVal === 5 && !responded.value && status.value === "PLAYING") {
+    const { playSound } = useAudio();
+    playSound("timer");
+  }
+});
+
+watch(themeSelectionTimeLeft, (newVal) => {
+  if (phase.value === "DRAFT" && newVal === 5) {
+    const { playSound } = useAudio();
+    playSound("timer");
+  }
+});
+
+watch(phase, (newPhase) => {
+  if (newPhase !== "DRAFT") {
+    const { stopSound } = useAudio();
+    stopSound("timer");
+  }
+});
+
+watch(status, (newStatus) => {
+  if (newStatus === "FINISHED" && user.value) {
+    const { playSound } = useAudio();
+    if (isWinner.value) {
+      playSound("winner");
+    } else if (!isDraw.value) {
+      playSound("fail-br");
+    }
+  }
 });
 </script>
 
