@@ -48,9 +48,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-
   // Récupérer aujourd'hui pour les Dailies (UTC selon le standard du projet)
   const todayStrUTC = new Date().toJSON().slice(0, 10);
   const todayDateUTC = new Date(todayStrUTC);
@@ -108,7 +105,9 @@ export default defineEventHandler(async (event) => {
       continue;
     }
 
-    // Alerte Daily manquée : n'a pas terminé le défi quotidien d'aujourd'hui
+    // Alerte Daily manquée : n'a pas terminé le défi quotidien d'aujourd'hui.
+    // Si la série du jour n'existe pas encore (créée à la volée au premier accès),
+    // personne ne l'a réalisée : elle est donc incomplète pour tout le monde.
     let dailyIncomplete = true;
     if (currentDailySeries) {
       const dailyResponse = await prisma.questionSeriesResponse.findFirst({
@@ -121,12 +120,10 @@ export default defineEventHandler(async (event) => {
         const responseData = dailyResponse.data as any;
         const seriesData = currentDailySeries.data as any;
         const totalQuestions = seriesData?.questionsIds?.length || 10;
-        if (responseData?.responses?.length === totalQuestions) {
+        if ((responseData?.responses?.length ?? 0) >= totalQuestions) {
           dailyIncomplete = false;
         }
       }
-    } else {
-      dailyIncomplete = false; // Pas de daily aujourd'hui
     }
 
     if (dailyIncomplete) {
