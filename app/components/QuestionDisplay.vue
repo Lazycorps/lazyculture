@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col space-y-2.5 md:space-y-3.5 w-full">
+  <div class="flex flex-col space-y-2 md:space-y-3.5 w-full">
     <!-- Header Row (Theme badges + Flag) -->
     <div class="flex items-center justify-between select-none">
       <div class="flex flex-wrap gap-1">
@@ -20,7 +20,7 @@
 
     <!-- Question Title -->
     <h3
-      class="text-base md:text-lg font-black font-display text-white tracking-wide leading-relaxed"
+      class="text-base md:text-lg font-black font-display text-white tracking-wide leading-snug md:leading-relaxed"
     >
       {{ libelle }}
     </h3>
@@ -29,15 +29,15 @@
     <div
       :class="
         isVerticalImage
-          ? 'grid grid-cols-1 md:grid-cols-2 gap-4 items-center'
-          : 'flex flex-col space-y-2.5 md:space-y-3.5'
+          ? 'grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 items-center'
+          : 'flex flex-col space-y-2 md:space-y-3.5'
       "
     >
       <!-- Question Image (if exists) -->
       <div
         v-if="img"
         class="relative w-full overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-inner"
-        :class="isVerticalImage ? 'h-44 md:h-56' : 'h-36 md:h-48'"
+        :class="isVerticalImage ? 'h-[22dvh] md:h-56' : 'h-[16dvh] md:h-48'"
       >
         <img :src="img" alt="Question image" class="w-full h-full object-contain" />
       </div>

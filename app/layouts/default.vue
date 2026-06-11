@@ -1,7 +1,7 @@
 <template>
   <div
     id="app-container"
-    class="min-h-screen flex flex-col md:flex-row bg-[#070a13] text-gray-100 font-sans"
+    class="min-h-dvh flex flex-col md:flex-row bg-[#070a13] text-gray-100 font-sans"
   >
     <!-- Desktop Sidebar -->
     <LayoutDesktopSidebar
@@ -87,6 +87,16 @@ watch(user, async (newUser) => {
 });
 
 const route = useRoute();
+
+const pageTitle = computed(() => {
+  const match = navItems.value.find(
+    (item) => route.path === item.path || route.path.startsWith(item.path + "/"),
+  );
+  return match?.label ?? "LazyCulture";
+});
+
+useHead({ title: pageTitle });
+
 const mainElement = ref<HTMLElement | null>(null);
 const isNavHiddenByScroll = ref(false);
 let lastScrollTop = 0;

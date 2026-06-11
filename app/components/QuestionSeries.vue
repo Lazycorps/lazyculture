@@ -1,7 +1,8 @@
 <template>
   <div
+    ref="containerRef"
     class="relative w-full flex flex-col justify-center select-none min-h-0 transition-all duration-300"
-    :class="responded ? 'pb-48' : 'pb-28'"
+    :style="{ paddingBottom: `${actionBarHeight + 12}px` }"
     v-if="question"
   >
     <!-- Floating XP Indicator -->
@@ -32,7 +33,8 @@
 
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-4 md:p-6 transition-all duration-300"
+      ref="actionBarRef"
+      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-all duration-300"
       :class="
         responded
           ? isCorrect
@@ -65,7 +67,7 @@
                 <span>{{ isCorrect ? "Bravo !" : "Incorrect" }}</span>
               </h4>
               <div
-                class="max-h-16 md:max-h-20 overflow-y-auto pr-2 custom-scrollbar select-text mb-4"
+                class="max-h-[20dvh] md:max-h-28 overflow-y-auto pr-2 custom-scrollbar select-text mb-3"
               >
                 <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
                   {{
@@ -133,6 +135,34 @@ const xpWin = ref(0);
 const showXP = ref(false);
 const reported = ref(false);
 const questionDisplay = ref<any>(null);
+const containerRef = ref<HTMLElement | null>(null);
+const actionBarRef = ref<HTMLElement | null>(null);
+
+// The container reserves exactly the height of the fixed action bar, so no
+// content hides behind it and no oversized gap appears above it
+const actionBarHeight = ref(96);
+let actionBarObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  if (actionBarRef.value) {
+    actionBarObserver = new ResizeObserver(() => {
+      actionBarHeight.value = actionBarRef.value?.offsetHeight ?? 96;
+    });
+    actionBarObserver.observe(actionBarRef.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  actionBarObserver?.disconnect();
+});
+
+// Brings the answer feedback into view above the fixed bottom bar on small screens
+async function scrollFeedbackIntoView() {
+  await nextTick();
+  if (actionBarRef.value) actionBarHeight.value = actionBarRef.value.offsetHeight;
+  await nextTick();
+  containerRef.value?.scrollIntoView({ block: "end", behavior: "smooth" });
+}
 
 const emit = defineEmits<{
   validateResponse: [response: ResponseDTO];
@@ -187,6 +217,7 @@ async function validateResponse() {
     responded.value = true;
     achievementStore.answerQuestion();
     gainXP(responseResult?.xpEarned ?? 0);
+    scrollFeedbackIntoView();
     emit("validateResponse", reponseDTO);
   } catch (e) {
     console.error("Failed to validate response in series:", e);
@@ -209,6 +240,9 @@ async function NextQuestion() {
     questionDisplay.value?.resetReporting();
 
     emit("nextQuestion");
+
+    await nextTick();
+    containerRef.value?.scrollIntoView({ block: "start" });
   } finally {
     loading.value = false;
   }

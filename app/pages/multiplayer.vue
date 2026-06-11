@@ -105,7 +105,7 @@
 
 <script setup lang="ts">
 useHead({
-  title: "Lazyculture - Modes Multijoueur",
+  title: "Modes Multijoueur",
   meta: [
     {
       name: "description",
