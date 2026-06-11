@@ -7,6 +7,9 @@ export default defineNuxtConfig({
     head: {
       titleTemplate: "%s - LazyCulture",
       title: "LazyCulture",
+      htmlAttrs: {
+        class: "dark",
+      },
     },
   },
   future: {

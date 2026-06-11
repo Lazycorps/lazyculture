@@ -9,10 +9,16 @@ export default defineAppConfig({
     },
     card: {
       slots: {
-        root: "bg-[#111827]/70 backdrop-blur-md border border-white/10 shadow-glass rounded-2xl overflow-hidden",
+        root: "bg-[#111827] backdrop-blur-md border border-white/10 shadow-glass rounded-2xl overflow-hidden",
         body: "px-6 py-6 sm:p-6",
         header: "px-6 py-4 sm:px-6 border-b border-white/10",
         footer: "px-6 py-4 sm:px-6 border-t border-white/10",
+      },
+    },
+    modal: {
+      slots: {
+        content: "bg-[#111827] border border-white/10 shadow-glass rounded-2xl",
+        overlay: "bg-black/60 backdrop-blur-sm",
       },
     },
     progress: {

@@ -1,6 +1,6 @@
 <template>
   <UCard
-    class="group hover:scale-[1.03] hover:shadow-neon hover:border-violet-500/30 transition-all duration-200 cursor-pointer overflow-hidden relative flex flex-col h-full bg-[#111827]/60 border border-white/10"
+    class="group hover:scale-[1.03] hover:shadow-neon hover:border-violet-500/30 transition-all duration-200 cursor-pointer overflow-hidden relative flex flex-col h-full"
     :ui="{ body: 'p-0 sm:p-0' }"
     @click="router.push('/themes/' + theme.slug)"
   >
