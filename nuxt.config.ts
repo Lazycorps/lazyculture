@@ -19,7 +19,12 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/supabase", "@pinia/nuxt", "@nuxt/ui", "@vite-pwa/nuxt"],
   // @ts-expect-error
   pwa: {
-    registerType: "autoUpdate",
+    registerType: "prompt",
+    client: {
+      // Vérifie les mises à jour du service worker toutes les heures
+      // pour les sessions qui restent ouvertes longtemps
+      periodicSyncForUpdates: 3600,
+    },
     manifest: {
       name: "Lazyculture",
       short_name: "Lazyculture",

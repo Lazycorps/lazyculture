@@ -5,6 +5,7 @@
       <NuxtLayout :name="layout">
         <NuxtPage />
       </NuxtLayout>
+      <PwaUpdatePrompt />
     </div>
   </UApp>
 </template>
