@@ -35,6 +35,24 @@ const updating = ref(false);
 
 async function update() {
   updating.value = true;
-  await $pwa?.updateServiceWorker(true);
+
+  let reloadTriggered = false;
+  const triggerReload = () => {
+    if (reloadTriggered) return;
+    reloadTriggered = true;
+    window.location.reload();
+  };
+
+  if (import.meta.client && "serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("controllerchange", triggerReload, { once: true });
+    // Safety timeout in case controllerchange doesn't fire
+    setTimeout(triggerReload, 2500);
+  }
+
+  if ($pwa) {
+    await $pwa.updateServiceWorker(true);
+  } else {
+    triggerReload();
+  }
 }
 </script>
