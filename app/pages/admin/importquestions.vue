@@ -12,6 +12,71 @@
         l'application.
       </p>
     </div>
+    <!-- Assistant IA Card -->
+    <UCard
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4"
+    >
+      <div class="space-y-4">
+        <h3
+          class="text-sm font-extrabold uppercase tracking-wider text-violet-400 font-display flex items-center gap-2"
+        >
+          🪄 Assistant Génération IA
+        </h3>
+        <p class="text-xs text-gray-400 font-medium">
+          Générez de nouvelles questions à l'aide d'une IA sans créer de doublons. Sélectionnez un
+          thème pour copier un prompt pré-configuré contenant la liste des questions existantes, ou
+          copiez simplement le format vierge attendu.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <UFormField
+            label="1. Sélectionner le thème"
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-1.5',
+            }"
+          >
+            <USelectMenu
+              v-model="selectedTheme"
+              :items="themeOptions"
+              option-attribute="label"
+              placeholder="Sélectionner un thème..."
+              color="primary"
+              class="w-full text-white"
+            />
+          </UFormField>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <UButton
+              color="primary"
+              icon="i-heroicons-document-duplicate"
+              class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              :loading="loadingThemeQuestions"
+              :disabled="!selectedTheme"
+              @click="copyPromptWithQuestions"
+            >
+              Copier le Prompt IA
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-heroicons-clipboard"
+              class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              @click="copyTemplateFormat"
+            >
+              Copier le Format Seul
+            </UButton>
+          </div>
+        </div>
+
+        <div
+          v-if="selectedTheme && !loadingThemeQuestions"
+          class="text-xs text-violet-400/80 font-semibold font-display"
+        >
+          💡 {{ existingQuestions.length }} question(s) existante(s) trouvée(s) pour ce thème. Elles
+          seront incluses dans le prompt pour éviter les doublons.
+        </div>
+      </div>
+    </UCard>
 
     <!-- JSON Source Box -->
     <UCard
@@ -119,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 import { QuestionDataDTO } from "#shared/question";
 import QuestionForm from "~/components/admin/importquestions/QuestionForm.vue";
 
@@ -128,10 +193,139 @@ definePageMeta({
   middleware: "admin",
 });
 
+const toast = useToast();
+
 const hideAnswers = ref(true);
 const loading = ref(false);
 const sourceJson = ref("");
 const questionsfromJson = ref<QuestionDataDTO[]>([]);
+
+// AI Generation Assistant State
+const selectedTheme = ref<any>(null);
+const existingQuestions = ref<{ id: number; difficulty: number; libelle: string }[]>([]);
+const loadingThemeQuestions = ref(false);
+
+const { data: themes } = await useFetch<any[]>("/api/theme/all");
+const themeOptions = computed(() => {
+  return themes.value?.map((t: any) => ({ label: t.name, value: t.slug })) || [];
+});
+
+const selectedThemeSlug = computed(() => {
+  if (!selectedTheme.value) return null;
+  if (typeof selectedTheme.value === "object") {
+    return selectedTheme.value.value || null;
+  }
+  return selectedTheme.value;
+});
+
+const selectedThemeLabel = computed(() => {
+  if (!selectedTheme.value) return null;
+  if (typeof selectedTheme.value === "object") {
+    return selectedTheme.value.label || null;
+  }
+  return selectedTheme.value;
+});
+
+watch(selectedThemeSlug, async (newThemeSlug) => {
+  if (!newThemeSlug) {
+    existingQuestions.value = [];
+    return;
+  }
+  try {
+    loadingThemeQuestions.value = true;
+    existingQuestions.value = await $fetch<any[]>(
+      `/api/admin/adventures/questions?themeSlug=${newThemeSlug}`,
+    );
+  } catch (error) {
+    console.error("Erreur lors de la récupération des questions du thème:", error);
+    toast.add({
+      title: "Erreur",
+      description: "Impossible de charger les questions existantes pour ce thème.",
+      color: "error",
+    });
+  } finally {
+    loadingThemeQuestions.value = false;
+  }
+});
+
+function copyTemplateFormat() {
+  const slug = selectedThemeSlug.value || "culture_generale";
+  const templateStr = `[
+  {
+    "libelle": "Intitulé de la question ?",
+    "type": "choix",
+    "difficulty": 2,
+    "theme": ["${slug}"],
+    "img": "",
+    "response": 1,
+    "propositions": [
+      { "id": 1, "value": "Proposition correcte", "img": "" },
+      { "id": 2, "value": "Proposition 2", "img": "" },
+      { "id": 3, "value": "Proposition 3", "img": "" },
+      { "id": 4, "value": "Proposition 4", "img": "" }
+    ],
+    "commentaire": "Commentaire ou explication sur la réponse.",
+    "commentaireImg": ""
+  }
+]`;
+  navigator.clipboard.writeText(templateStr);
+  toast.add({
+    title: "Copié !",
+    description: "Le format JSON vierge a été copié dans le presse-papiers.",
+    color: "success",
+  });
+}
+
+function copyPromptWithQuestions() {
+  const themeSlug = selectedThemeSlug.value;
+  const themeName = selectedThemeLabel.value;
+  if (!themeSlug || !themeName) return;
+
+  const questionsListText =
+    existingQuestions.value.length > 0
+      ? existingQuestions.value.map((q) => `- ${q.libelle}`).join("\n")
+      : "(Aucune question existante pour l'instant)";
+
+  const promptText = `Génère-moi une liste de nouvelles questions de culture générale uniques pour le thème "${themeName}" au format JSON strict (sans enrobage Markdown ni texte superflu, juste le tableau JSON brut commençant par [ et finissant par ]).
+
+Respecte scrupuleusement la structure de données suivante :
+[
+  {
+    "libelle": "Intitulé de la question ?",
+    "type": "choix",
+    "difficulty": 2,
+    "theme": ["${themeSlug}"],
+    "img": "",
+    "response": 1,
+    "propositions": [
+      { "id": 1, "value": "Proposition correcte", "img": "" },
+      { "id": 2, "value": "Proposition 2", "img": "" },
+      { "id": 3, "value": "Proposition 3", "img": "" },
+      { "id": 4, "value": "Proposition 4", "img": "" }
+    ],
+    "commentaire": "Commentaire ou explication sur la réponse.",
+    "commentaireImg": ""
+  }
+]
+
+Règles impératives :
+1. Ne génère pas de doublons. Voici la liste des questions qui existent déjà dans notre base de données pour ce thème et que tu ne dois PAS générer :
+${questionsListText}
+
+2. Pour le type "choix", fournis exactement 4 propositions avec des id de 1 à 4.
+3. Pour le type "boolean", fournis exactement 2 propositions ("Vrai" avec id 1, et "Faux" avec id 2).
+4. Le champ "response" doit correspondre à l'id de la bonne proposition.
+5. "difficulty" doit être un entier entre 1 (très facile) et 5 (très difficile).
+6. Garde "img" et "commentaireImg" vides ("").
+7. L'explication dans "commentaire" ("commentaire") doit être intéressante et concise.`;
+
+  navigator.clipboard.writeText(promptText);
+  toast.add({
+    title: "Prompt copié !",
+    description: `Le prompt pour le thème "${themeName}" a été copié avec ${existingQuestions.value.length} questions existantes à exclure.`,
+    color: "success",
+  });
+}
 
 function loadJsonIntoQuestions() {
   if (!sourceJson.value.trim()) return;

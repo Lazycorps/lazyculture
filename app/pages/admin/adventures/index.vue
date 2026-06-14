@@ -1,16 +1,26 @@
 <template>
   <div class="w-full max-w-5xl mx-auto py-2 space-y-8 select-none">
-    <!-- Header Title -->
-    <div class="text-center md:text-left space-y-2">
-      <h2
-        class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400 bg-clip-text text-transparent"
+    <!-- Header Title & Action -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="text-center md:text-left space-y-2">
+        <h2
+          class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400 bg-clip-text text-transparent"
+        >
+          Gestion des Aventures
+        </h2>
+        <p class="text-sm text-gray-400 font-medium">
+          Générez de nouveaux parcours d'apprentissage ou composez-les manuellement sous forme de
+          map linéaire.
+        </p>
+      </div>
+      <UButton
+        to="/admin/adventures/create"
+        color="primary"
+        icon="i-heroicons-plus"
+        class="font-black font-display text-xs px-5 py-2.5 shadow-lg shadow-violet-600/20 self-center"
       >
-        Gestion des Aventures
-      </h2>
-      <p class="text-sm text-gray-400 font-medium">
-        Générez de nouveaux parcours d'apprentissage sous forme de map linéaire (Adventure) basés
-        sur vos thèmes de questions.
-      </p>
+        Créer manuellement
+      </UButton>
     </div>
 
     <!-- Action Panel Grid -->
@@ -29,7 +39,7 @@
           </p>
 
           <form @submit.prevent="generatePath" class="space-y-4 pt-2">
-            <UFormGroup label="Titre de l'Aventure" name="title" class="space-y-1.5">
+            <UFormField label="Titre de l'Aventure" class="space-y-1.5">
               <UInput
                 v-model="form.title"
                 placeholder="Ex: L'histoire de France, Niveau 1"
@@ -38,9 +48,9 @@
                 class="w-full text-white"
                 required
               />
-            </UFormGroup>
+            </UFormField>
 
-            <UFormGroup label="Thème de questions" name="theme" class="space-y-1.5">
+            <UFormField label="Thème de questions" class="space-y-1.5">
               <USelectMenu
                 v-model="selectedThemeName"
                 :items="themes?.map((t) => t.name) ?? []"
@@ -48,7 +58,7 @@
                 color="primary"
                 class="w-full text-white"
               />
-            </UFormGroup>
+            </UFormField>
 
             <div
               v-if="selectedThemeName"
@@ -136,15 +146,25 @@
                     {{ formatDate(path.createDate) }}
                   </td>
                   <td class="py-3.5 text-right">
-                    <UButton
-                      color="error"
-                      variant="subtle"
-                      size="xs"
-                      icon="i-heroicons-trash"
-                      :loading="deletingId === path.id"
-                      @click="deletePath(path.id)"
-                      class="opacity-60 hover:opacity-100 transition-opacity rounded-lg"
-                    />
+                    <div class="flex items-center justify-end space-x-2">
+                      <UButton
+                        :to="`/admin/adventures/${path.id}`"
+                        color="primary"
+                        variant="subtle"
+                        size="xs"
+                        icon="i-heroicons-pencil-square"
+                        class="opacity-60 hover:opacity-100 transition-opacity rounded-lg"
+                      />
+                      <UButton
+                        color="error"
+                        variant="subtle"
+                        size="xs"
+                        icon="i-heroicons-trash"
+                        :loading="deletingId === path.id"
+                        @click="deletePath(path.id)"
+                        class="opacity-60 hover:opacity-100 transition-opacity rounded-lg"
+                      />
+                    </div>
                   </td>
                 </tr>
               </tbody>

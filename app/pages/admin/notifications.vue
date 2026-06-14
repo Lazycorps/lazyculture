@@ -23,7 +23,7 @@
             📣 Composer le message
           </h3>
 
-          <UFormGroup label="Titre" name="title" class="space-y-1.5">
+          <UFormField label="Titre" class="space-y-1.5">
             <UInput
               v-model="form.title"
               placeholder="Ex: Nouveau défi disponible ! 🎉"
@@ -34,9 +34,9 @@
               required
             />
             <p class="text-[10px] text-gray-500 text-right">{{ form.title.length }}/60</p>
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup label="Message" name="body" class="space-y-1.5">
+          <UFormField label="Message" class="space-y-1.5">
             <UTextarea
               v-model="form.body"
               placeholder="Le contenu de la notification affiché aux utilisateurs..."
@@ -48,11 +48,10 @@
               required
             />
             <p class="text-[10px] text-gray-500 text-right">{{ form.body.length }}/160</p>
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup
+          <UFormField
             label="Lien de destination (optionnel)"
-            name="url"
             class="space-y-1.5"
             help="Page ouverte au clic sur la notification. Défaut : /themes"
           >
@@ -63,7 +62,7 @@
               variant="outline"
               class="w-full text-white"
             />
-          </UFormGroup>
+          </UFormField>
 
           <UButton
             type="submit"
