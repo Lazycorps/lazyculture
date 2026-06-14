@@ -60,13 +60,14 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: "/200.html",
+      navigateFallback: "/",
       cleanupOutdatedCaches: true,
       importScripts: ["/sw-push.js"],
     },
     devOptions: {
       enabled: true,
       type: "module",
+      navigateFallback: "/",
     },
   },
   css: ["~/assets/styles/main.css"],
