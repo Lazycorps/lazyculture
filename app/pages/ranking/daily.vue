@@ -2,11 +2,11 @@
   <div class="w-full max-w-xl mx-auto py-2 space-y-8 select-none">
     <!-- Header Title -->
     <div class="text-center md:text-left space-y-2">
-      <h2
+      <h1
         class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
         Classement du Jour
-      </h2>
+      </h1>
       <p class="text-sm text-gray-400 font-medium">
         Découvrez les performances des joueurs d'aujourd'hui sur la série quotidienne.
       </p>
@@ -192,6 +192,15 @@
 </template>
 
 <script setup lang="ts">
+useSeoMeta({
+  title: "Classement du Jour - Défi Quotidien",
+  ogTitle: "Classement du Jour - Défi Quotidien - LazyCulture",
+  description:
+    "Découvrez les scores et temps de réponse des joueurs sur le Défi Quotidien d'aujourd'hui. Comparez vos résultats et grimpez sur le podium !",
+  ogDescription:
+    "Découvrez les scores et temps de réponse des joueurs sur le Défi Quotidien d'aujourd'hui. Comparez vos résultats et grimpez sur le podium !",
+});
+
 const { data: users } = await useFetch<any[]>("/api/series/dailyRanking");
 
 const firstPlace = computed(() => users.value?.[0] || null);

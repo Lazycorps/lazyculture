@@ -104,15 +104,13 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: "Modes Multijoueur",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Affrontez d'autres joueurs en temps réel dans les modes Battle Royale et Showdown compétitif sur Lazyculture.",
-    },
-  ],
+useSeoMeta({
+  title: "Modes de Jeu Multijoueur",
+  ogTitle: "Modes de Jeu Multijoueur - LazyCulture",
+  description:
+    "Mesurez-vous aux autres joueurs de la communauté en temps réel dans nos arènes compétitives : Battle Royale à 20 joueurs ou duel tactique 1v1 Showdown.",
+  ogDescription:
+    "Mesurez-vous aux autres joueurs de la communauté en temps réel dans nos arènes compétitives : Battle Royale à 20 joueurs ou duel tactique 1v1 Showdown.",
 });
 </script>
 

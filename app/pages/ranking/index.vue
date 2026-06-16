@@ -2,11 +2,11 @@
   <div class="w-full max-w-xl mx-auto py-2 space-y-6 select-none">
     <!-- Header Title -->
     <div class="text-center md:text-left space-y-2">
-      <h2
+      <h1
         class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
         Classements
-      </h2>
+      </h1>
       <p class="text-sm text-gray-400 font-medium">
         Découvrez les meilleurs joueurs de Lazyculture et grimpez au sommet de la gloire.
       </p>
@@ -464,6 +464,15 @@
 
 <script setup lang="ts">
 import type { FriendRankingDTO } from "#shared/DTO/followDTO";
+
+useSeoMeta({
+  title: "Classements Généraux",
+  ogTitle: "Classements des Joueurs - LazyCulture",
+  description:
+    "Découvrez les meilleurs compétiteurs de LazyCulture. Consultez les classements d'expérience (XP), Battle Royale, Showdown et défis quotidiens.",
+  ogDescription:
+    "Découvrez les meilleurs compétiteurs de LazyCulture. Consultez les classements d'expérience (XP), Battle Royale, Showdown et défis quotidiens.",
+});
 
 const currentTab = ref<"general" | "br" | "showdown" | "daily" | "friends">("daily");
 const dailyPeriod = ref<"alltime" | "monthly">("monthly");

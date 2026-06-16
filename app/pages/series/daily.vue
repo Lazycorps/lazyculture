@@ -12,9 +12,9 @@
             🔒
           </div>
           <div class="space-y-2">
-            <h2 class="text-2xl font-black font-display text-white tracking-wide">
+            <h1 class="text-2xl font-black font-display text-white tracking-wide">
               Défi Quotidien
-            </h2>
+            </h1>
             <p class="text-sm text-gray-400 max-w-sm mx-auto">
               Testez votre culture générale chaque jour avec une série spéciale de questions et
               grimpez dans le classement.
@@ -40,13 +40,13 @@
       <template v-else>
         <!-- Game Header (Title & Progress Bar) -->
         <div class="flex flex-col space-y-4 mb-6">
-          <h2 class="text-xl font-black font-display text-white tracking-wide flex items-center">
+          <h1 class="text-xl font-black font-display text-white tracking-wide flex items-center">
             <UIcon
               name="i-heroicons-calendar"
               class="mr-2 text-violet-400 text-2xl animate-pulse"
             />
             {{ userSeries?.series.title }}
-          </h2>
+          </h1>
 
           <div class="space-y-1.5">
             <!-- Custom Premium Glass Progress Bar -->
@@ -188,6 +188,15 @@ import { QuestionDTO } from "#shared/question";
 import type { UserSeriesDTO } from "#shared/series";
 
 import { useUserStore } from "~/stores/userStore";
+
+useSeoMeta({
+  title: "Défi Quotidien - Quiz du Jour",
+  ogTitle: "Défi Quotidien - Quiz du Jour - LazyCulture",
+  description:
+    "Testez votre culture générale avec notre défi quotidien. Répondez aux 10 questions de la série du jour et comparez votre score avec la communauté.",
+  ogDescription:
+    "Testez votre culture générale avec notre défi quotidien. Répondez aux 10 questions de la série du jour et comparez votre score avec la communauté.",
+});
 
 const achievementStore = useAchievementStore();
 const userStore = useUserStore();

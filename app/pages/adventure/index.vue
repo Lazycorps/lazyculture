@@ -2,11 +2,11 @@
   <div class="space-y-8 py-2">
     <!-- Header Section -->
     <div class="space-y-2 text-center md:text-left select-none">
-      <h2
+      <h1
         class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
         Mode Adventure
-      </h2>
+      </h1>
       <p class="text-sm text-gray-400 font-medium">
         Embarquez dans des parcours d'apprentissage thématiques et validez chaque étape pour
         progresser.
@@ -130,6 +130,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+
+useSeoMeta({
+  title: "Parcours d'Aventures Thématiques",
+  ogTitle: "Parcours d'Aventures Thématiques - LazyCulture",
+  description:
+    "Embarquez dans des parcours d'apprentissage thématiques sous forme de cartes interactives. Validez chaque étape pour progresser dans votre aventure de culture générale.",
+  ogDescription:
+    "Embarquez dans des parcours d'apprentissage thématiques sous forme de cartes interactives. Validez chaque étape pour progresser dans votre aventure de culture générale.",
+});
 
 const user = useSupabaseUser();
 const paths = ref<any[]>([]);

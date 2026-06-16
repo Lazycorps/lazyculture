@@ -1,15 +1,55 @@
 import { defineNuxtConfig } from "nuxt/config";
 
 export default defineNuxtConfig({
-  ssr: false,
+  ssr: true,
   compatibilityDate: "2024-04-03",
   app: {
     head: {
       titleTemplate: "%s - LazyCulture",
       title: "LazyCulture",
       htmlAttrs: {
+        lang: "fr",
         class: "dark",
       },
+      meta: [
+        {
+          name: "description",
+          content:
+            "Découvrez et apprenez avec Lazyculture, la plateforme compétitive de quiz et d'apprentissage thématique en culture générale.",
+        },
+        {
+          name: "keywords",
+          content:
+            "quiz, culture générale, apprentissage, battle royale, showdown, lazyculture, jeux de culture",
+        },
+        { name: "robots", content: "index, follow" },
+        { property: "og:site_name", content: "Lazyculture" },
+        { property: "og:type", content: "website" },
+        {
+          property: "og:title",
+          content: "Lazyculture - Plateforme compétitive de Culture Générale",
+        },
+        {
+          property: "og:description",
+          content:
+            "Découvrez et apprenez avec Lazyculture. Quiz, aventure, duel en temps réel et classement quotidien.",
+        },
+        {
+          property: "og:image",
+          content:
+            "https://osyurrvwveoeevfsshhz.supabase.co/storage/v1/object/public/images/themes/random.jpg",
+        },
+        { name: "twitter:card", content: "summary_large_image" },
+        {
+          name: "twitter:title",
+          content: "Lazyculture - Plateforme compétitive de Culture Générale",
+        },
+        {
+          name: "twitter:description",
+          content:
+            "Découvrez et apprenez avec Lazyculture. Quiz, aventure, duel en temps réel et classement quotidien.",
+        },
+      ],
     },
   },
   future: {
@@ -83,6 +123,12 @@ export default defineNuxtConfig({
       // Temporary redirect using a 307 status code
       redirect: "/themes",
     },
+    "/admin/**": { ssr: false },
+    "/adventure/**": { ssr: false },
+    "/series/battle-royale": { ssr: false },
+    "/series/showdown": { ssr: false },
+    "/login": { ssr: false },
+    "/confirm": { ssr: false },
   },
   runtimeConfig: {
     apiKey: "",

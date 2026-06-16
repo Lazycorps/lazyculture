@@ -358,6 +358,22 @@ definePageMeta({
 const route = useRoute();
 const router = useRouter();
 
+useSeoMeta({
+  title: () => (pathDetails.value ? `Aventure : ${pathDetails.value.title}` : "Carte d'Aventure"),
+  ogTitle: () =>
+    pathDetails.value
+      ? `Aventure : ${pathDetails.value.title} - LazyCulture`
+      : "Carte d'Aventure - LazyCulture",
+  description: () =>
+    pathDetails.value
+      ? `Progressez dans le parcours d'apprentissage "${pathDetails.value.title}". Validez chaque étape pour débloquer les suivantes sur LazyCulture.`
+      : "Suivez votre parcours d'aventure thématique et validez chaque étape.",
+  ogDescription: () =>
+    pathDetails.value
+      ? `Progressez dans le parcours d'apprentissage "${pathDetails.value.title}". Validez chaque étape pour débloquer les suivantes sur LazyCulture.`
+      : "Suivez votre parcours d'aventure thématique et validez chaque étape.",
+});
+
 const pathId = Number(route.params.id);
 
 const pathDetails = ref<any>(null);

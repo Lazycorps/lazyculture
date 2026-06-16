@@ -2,11 +2,11 @@
   <div class="space-y-8 py-2">
     <!-- Header Section -->
     <div class="space-y-2 text-center md:text-left select-none">
-      <h2
+      <h1
         class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
         Choisissez un thème
-      </h2>
+      </h1>
       <p class="text-sm text-gray-400 font-medium">
         Sélectionnez une catégorie pour vous entraîner, gagner de l'expérience et perfectionner vos
         connaissances.
@@ -31,6 +31,15 @@
 <script setup lang="ts">
 import ThemeComponent from "~/components/Theme.vue";
 import type { Theme } from "#shared/theme";
+
+useSeoMeta({
+  title: "Thèmes de Quiz & Culture Générale",
+  ogTitle: "Thèmes de Quiz & Culture Générale - LazyCulture",
+  description:
+    "Découvrez notre large choix de thèmes et quiz de culture générale. Testez-vous, progressez et devenez incollable sur LazyCulture.",
+  ogDescription:
+    "Découvrez notre large choix de thèmes et quiz de culture générale. Testez-vous, progressez et devenez incollable sur LazyCulture.",
+});
 
 const [themesRes, progressRes] = await Promise.all([
   useFetch<Theme[]>("/api/theme/all"),

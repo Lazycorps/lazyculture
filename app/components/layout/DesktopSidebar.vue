@@ -33,58 +33,62 @@
       </NuxtLink>
 
       <!-- Notification Bell as Nav Link -->
-      <LayoutNotificationBell v-if="user" as-nav-link />
+      <ClientOnly>
+        <LayoutNotificationBell v-if="user" as-nav-link />
+      </ClientOnly>
     </nav>
 
     <!-- Mini-profile/Stats Card in Desktop Sidebar -->
-    <div
-      class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-glass"
-      v-if="user"
-    >
-      <NuxtLink
-        to="/user/profil"
-        class="flex items-center space-x-3 cursor-pointer group/profile -mx-2 -my-1 p-2 rounded-xl hover:bg-white/5 transition-all"
+    <ClientOnly>
+      <div
+        class="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3 shadow-glass"
+        v-if="user"
       >
-        <UAvatar
-          icon="i-heroicons-user"
-          size="md"
-          class="bg-violet-600/20 text-violet-300 border border-violet-500/30 group-hover/profile:border-violet-500/60 transition-colors"
-        />
-        <div class="overflow-hidden">
-          <p
-            class="font-bold text-sm truncate text-white group-hover/profile:text-violet-400 transition-colors"
-          >
-            {{ userProfile?.name || "Joueur" }}
-          </p>
-          <p class="text-xs text-violet-400 font-semibold font-display">
-            Niveau {{ userProfile?.level || 1 }}
-          </p>
-        </div>
-      </NuxtLink>
-
-      <!-- Level Progress Jauge -->
-      <div class="space-y-1">
-        <!-- Custom Premium Glass Progress Bar -->
-        <div
-          class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+        <NuxtLink
+          to="/user/profil"
+          class="flex items-center space-x-3 cursor-pointer group/profile -mx-2 -my-1 p-2 rounded-xl hover:bg-white/5 transition-all"
         >
+          <UAvatar
+            icon="i-heroicons-user"
+            size="md"
+            class="bg-violet-600/20 text-violet-300 border border-violet-500/30 group-hover/profile:border-violet-500/60 transition-colors"
+          />
+          <div class="overflow-hidden">
+            <p
+              class="font-bold text-sm truncate text-white group-hover/profile:text-violet-400 transition-colors"
+            >
+              {{ userProfile?.name || "Joueur" }}
+            </p>
+            <p class="text-xs text-violet-400 font-semibold font-display">
+              Niveau {{ userProfile?.level || 1 }}
+            </p>
+          </div>
+        </NuxtLink>
+
+        <!-- Level Progress Jauge -->
+        <div class="space-y-1">
+          <!-- Custom Premium Glass Progress Bar -->
           <div
-            class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
-            :style="{ width: `${xpProgress}%` }"
-          ></div>
-        </div>
-        <div class="flex justify-between text-[10px] font-bold text-gray-500 font-display">
-          <span>{{ userProfile?.xp || 0 }} XP</span>
-          <span>{{ userProfile?.nextLevelTreshold || 100 }} XP</span>
+            class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+          >
+            <div
+              class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
+              :style="{ width: `${xpProgress}%` }"
+            ></div>
+          </div>
+          <div class="flex justify-between text-[10px] font-bold text-gray-500 font-display">
+            <span>{{ userProfile?.xp || 0 }} XP</span>
+            <span>{{ userProfile?.nextLevelTreshold || 100 }} XP</span>
+          </div>
         </div>
       </div>
-    </div>
-    <div v-else class="p-4 bg-white/5 border border-white/10 rounded-2xl text-center space-y-3">
-      <p class="text-xs text-gray-400 font-medium">
-        Connectez-vous pour enregistrer votre progression !
-      </p>
-      <UButton to="/login" block color="primary" variant="solid" size="sm">Connexion</UButton>
-    </div>
+      <div v-else class="p-4 bg-white/5 border border-white/10 rounded-2xl text-center space-y-3">
+        <p class="text-xs text-gray-400 font-medium">
+          Connectez-vous pour enregistrer votre progression !
+        </p>
+        <UButton to="/login" block color="primary" variant="solid" size="sm">Connexion</UButton>
+      </div>
+    </ClientOnly>
   </aside>
 </template>
 

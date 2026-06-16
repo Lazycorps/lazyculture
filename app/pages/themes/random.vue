@@ -12,6 +12,17 @@
 <script setup lang="ts">
 import QuestionComponent from "@/components/Question.vue";
 const user = useSupabaseUser();
+
+useSeoMeta({
+  title: "Quiz Aléatoire - Culture Générale",
+  ogTitle: "Quiz Aléatoire - Culture Générale - LazyCulture",
+  description:
+    "Testez vos connaissances au hasard ! Lancez un quiz de culture générale aléatoire, répondez aux questions et progressez.",
+  ogDescription:
+    "Testez vos connaissances au hasard ! Lancez un quiz de culture générale aléatoire, répondez aux questions et progressez.",
+  ogImage:
+    "https://osyurrvwveoeevfsshhz.supabase.co/storage/v1/object/public/images/themes/random.jpg",
+});
 </script>
 
 <style scoped>
