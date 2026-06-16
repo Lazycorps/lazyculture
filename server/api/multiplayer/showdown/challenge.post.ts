@@ -63,6 +63,10 @@ export default defineEventHandler(async (event) => {
     title: "Défi Showdown ⚔️",
     body: `${challengerName} te provoque en duel !`,
     url: `/series/showdown?challenge=${result.challengeId}`,
+    metadata: {
+      type: "showdown_challenge",
+      challengeId: result.challengeId,
+    },
   }).catch((e) => console.error("Erreur push défi:", e));
 
   return { challengeId: result.challengeId };

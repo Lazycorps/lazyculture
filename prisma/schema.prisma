@@ -32,6 +32,7 @@ model User {
     Followers              Follow[]                 @relation("UserFollowers")
     FollowNotifSent        FollowNotification[]     @relation("FollowNotifFollower")
     FollowNotifReceived    FollowNotification[]     @relation("FollowNotifFollowing")
+    notifications          Notification[]
 }
 
 model Follow {
@@ -294,3 +295,19 @@ model PushSubscription {
     auth       String
     createDate DateTime @default(now())
 }
+
+model Notification {
+    id         String   @id @default(uuid())
+    userId     String
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    title      String
+    body       String
+    url        String?
+    read       Boolean  @default(false)
+    createDate DateTime @default(now())
+    metadata   Json?
+
+    @@index([userId])
+    @@index([read])
+}
+

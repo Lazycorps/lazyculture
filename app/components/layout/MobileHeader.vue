@@ -11,20 +11,26 @@
     </div>
 
     <!-- Mini stats for mobile header -->
-    <div v-if="user" class="flex items-center space-x-2">
-      <NuxtLink
-        to="/user/profil"
-        class="flex items-center space-x-2 text-xs bg-white/5 px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 active:scale-95 transition-all"
+    <div v-if="user" class="flex items-center">
+      <div
+        class="flex items-center bg-white/5 px-2.5 py-1 rounded-full border border-white/10 space-x-2"
       >
-        <span class="flex items-center text-amber-400 font-extrabold font-display">
-          <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-sm animate-pulse" />
-          {{ userProfile?.xp || 0 }} XP
-        </span>
+        <NuxtLink
+          to="/user/profil"
+          class="flex items-center space-x-2 text-xs active:scale-95 transition-all"
+        >
+          <span class="flex items-center text-amber-400 font-extrabold font-display">
+            <UIcon name="i-heroicons-academic-cap-solid" class="mr-1 text-sm" />
+            Niv. {{ userProfile?.level || 1 }}
+          </span>
+          <div class="w-px h-3 bg-white/20"></div>
+          <span class="text-white font-bold truncate max-w-[80px]">{{
+            userProfile?.name || "Joueur"
+          }}</span>
+        </NuxtLink>
         <div class="w-px h-3 bg-white/20"></div>
-        <span class="text-white font-bold truncate max-w-[80px]">{{
-          userProfile?.name || "Joueur"
-        }}</span>
-      </NuxtLink>
+        <LayoutNotificationBell mini />
+      </div>
     </div>
     <div v-else>
       <UButton

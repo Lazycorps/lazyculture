@@ -31,6 +31,9 @@
         <UIcon :name="item.icon" class="text-xl group-hover:scale-110 transition-transform" />
         <span class="font-semibold font-display tracking-wide">{{ item.label }}</span>
       </NuxtLink>
+
+      <!-- Notification Bell as Nav Link -->
+      <LayoutNotificationBell v-if="user" as-nav-link />
     </nav>
 
     <!-- Mini-profile/Stats Card in Desktop Sidebar -->

@@ -336,6 +336,10 @@ export class FollowService {
       title: "Nouvel abonné ! 👋",
       body: `${follower?.name || "Un joueur"} vous suit désormais sur Lazyculture.`,
       url: `/user/${followerId}`,
+      metadata: {
+        type: "follow",
+        followerId: followerId,
+      },
     });
   }
 }

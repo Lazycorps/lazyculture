@@ -47,10 +47,13 @@
 <script setup lang="ts">
 import { useUserStore } from "~/stores/userStore";
 
+import { useNotificationStore } from "~/stores/notificationStore";
+
 const router = useRouter();
 const user = useSupabaseUser();
 const showBottomNav = useState("showBottomNav", () => true);
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 
 const userProfile = computed(() => {
   if (!userStore.user) return null;
@@ -76,14 +79,24 @@ const navItems = computed(() => [
 
 onMounted(async () => {
   await userStore.fetchUser();
+  if (user.value) {
+    notificationStore.startPolling();
+  }
 });
 
 watch(user, async (newUser) => {
   if (newUser) {
     await userStore.fetchUser(true);
+    notificationStore.startPolling();
   } else {
     userStore.clearUser();
+    notificationStore.stopPolling();
+    notificationStore.$reset();
   }
+});
+
+onUnmounted(() => {
+  notificationStore.stopPolling();
 });
 
 const route = useRoute();

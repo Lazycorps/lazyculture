@@ -58,6 +58,10 @@ export default defineEventHandler(async (event) => {
         title: "Invitation Battle Royale ⚔️",
         body: `${inviterName} t'invite à rejoindre son salon !`,
         url: `/series/battle-royale?matchId=${matchId}`,
+        metadata: {
+          type: "battle_royale_invite",
+          matchId: matchId,
+        },
       }).catch(() => ({ successCount: 0, failureCount: 0 })),
     ),
   );

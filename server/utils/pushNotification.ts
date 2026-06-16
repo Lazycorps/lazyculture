@@ -5,6 +5,7 @@ export interface PushNotificationContent {
   title: string;
   body: string;
   url?: string;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -15,6 +16,21 @@ export async function sendPushToUser(
   userId: string,
   notification: PushNotificationContent,
 ): Promise<{ successCount: number; failureCount: number }> {
+  // Enregistrer d'abord en base de données pour la visualisation in-app (best-effort)
+  await prisma.notification
+    .create({
+      data: {
+        userId,
+        title: notification.title,
+        body: notification.body,
+        url: notification.url || null,
+        metadata: (notification.metadata as any) || null,
+      },
+    })
+    .catch((err) => {
+      console.error("Erreur lors de la création de la notification in-app :", err);
+    });
+
   const config = useRuntimeConfig();
   const publicKey = config.public.vapidPublicKey;
   const privateKey = config.vapidPrivateKey;
