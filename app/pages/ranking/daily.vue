@@ -143,10 +143,7 @@
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden"
       :ui="{ body: 'p-0' }"
     >
-      <div
-        class="divide-y divide-white/5 max-h-[400px] overflow-y-auto"
-        v-if="remainingUsers.length > 0"
-      >
+      <div class="divide-y divide-white/5" v-if="remainingUsers.length > 0">
         <NuxtLink
           v-for="(userItem, index) in remainingUsers"
           :key="userItem.userId"
@@ -202,15 +199,3 @@ const secondPlace = computed(() => users.value?.[1] || null);
 const thirdPlace = computed(() => users.value?.[2] || null);
 const remainingUsers = computed(() => users.value?.slice(3) || []);
 </script>
-
-<style scoped>
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
-}
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-</style>
