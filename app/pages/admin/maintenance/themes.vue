@@ -38,6 +38,7 @@
               <th class="px-6 py-4">Image</th>
               <th class="px-6 py-4">Nom</th>
               <th class="px-6 py-4">Slug</th>
+              <th class="px-6 py-4">Battle Royale</th>
               <th class="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
@@ -71,6 +72,21 @@
               <td class="px-6 py-4 font-mono text-xs text-gray-400">
                 {{ item.slug }}
               </td>
+              <!-- Battle Royale -->
+              <td class="px-6 py-4">
+                <span
+                  v-if="item.battleRoyale !== false"
+                  class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                >
+                  Inclus
+                </span>
+                <span
+                  v-else
+                  class="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-red-400"
+                >
+                  Exclu
+                </span>
+              </td>
               <!-- Actions -->
               <td class="px-6 py-4 text-right">
                 <UButton
@@ -84,7 +100,7 @@
               </td>
             </tr>
             <tr v-if="!themes || themes.length === 0">
-              <td colspan="4" class="text-center py-10 text-gray-500 font-medium">
+              <td colspan="5" class="text-center py-10 text-gray-500 font-medium">
                 Aucun thème trouvé.
               </td>
             </tr>
@@ -148,6 +164,18 @@
               class="w-full"
               :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
             />
+          </UFormField>
+
+          <!-- Battle Royale Inclusion Field -->
+          <UFormField
+            label="Mode Battle Royale"
+            description="Activer pour inclure les questions de ce thème dans la sélection du Battle Royale."
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+              description: 'text-[11px] text-gray-500 font-medium',
+            }"
+          >
+            <USwitch v-model="editedItem.battleRoyale" color="primary" />
           </UFormField>
 
           <!-- Drag and drop zone -->
@@ -238,6 +266,7 @@ const editedItem = ref<Theme>({
   name: "",
   slug: "",
   picture: "",
+  battleRoyale: true,
 });
 const defaultItem = {
   id: 0,
@@ -248,6 +277,7 @@ const defaultItem = {
   name: "",
   slug: "",
   picture: "",
+  battleRoyale: true,
 };
 
 let initialItemState = { ...defaultItem };

@@ -729,9 +729,9 @@ class BattleRoyaleManager {
 
     // 1. Déterminer la difficulté
     let targetDifficulty = 1;
-    if (match.currentRound >= 10) targetDifficulty = 4;
-    else if (match.currentRound >= 7) targetDifficulty = 3;
-    else if (match.currentRound >= 4) targetDifficulty = 2;
+    if (match.currentRound >= 16) targetDifficulty = 4;
+    else if (match.currentRound >= 11) targetDifficulty = 3;
+    else if (match.currentRound >= 6) targetDifficulty = 2;
 
     // 2. Sélectionner une question aléatoire non encore utilisée
     let question = await this.fetchRandomQuestion(targetDifficulty, match.usedQuestionIds);
@@ -1065,11 +1065,25 @@ class BattleRoyaleManager {
     excludeIds: number[] = [],
   ): Promise<Question | null> {
     try {
+      const excludedThemes = await prisma.questionTheme.findMany({
+        where: { battleRoyale: false },
+        select: { slug: true },
+      });
+      const excludedSlugs = excludedThemes.map((t) => t.slug);
+
       const count = await prisma.question.count({
         where: {
           deleted: false,
           ...(difficulty !== undefined && { difficulty }),
           id: { notIn: excludeIds },
+          ...(excludedSlugs.length > 0 && {
+            NOT: excludedSlugs.map((slug) => ({
+              data: {
+                path: ["theme"],
+                array_contains: slug,
+              },
+            })),
+          }),
         },
       });
 
@@ -1081,6 +1095,14 @@ class BattleRoyaleManager {
           deleted: false,
           ...(difficulty !== undefined && { difficulty }),
           id: { notIn: excludeIds },
+          ...(excludedSlugs.length > 0 && {
+            NOT: excludedSlugs.map((slug) => ({
+              data: {
+                path: ["theme"],
+                array_contains: slug,
+              },
+            })),
+          }),
         },
         skip,
       });

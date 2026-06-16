@@ -105,14 +105,15 @@ model QuestionResponse {
 }
 
 model QuestionTheme {
-    id         Int      @id @default(autoincrement())
-    name       String
-    slug       String
-    picture    String   @default("")
-    createDate DateTime @default(now())
-    updateDate DateTime @default(now())
-    userCreate String
-    userUpdate String
+    id           Int      @id @default(autoincrement())
+    name         String
+    slug         String
+    picture      String   @default("")
+    battleRoyale Boolean  @default(true)
+    createDate   DateTime @default(now())
+    updateDate   DateTime @default(now())
+    userCreate   String
+    userUpdate   String
 }
 
 model QuestionReporting {

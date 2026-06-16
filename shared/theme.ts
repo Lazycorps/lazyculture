@@ -3,6 +3,7 @@ export type Theme = {
   name: string;
   slug: string;
   picture: string;
+  battleRoyale: boolean;
   createDate: Date;
   updateDate: Date;
   userCreate: string;
@@ -14,6 +15,7 @@ export class ThemeDTO {
   name: string = "";
   slug: string = "";
   picture: string = "";
+  battleRoyale: boolean = true;
   createDate: Date = new Date();
   updateDate: Date = new Date();
   userCreate: string = "";
