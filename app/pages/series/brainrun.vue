@@ -1,0 +1,380 @@
+<template>
+  <div class="w-full max-w-xl mx-auto py-2 select-none">
+    <UCard
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+    >
+      <!-- Non-authenticated user view -->
+      <template v-if="!user">
+        <div class="text-center py-10 px-6 space-y-6">
+          <div
+            class="w-16 h-16 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-3xl text-violet-400 mx-auto animate-pulse"
+          >
+            🧠
+          </div>
+          <div class="space-y-2">
+            <h2 class="text-2xl font-black font-display text-white tracking-wide">Brainrun</h2>
+            <p class="text-sm text-gray-400 max-w-sm mx-auto">
+              Grimpez les 3 actes, affrontez les Elites et les Boss, et survivez le plus loin
+              possible. Connectez-vous pour jouer !
+            </p>
+          </div>
+          <UButton
+            to="/login"
+            color="primary"
+            size="lg"
+            block
+            icon="i-heroicons-key"
+            class="font-extrabold uppercase font-display tracking-wider py-3"
+          >
+            Se connecter et jouer
+          </UButton>
+        </div>
+      </template>
+
+      <!-- Authenticated player view -->
+      <template v-else>
+        <!-- Game Header (Act/Room progress, HP hearts, gold) -->
+        <div class="flex flex-col space-y-4 mb-6">
+          <div class="flex justify-between items-center">
+            <h2 class="text-xl font-black font-display text-white tracking-wide flex items-center">
+              <UIcon
+                name="i-heroicons-bolt-solid"
+                class="mr-2 text-violet-400 text-2xl animate-pulse"
+              />
+              Acte {{ run?.currentAct ?? 1 }}
+            </h2>
+
+            <div class="flex items-center space-x-3">
+              <div class="flex items-center text-amber-400 font-black font-display text-sm">
+                <UIcon name="i-heroicons-currency-dollar" class="mr-0.5" />
+                {{ run?.gold ?? 0 }}
+              </div>
+              <div class="flex items-center">
+                <UIcon
+                  v-for="hp in run?.maxHealthPoint ?? 3"
+                  :key="hp"
+                  name="i-heroicons-heart-solid"
+                  class="text-2xl transition-all duration-300 ml-1"
+                  :class="
+                    hp > (run?.healthPoint ?? 0)
+                      ? 'text-slate-700'
+                      : 'text-rose-500 animate-heart-pulse'
+                  "
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <div
+              class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+            >
+              <div
+                class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
+                :style="{ width: `${((run?.currentSequence ?? 1) / roomsPerAct) * 100}%` }"
+              ></div>
+            </div>
+            <div class="flex justify-between text-xs font-bold font-display text-gray-400">
+              <span>Progression de l'acte</span>
+              <span>{{ run?.currentSequence ?? 1 }} / {{ roomsPerAct }}</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="border-white/5 my-5" />
+
+        <!-- Run active : choix ponctuel, question en cours, ou état de chargement -->
+        <template v-if="isRunActive">
+          <div class="py-4">
+            <!-- Placeholder Boutique/Événement -->
+            <div v-if="placeholderChoice" class="text-center py-10 px-6 space-y-6">
+              <div
+                class="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl mx-auto"
+              >
+                🚧
+              </div>
+              <div class="space-y-1">
+                <h3 class="text-lg font-black font-display text-white tracking-wide">
+                  {{ roomTypeLabel(placeholderChoice) }} — en construction
+                </h3>
+                <p class="text-xs text-gray-400 max-w-sm mx-auto">
+                  Ce type de salle arrivera dans une prochaine mise à jour. Pour l'instant,
+                  poursuivez votre ascension !
+                </p>
+              </div>
+              <UButton
+                size="lg"
+                color="primary"
+                block
+                :loading="loading"
+                class="font-black font-display uppercase tracking-widest py-3.5"
+                @click="confirmPlaceholder"
+              >
+                Étape suivante
+              </UButton>
+            </div>
+
+            <!-- Écran de choix -->
+            <div v-else-if="awaitingChoice" class="space-y-3">
+              <p
+                class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-4"
+              >
+                Choisissez la prochaine salle
+              </p>
+              <UButton
+                v-for="option in currentChoiceTypes"
+                :key="option"
+                size="lg"
+                block
+                variant="soft"
+                :loading="loading"
+                class="font-black font-display uppercase tracking-wide py-3.5 justify-start"
+                @click="selectChoice(option)"
+              >
+                <UIcon :name="roomTypeIcon(option)" class="mr-2 text-lg" />
+                {{ roomTypeLabel(option) }}
+              </UButton>
+            </div>
+
+            <!-- Question en cours -->
+            <BrainrunQuestionRunner v-else-if="currentQuestion" :question="currentQuestion" />
+
+            <!-- Récap de fin de salle (or gagné, PV perdus) -->
+            <div v-else-if="roomRecap" class="text-center py-8 px-6 space-y-6">
+              <div
+                class="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl mx-auto"
+              >
+                <UIcon :name="roomTypeIcon(roomRecap.type)" class="text-emerald-400" />
+              </div>
+              <div class="space-y-1">
+                <h3 class="text-lg font-black font-display text-white tracking-wide">
+                  {{ roomTypeLabel(roomRecap.type) }} terminée
+                </h3>
+              </div>
+              <div class="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                  <p class="text-xl font-black font-display text-amber-400">
+                    +{{ roomRecap.goldEarned }}
+                  </p>
+                  <p
+                    class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
+                  >
+                    Or gagné
+                  </p>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                  <p
+                    class="text-xl font-black font-display"
+                    :class="roomRecap.heartsLost > 0 ? 'text-rose-400' : 'text-emerald-400'"
+                  >
+                    {{
+                      roomRecap.heartsLost > 0
+                        ? `-${roomRecap.heartsLost}`
+                        : roomRecap.healed
+                          ? "+1"
+                          : "0"
+                    }}
+                  </p>
+                  <p
+                    class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
+                  >
+                    {{ roomRecap.healed ? "PV regagnés" : "PV perdus" }}
+                  </p>
+                </div>
+              </div>
+              <UButton
+                size="lg"
+                color="primary"
+                block
+                :loading="loading"
+                class="font-black font-display uppercase tracking-widest py-3.5 max-w-sm mx-auto"
+                @click="brainrun.acknowledgeRoom()"
+              >
+                Continuer
+              </UButton>
+            </div>
+
+            <div v-else class="text-center py-10">
+              <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
+            </div>
+          </div>
+        </template>
+
+        <!-- Fin de run (victoire ou défaite) -->
+        <template v-else-if="run">
+          <div class="text-center py-4 md:py-6 px-4 space-y-4 flex flex-col items-center">
+            <div class="relative">
+              <div
+                class="absolute inset-0 blur-xl rounded-full scale-125"
+                :class="run.status === 'WON' ? 'bg-amber-500/20' : 'bg-rose-500/20'"
+              ></div>
+              <div
+                class="relative w-16 h-16 rounded-full flex items-center justify-center text-3xl border"
+                :class="
+                  run.status === 'WON'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                "
+              >
+                {{ run.status === "WON" ? "🏆" : "💀" }}
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <h3 class="text-xl font-black font-display text-white tracking-wide">
+                {{ run.status === "WON" ? "Run terminée !" : "Run échouée" }}
+              </h3>
+              <p class="text-xs text-gray-400 max-w-sm">
+                {{
+                  run.status === "WON"
+                    ? "Bravo, vous avez survécu aux 3 actes de Brainrun !"
+                    : "Vous avez épuisé tous vos points de vie. Retentez votre chance !"
+                }}
+              </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 w-full max-w-sm pt-2">
+              <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                <p class="text-xl font-black font-display text-amber-400">{{ run.gold }}</p>
+                <p
+                  class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
+                >
+                  Or récolté
+                </p>
+              </div>
+              <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                <p class="text-xl font-black font-display text-amber-400">
+                  +{{ run.xpEarned ?? 0 }} XP
+                </p>
+                <p
+                  class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
+                >
+                  Expérience
+                </p>
+              </div>
+            </div>
+
+            <div class="pt-3 w-full max-w-sm">
+              <UButton
+                size="lg"
+                color="primary"
+                block
+                :loading="loading"
+                icon="i-heroicons-arrow-path"
+                class="font-black font-display uppercase tracking-widest py-3.5"
+                @click="brainrun.startNewRun()"
+              >
+                Nouvelle run
+              </UButton>
+            </div>
+          </div>
+        </template>
+      </template>
+    </UCard>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { BRAINRUN_ROOMS_PER_ACT, type BrainrunRoomType } from "#shared/brainrun";
+import { useUserStore } from "~/stores/userStore";
+
+const userStore = useUserStore();
+await userStore.fetchUser();
+const user = computed(() => userStore.user);
+
+const brainrun = useBrainrunSession();
+const showBottomNav = useState("showBottomNav", () => true);
+const placeholderChoice = ref<BrainrunRoomType | null>(null);
+
+const roomsPerAct = BRAINRUN_ROOMS_PER_ACT;
+
+if (user.value) {
+  await brainrun.fetchCurrent();
+}
+
+const run = brainrun.run;
+const currentQuestion = brainrun.currentQuestion;
+const awaitingChoice = brainrun.awaitingChoice;
+const loading = brainrun.loading;
+const isRunActive = brainrun.isRunActive;
+const currentChoiceTypes = computed(() => brainrun.currentRoom.value?.choiceTypes ?? []);
+
+const roomRecap = computed(() => {
+  const room = brainrun.currentRoom.value;
+  if (!room || room.status !== "CLEARED" || !room.type) return null;
+  const heartsLost = room.responses.reduce((sum, r) => sum + (r.hpLoss ?? 0), 0);
+  return {
+    type: room.type,
+    goldEarned: room.goldEarned,
+    heartsLost,
+    healed: room.type === "REST",
+  };
+});
+
+watch(
+  () => isRunActive.value && !awaitingChoice.value && !!currentQuestion.value,
+  (inQuestion) => {
+    showBottomNav.value = !inQuestion;
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  showBottomNav.value = true;
+});
+
+const INSTANT_TYPES: BrainrunRoomType[] = ["SHOP", "EVENT"];
+
+async function selectChoice(option: BrainrunRoomType) {
+  if (INSTANT_TYPES.includes(option)) {
+    placeholderChoice.value = option;
+    return;
+  }
+  await brainrun.chooseOption(option);
+}
+
+async function confirmPlaceholder() {
+  if (!placeholderChoice.value) return;
+  const choice = placeholderChoice.value;
+  placeholderChoice.value = null;
+  await brainrun.chooseOption(choice);
+}
+
+function roomTypeLabel(type: BrainrunRoomType): string {
+  switch (type) {
+    case "STANDARD":
+      return "Combat";
+    case "ELITE":
+      return "Elite";
+    case "BOSS":
+      return "Boss";
+    case "REST":
+      return "Repos (+1 PV)";
+    case "SHOP":
+      return "Boutique";
+    case "EVENT":
+      return "Événement";
+  }
+}
+
+function roomTypeIcon(type: BrainrunRoomType): string {
+  switch (type) {
+    case "STANDARD":
+      return "i-heroicons-bolt";
+    case "ELITE":
+      return "i-heroicons-fire";
+    case "BOSS":
+      return "i-heroicons-shield-exclamation";
+    case "REST":
+      return "i-heroicons-heart";
+    case "SHOP":
+      return "i-heroicons-shopping-bag";
+    case "EVENT":
+      return "i-heroicons-question-mark-circle";
+  }
+}
+</script>
+
+<style scoped>
+/* Page-specific styles if any */
+</style>
