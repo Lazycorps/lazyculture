@@ -1,5 +1,6 @@
 import type { QuestionDTO } from "./question";
 import type { BrainrunOffer, BrainrunRelicId } from "./brainrunItems";
+import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression). */
 export const BRAINRUN_TOTAL_ACTS = 3;
@@ -83,6 +84,8 @@ export type BrainrunRunDTO = {
   maxHealthPoint: number;
   gold: number;
   xpEarned: number | null;
+  /** Points de Savoir gagnés à la fin de cette run (or converti), null tant qu'elle est en cours. */
+  knowledgePointsEarned: number | null;
   createDate: Date;
   endDate: Date | null;
   /** Reliques passives possédées pour le reste de la run. */
@@ -101,4 +104,10 @@ export type BrainrunStateDTO = {
   currentQuestion: QuestionDTO | null;
   /** true si la salle active attend un choix du joueur parmi currentRoom.choiceTypes. */
   awaitingChoice: boolean;
+};
+
+/** Réponse de GET /api/brainrun/meta : progression metagame persistante du joueur. */
+export type BrainrunMetaProgressDTO = {
+  knowledgePoints: number;
+  unlockedTalents: BrainrunTalentId[];
 };

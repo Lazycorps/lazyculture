@@ -16,6 +16,8 @@ import {
   generateBonusOffers,
   generateShopOffers,
   getActiveRelicEffects,
+  getActiveTalentEffects,
+  goldToKnowledgePoints,
   instantRoomHealthDelta,
   isBossAnswerTimedOut,
   nextRoomAfterClear,
@@ -24,6 +26,11 @@ import {
   resolveEventOption,
   type BrainrunRelicEffects,
 } from "~~/server/utils/brainrunLogic";
+import {
+  getMetaProgress,
+  grantKnowledgePoints,
+  unlockTalent as unlockTalentPersist,
+} from "~~/server/utils/brainrunMetaHelper";
 import {
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_DIFFICULTY_BY_ACT,
@@ -39,7 +46,9 @@ import {
   type BrainrunConsumableId,
   type BrainrunOffer,
 } from "#shared/brainrunItems";
+import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
+  BrainrunMetaProgressDTO,
   BrainrunRoomDTO,
   BrainrunRoomResponse,
   BrainrunRoomType,
@@ -77,11 +86,14 @@ export class BrainrunService {
   }
 
   private async createRun(userId: string): Promise<BrainrunStateDTO> {
+    const metaProgress = await getMetaProgress(userId);
+    const talentEffects = getActiveTalentEffects(metaProgress.unlockedTalents);
     const created = await prisma.brainrunRun.create({
       data: {
         userId,
-        healthPoint: BRAINRUN_START_HP,
-        maxHealthPoint: BRAINRUN_MAX_HP,
+        healthPoint: BRAINRUN_START_HP + talentEffects.bonusStartHp,
+        maxHealthPoint: BRAINRUN_MAX_HP + talentEffects.bonusStartHp,
+        gold: talentEffects.bonusStartGold,
       },
     });
     await this.seedAct(created.id, 1);
@@ -91,10 +103,12 @@ export class BrainrunService {
   async abandonRun(userId: string): Promise<void> {
     const run = await prisma.brainrunRun.findFirst({ where: { userId, status: "IN_PROGRESS" } });
     if (!run) return;
+    const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
     await prisma.brainrunRun.update({
       where: { id: run.id },
-      data: { status: "ABANDONED", endDate: new Date() },
+      data: { status: "ABANDONED", endDate: new Date(), knowledgePointsEarned },
     });
+    await grantKnowledgePoints(userId, knowledgePointsEarned);
     const totalGames = await prisma.brainrunRun.count({
       where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
     });
@@ -134,12 +148,13 @@ export class BrainrunService {
     } else if (choice === "SHOP") {
       // Reste ACTIVE tant que le joueur n'a pas cliqué "Quitter la boutique" (cf. leaveShop) :
       // il peut acheter plusieurs offres avant de continuer sa route.
+      const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
         data: {
           type: choice,
           status: "ACTIVE",
-          offers: generateShopOffers(run.relics),
+          offers: generateShopOffers(run.relics, Math.random, talentEffects.rareRelicWeightBonus),
         },
       });
     } else if (choice === "EVENT") {
@@ -215,6 +230,7 @@ export class BrainrunService {
     const question = await prisma.question.findFirstOrThrow({ where: { id: questionId } });
     const isBossRoom = activeRoom.type === "BOSS";
     const effects = getActiveRelicEffects(run.relics);
+    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
     const elapsedMs = activeRoom.questionStartedAt
       ? Date.now() - activeRoom.questionStartedAt.getTime()
       : 0;
@@ -226,10 +242,15 @@ export class BrainrunService {
     const relicAdjustedHpLoss = applyRelicsToHpLoss(rawHpLoss, effects);
     const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, relicAdjustedHpLoss);
     const bossDamage = isBossRoom
-      ? applyRelicsToBossDamage(
-          brainrunBossDamage(elapsedMs, success, effects.bossTimeBonusMs),
-          effects,
-        )
+      ? (() => {
+          // Bonus de talent ("Frappe assurée") additionné au bonus de relique (Adrénaline),
+          // jamais appliqué sur un coup raté (comme applyRelicsToBossDamage).
+          const relicDamage = applyRelicsToBossDamage(
+            brainrunBossDamage(elapsedMs, success, effects.bossTimeBonusMs),
+            effects,
+          );
+          return relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
+        })()
       : 0;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
@@ -296,7 +317,11 @@ export class BrainrunService {
           ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint } : {}),
           ...(grantsBonus
             ? {
-                offers: generateBonusOffers(run.relics),
+                offers: generateBonusOffers(
+                  run.relics,
+                  Math.random,
+                  talentEffects.rareRelicWeightBonus,
+                ),
                 offersRequireChoice: true,
                 offersResolved: false,
               }
@@ -489,7 +514,11 @@ export class BrainrunService {
       throw createError({ statusCode: 400, statusMessage: "Or insuffisant pour ce choix." });
     }
 
-    const resolved = resolveEventOption(option, { ownedRelics: run.relics });
+    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const resolved = resolveEventOption(option, {
+      ownedRelics: run.relics,
+      rareWeightBonus: talentEffects.rareRelicWeightBonus,
+    });
     const hpCost = Math.max(0, -resolved.hpDelta);
     const hpReward = Math.max(0, resolved.hpDelta);
     const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, hpCost);
@@ -671,6 +700,22 @@ export class BrainrunService {
     return this.getStateById(run.id);
   }
 
+  async getMetaProgressDTO(userId: string): Promise<BrainrunMetaProgressDTO> {
+    const progress = await getMetaProgress(userId);
+    return {
+      knowledgePoints: progress.knowledgePoints,
+      unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
+    };
+  }
+
+  async unlockTalent(userId: string, talentId: BrainrunTalentId): Promise<BrainrunMetaProgressDTO> {
+    const progress = await unlockTalentPersist(userId, talentId);
+    return {
+      knowledgePoints: progress.knowledgePoints,
+      unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
+    };
+  }
+
   private async getStateById(runId: string): Promise<BrainrunStateDTO> {
     const run = await prisma.brainrunRun.findUniqueOrThrow({
       where: { id: runId },
@@ -734,12 +779,14 @@ export class BrainrunService {
       .filter((r) => r.status === "CLEARED" && r.type !== null)
       .map((r) => ({ type: r.type as BrainrunRoomType }));
     const xpEarned = calculBrainrunUserXP(clearedRooms, status === "WON");
+    const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
 
     await prisma.brainrunRun.update({
       where: { id: runId },
-      data: { status, endDate: new Date(), xpEarned },
+      data: { status, endDate: new Date(), xpEarned, knowledgePointsEarned },
     });
     await updateUserProgress(run.userId, xpEarned);
+    await grantKnowledgePoints(run.userId, knowledgePointsEarned);
 
     const totalGames = await prisma.brainrunRun.count({
       where: { userId: run.userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
@@ -855,6 +902,7 @@ export class BrainrunService {
       maxHealthPoint: run.maxHealthPoint,
       gold: run.gold,
       xpEarned: run.xpEarned,
+      knowledgePointsEarned: run.knowledgePointsEarned,
       createDate: run.createDate,
       endDate: run.endDate,
       relics: run.relics as BrainrunRunDTO["relics"],

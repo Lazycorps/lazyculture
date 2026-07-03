@@ -12,6 +12,8 @@ import {
   generateBonusOffers,
   generateShopOffers,
   getActiveRelicEffects,
+  getActiveTalentEffects,
+  goldToKnowledgePoints,
   instantRoomHealthDelta,
   isAwaitingChoice,
   isBossAnswerTimedOut,
@@ -227,6 +229,46 @@ describe("getActiveRelicEffects", () => {
   });
 });
 
+describe("goldToKnowledgePoints", () => {
+  it("converts gold at the configured ratio, rounded down", () => {
+    expect(goldToKnowledgePoints(0)).toBe(0);
+    expect(goldToKnowledgePoints(7)).toBe(1); // 7 * 0.2 = 1.4 -> 1, not 1.4
+    expect(goldToKnowledgePoints(100)).toBe(20);
+  });
+
+  it("never goes negative", () => {
+    expect(goldToKnowledgePoints(-50)).toBe(0);
+  });
+});
+
+describe("getActiveTalentEffects", () => {
+  it("returns neutral effects when no talent is unlocked", () => {
+    expect(getActiveTalentEffects([])).toEqual({
+      bonusStartHp: 0,
+      bonusStartGold: 0,
+      rareRelicWeightBonus: 0,
+      bonusBossDamagePerHit: 0,
+    });
+  });
+
+  it("aggregates every talent's effect", () => {
+    const effects = getActiveTalentEffects([
+      "TOUGH_START",
+      "RARE_FINDER",
+      "STARTING_CAPITAL",
+      "BOSS_STRIKE",
+    ]);
+    expect(effects.bonusStartHp).toBe(1);
+    expect(effects.rareRelicWeightBonus).toBe(2);
+    expect(effects.bonusStartGold).toBe(20);
+    expect(effects.bonusBossDamagePerHit).toBe(3);
+  });
+
+  it("ignores unknown ids", () => {
+    expect(getActiveTalentEffects(["NOT_A_TALENT"]).bonusStartHp).toBe(0);
+  });
+});
+
 describe("applyRelicsToHpLoss", () => {
   const effects = getActiveRelicEffects(["SPECIALIZATION"]);
 
@@ -338,6 +380,33 @@ describe("generateShopOffers", () => {
     const goldOffers = offers.filter((o) => o.kind === "GOLD");
     expect(goldOffers).toHaveLength(BRAINRUN_SHOP_RELIC_OFFER_COUNT);
     goldOffers.forEach((o) => expect(o.price).toBe(0));
+  });
+
+  it("offers RARE relics more often when a rare-weight bonus is applied (talent Œil affûté)", () => {
+    // PRNG déterministe (pas Math.random) : le test doit rester stable d'une exécution à l'autre.
+    function seededRandom(seed: number): () => number {
+      let state = seed;
+      return () => {
+        state = (state * 1103515245 + 12345) & 0x7fffffff;
+        return state / 0x7fffffff;
+      };
+    }
+    function rareRatio(rareWeightBonus: number): number {
+      const random = seededRandom(1);
+      let rare = 0;
+      let total = 0;
+      for (let i = 0; i < 300; i++) {
+        generateShopOffers([], random, rareWeightBonus)
+          .filter((o) => o.kind === "RELIC")
+          .forEach((o) => {
+            total++;
+            if (o.rarity === "RARE") rare++;
+          });
+      }
+      return rare / total;
+    }
+
+    expect(rareRatio(2)).toBeGreaterThan(rareRatio(0));
   });
 });
 

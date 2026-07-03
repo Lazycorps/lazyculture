@@ -1,5 +1,6 @@
 import type { BrainrunRoomType } from "../brainrun";
 import type { BrainrunConsumableId } from "../brainrunItems";
+import type { BrainrunTalentId } from "../brainrunTalents";
 
 export type BrainrunResponseDTO = {
   runId: string;
@@ -31,4 +32,8 @@ export type BrainrunEventChoiceDTO = {
 export type BrainrunConsumableUseDTO = {
   runId: string;
   type: BrainrunConsumableId;
+};
+
+export type BrainrunTalentUnlockDTO = {
+  talentId: BrainrunTalentId;
 };

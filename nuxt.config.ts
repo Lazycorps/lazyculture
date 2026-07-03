@@ -128,6 +128,7 @@ export default defineNuxtConfig({
     "/series/battle-royale": { ssr: false },
     "/series/showdown": { ssr: false },
     "/series/brainrun": { ssr: false },
+    "/series/brainrun/talents": { ssr: false },
     "/login": { ssr: false },
     "/confirm": { ssr: false },
   },
