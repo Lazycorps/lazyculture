@@ -299,6 +299,9 @@ model BrainrunRun {
     maxHealthPoint  Int
     gold            Int            @default(0)
     usedQuestionIds Int[]          @default([]) // anti-répétition sur toute la run
+    relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
+    consumables     Json           @default("{}") // Record<consumableId, count>
+    shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
     xpEarned        Int?
     createDate      DateTime       @default(now())
     updateDate      DateTime       @default(now())
@@ -310,22 +313,27 @@ model BrainrunRun {
 }
 
 model BrainrunRoom {
-    id                 Int         @id @default(autoincrement())
-    runId              String
-    run                BrainrunRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-    act                Int // 1..3
-    sequence           Int // 1..7 dans l'acte
-    type               String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
-    status             String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
-    choiceTypes        String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
-    questionIds        Int[]       @default([])
-    responses          Json?
-    goldEarned         Int         @default(0)
-    bossHealthPoint    Int? // PV courants du boss, uniquement pour type=BOSS
-    bossMaxHealthPoint Int? // PV max du boss au démarrage du combat, uniquement pour type=BOSS
-    questionStartedAt  DateTime? // horodatage d'affichage de la question en attente, sert de base au chrono du combat de boss
-    createDate         DateTime    @default(now())
-    updateDate         DateTime    @default(now())
+    id                  Int         @id @default(autoincrement())
+    runId               String
+    run                 BrainrunRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+    act                 Int // 1..3
+    sequence            Int // 1..7 dans l'acte
+    type                String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
+    status              String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
+    choiceTypes         String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
+    questionIds         Int[]       @default([])
+    responses           Json?
+    goldEarned          Int         @default(0)
+    bossHealthPoint     Int? // PV courants du boss, uniquement pour type=BOSS
+    bossMaxHealthPoint  Int? // PV max du boss au démarrage du combat, uniquement pour type=BOSS
+    questionStartedAt   DateTime? // horodatage d'affichage de la question en attente, sert de base au chrono du combat de boss
+    offers              Json? // BrainrunOffer[] — bonus post-combat (ELITE/BOSS) ou offres de la Boutique
+    offersRequireChoice Boolean     @default(false) // true seulement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu
+    offersResolved      Boolean     @default(false)
+    eventId             String? // clé dans le catalogue BRAINRUN_EVENTS (shared/brainrunItems.ts)
+    consumableReveal    Json? // { eliminatedIds?: number[]; hintId?: number } — effet 50/50 / Appel à un ami sur la question en cours
+    createDate          DateTime    @default(now())
+    updateDate          DateTime    @default(now())
 
     @@unique([runId, act, sequence])
     @@index([runId])

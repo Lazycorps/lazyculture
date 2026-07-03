@@ -1,13 +1,24 @@
 import { describe, it, expect } from "vite-plus/test";
 import {
+  applyRelicsToBossDamage,
+  applyRelicsToGold,
+  applyRelicsToHpLoss,
+  bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
+  consumeShieldIfArmed,
   generateActChoicePoints,
+  generateBonusOffers,
+  generateShopOffers,
+  getActiveRelicEffects,
   instantRoomHealthDelta,
   isAwaitingChoice,
   isBossAnswerTimedOut,
   nextRoomAfterClear,
+  pickFiftyFiftyEliminations,
+  pickPhoneAFriendHint,
+  resolveEventOption,
   shouldEndRunOnDamage,
 } from "./brainrunLogic";
 import {
@@ -17,6 +28,16 @@ import {
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_CHOICE_POINTS_PER_ACT,
 } from "./brainrunConfig";
+import {
+  BRAINRUN_BONUS_OFFER_COUNT,
+  BRAINRUN_CONSUMABLES,
+  BRAINRUN_RELICS,
+  BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT,
+  BRAINRUN_SHOP_RELIC_OFFER_COUNT,
+  type BrainrunRelicId,
+} from "#shared/brainrunItems";
+
+const ALL_RELIC_IDS = Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[];
 
 describe("brainrunHpLossForDifficulty", () => {
   it("maps difficulty tiers to the expected HP loss", () => {
@@ -158,5 +179,284 @@ describe("generateActChoicePoints", () => {
     const a = generateActChoicePoints(fixedRandom);
     const b = generateActChoicePoints(fixedRandom);
     expect(a).toEqual(b);
+  });
+
+  it("forces the first sequence slot to be pure combat when forceFirstPure is set", () => {
+    function isPure(choiceTypes: string[]) {
+      return (
+        choiceTypes.length === 2 &&
+        choiceTypes.includes("STANDARD") &&
+        choiceTypes.includes("ELITE")
+      );
+    }
+    for (let i = 0; i < 100; i++) {
+      const points = generateActChoicePoints(Math.random, true);
+      const first = points.find((p) => p.sequence === 1)!;
+      expect(isPure(first.choiceTypes)).toBe(true);
+      // La contrainte ne doit pas casser l'invariant "un point de choix par séquence".
+      const sequences = points.map((p) => p.sequence).sort((a, b) => a - b);
+      expect(sequences).toEqual([1, 2, 3, 4, 5, 6]);
+    }
+  });
+});
+
+describe("getActiveRelicEffects", () => {
+  it("returns neutral effects when no relic is owned", () => {
+    expect(getActiveRelicEffects([])).toEqual({
+      goldMultiplier: 1,
+      flatGoldBonusPerRoom: 0,
+      hpLossReduction: 0,
+      bossTimeBonusMs: 0,
+      bossDamageBonusPerHit: 0,
+      hasExtraLife: false,
+    });
+  });
+
+  it("aggregates every relic's effect", () => {
+    const effects = getActiveRelicEffects(ALL_RELIC_IDS);
+    expect(effects.goldMultiplier).toBeCloseTo(1.2);
+    expect(effects.flatGoldBonusPerRoom).toBe(5);
+    expect(effects.hpLossReduction).toBe(1);
+    expect(effects.bossTimeBonusMs).toBe(3000);
+    expect(effects.bossDamageBonusPerHit).toBe(5);
+    expect(effects.hasExtraLife).toBe(true);
+  });
+
+  it("ignores unknown ids", () => {
+    expect(getActiveRelicEffects(["NOT_A_RELIC"]).goldMultiplier).toBe(1);
+  });
+});
+
+describe("applyRelicsToHpLoss", () => {
+  const effects = getActiveRelicEffects(["SPECIALIZATION"]);
+
+  it("reduces the loss but never below 1 when a loss occurred", () => {
+    expect(applyRelicsToHpLoss(2, effects)).toBe(1);
+    expect(applyRelicsToHpLoss(1, effects)).toBe(1);
+  });
+
+  it("leaves a zero loss (correct answer) untouched", () => {
+    expect(applyRelicsToHpLoss(0, effects)).toBe(0);
+  });
+});
+
+describe("applyRelicsToGold", () => {
+  it("applies the multiplier then the flat bonus", () => {
+    const effects = getActiveRelicEffects(["ENCYCLOPEDIA", "PROVIDENT_PURSE"]);
+    expect(applyRelicsToGold(10, effects)).toBe(Math.round(10 * 1.2) + 5);
+  });
+
+  it("leaves a zero gain untouched", () => {
+    const effects = getActiveRelicEffects(["ENCYCLOPEDIA"]);
+    expect(applyRelicsToGold(0, effects)).toBe(0);
+  });
+});
+
+describe("applyRelicsToBossDamage", () => {
+  const effects = getActiveRelicEffects(["ADRENALINE"]);
+
+  it("adds the flat bonus on a successful hit", () => {
+    expect(applyRelicsToBossDamage(BRAINRUN_BOSS_BASE_DAMAGE, effects)).toBe(
+      BRAINRUN_BOSS_BASE_DAMAGE + 5,
+    );
+  });
+
+  it("never grants a bonus on a miss", () => {
+    expect(applyRelicsToBossDamage(0, effects)).toBe(0);
+  });
+});
+
+describe("bossQuestionTimeMsWithRelics", () => {
+  it("extends the base time by the relic's bonus", () => {
+    const effects = getActiveRelicEffects(["BROKEN_CHRONOMETER"]);
+    expect(bossQuestionTimeMsWithRelics(effects)).toBe(BRAINRUN_BOSS_QUESTION_TIME_MS + 3000);
+  });
+
+  it("equals the base time with no relevant relic", () => {
+    expect(bossQuestionTimeMsWithRelics(getActiveRelicEffects([]))).toBe(
+      BRAINRUN_BOSS_QUESTION_TIME_MS,
+    );
+  });
+});
+
+describe("isBossAnswerTimedOut with a relic bonus", () => {
+  it("pushes back the timeout by the bonus duration", () => {
+    expect(isBossAnswerTimedOut(BRAINRUN_BOSS_QUESTION_TIME_MS, 3000)).toBe(false);
+    expect(isBossAnswerTimedOut(BRAINRUN_BOSS_QUESTION_TIME_MS + 3000, 3000)).toBe(true);
+  });
+});
+
+describe("consumeShieldIfArmed", () => {
+  it("cancels the loss and consumes the shield when armed and a loss occurred", () => {
+    expect(consumeShieldIfArmed(true, 2)).toEqual({ hpLoss: 0, shieldConsumed: true });
+  });
+
+  it("leaves the loss untouched when not armed", () => {
+    expect(consumeShieldIfArmed(false, 2)).toEqual({ hpLoss: 2, shieldConsumed: false });
+  });
+
+  it("doesn't consume the shield when there was no loss to cancel", () => {
+    expect(consumeShieldIfArmed(true, 0)).toEqual({ hpLoss: 0, shieldConsumed: false });
+  });
+});
+
+describe("generateBonusOffers", () => {
+  it("always returns exactly BRAINRUN_BONUS_OFFER_COUNT offers", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(generateBonusOffers([])).toHaveLength(BRAINRUN_BONUS_OFFER_COUNT);
+    }
+  });
+
+  it("never offers an already-owned relic", () => {
+    const owned: string[] = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
+    for (let i = 0; i < 50; i++) {
+      const offers = generateBonusOffers(owned);
+      const relicOffers = offers.filter((o) => o.kind === "RELIC");
+      relicOffers.forEach((o) => expect(owned).not.toContain(o.id));
+    }
+  });
+
+  it("falls back to consumables once every relic is owned", () => {
+    const offers = generateBonusOffers(ALL_RELIC_IDS);
+    expect(offers.every((o) => o.kind === "CONSUMABLE" || o.kind === "GOLD")).toBe(true);
+  });
+});
+
+describe("generateShopOffers", () => {
+  it("always returns the relic slots plus the consumable slots", () => {
+    const offers = generateShopOffers([]);
+    expect(offers).toHaveLength(
+      BRAINRUN_SHOP_RELIC_OFFER_COUNT + BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT,
+    );
+    const relicOffers = offers.filter((o) => o.kind === "RELIC");
+    expect(relicOffers).toHaveLength(BRAINRUN_SHOP_RELIC_OFFER_COUNT);
+    relicOffers.forEach((o) => expect(o.price).toBeGreaterThan(0));
+  });
+
+  it("replaces relic slots with free gold offers once every relic is owned", () => {
+    const offers = generateShopOffers(ALL_RELIC_IDS);
+    const goldOffers = offers.filter((o) => o.kind === "GOLD");
+    expect(goldOffers).toHaveLength(BRAINRUN_SHOP_RELIC_OFFER_COUNT);
+    goldOffers.forEach((o) => expect(o.price).toBe(0));
+  });
+});
+
+describe("resolveEventOption", () => {
+  it("nets cost against reward for hp and gold", () => {
+    const result = resolveEventOption(
+      { label: "test", cost: { hp: 1, gold: 10 }, reward: { gold: 15 } },
+      { ownedRelics: [] },
+    );
+    expect(result.hpDelta).toBe(-1);
+    expect(result.goldDelta).toBe(5);
+    expect(result.relicGranted).toBeNull();
+    expect(result.consumablesGranted).toEqual([]);
+  });
+
+  it("grants an unowned random relic when the pool isn't exhausted", () => {
+    const owned = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
+    const result = resolveEventOption(
+      { label: "test", reward: { relic: "RANDOM" } },
+      { ownedRelics: owned },
+    );
+    expect(result.relicGranted).not.toBeNull();
+    expect(owned).not.toContain(result.relicGranted);
+  });
+
+  it("compensates with gold when the relic pool is exhausted", () => {
+    const result = resolveEventOption(
+      { label: "test", reward: { relic: "RANDOM" } },
+      { ownedRelics: ALL_RELIC_IDS },
+    );
+    expect(result.relicGranted).toBeNull();
+    expect(result.goldDelta).toBeGreaterThan(0);
+  });
+
+  it("passes through granted consumables untouched", () => {
+    const result = resolveEventOption(
+      { label: "test", reward: { consumables: [{ id: "FIFTY_FIFTY", amount: 2 }] } },
+      { ownedRelics: [] },
+    );
+    expect(result.consumablesGranted).toEqual([{ id: "FIFTY_FIFTY", amount: 2 }]);
+  });
+
+  it("resolves a RANDOM consumable reward to a concrete catalog id", () => {
+    for (let i = 0; i < 20; i++) {
+      const result = resolveEventOption(
+        { label: "test", reward: { consumables: [{ id: "RANDOM", amount: 1 }] } },
+        { ownedRelics: [] },
+      );
+      expect(result.consumablesGranted).toHaveLength(1);
+      expect(Object.keys(BRAINRUN_CONSUMABLES)).toContain(result.consumablesGranted[0]!.id);
+    }
+  });
+
+  it("sacrifices a random owned relic on a RANDOM_OWNED cost", () => {
+    const owned = [ALL_RELIC_IDS[0]!, ALL_RELIC_IDS[1]!];
+    const result = resolveEventOption(
+      { label: "test", cost: { relic: "RANDOM_OWNED" }, reward: { relic: "RANDOM" } },
+      { ownedRelics: owned },
+    );
+    expect(owned).toContain(result.relicLost);
+    expect(result.relicGranted).not.toBeNull();
+    expect(result.relicGranted).not.toBe(result.relicLost);
+  });
+
+  it("has no relic to sacrifice when none is owned", () => {
+    const result = resolveEventOption(
+      { label: "test", cost: { relic: "RANDOM_OWNED" }, reward: { relic: "RANDOM" } },
+      { ownedRelics: [] },
+    );
+    expect(result.relicLost).toBeNull();
+  });
+});
+
+describe("pickFiftyFiftyEliminations", () => {
+  it("eliminates half the propositions (rounded down), excluding the correct one", () => {
+    for (let i = 0; i < 50; i++) {
+      const eliminated = pickFiftyFiftyEliminations([1, 2, 3, 4], 1);
+      expect(eliminated).toHaveLength(2);
+      expect(eliminated).not.toContain(1);
+    }
+  });
+
+  it("eliminates a single wrong answer on a true/false question", () => {
+    const eliminated = pickFiftyFiftyEliminations([1, 2], 1);
+    expect(eliminated).toEqual([2]);
+  });
+
+  it("handles an odd proposition count", () => {
+    for (let i = 0; i < 50; i++) {
+      const eliminated = pickFiftyFiftyEliminations([1, 2, 3], 1);
+      expect(eliminated).toHaveLength(1);
+      expect(eliminated).not.toContain(1);
+    }
+  });
+});
+
+describe("pickPhoneAFriendHint", () => {
+  it("always suggests the correct answer on the easiest difficulty", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(pickPhoneAFriendHint([1, 2, 3, 4], 1, 1)).toBe(1);
+    }
+  });
+
+  it("can suggest a wrong answer on the hardest difficulty, given an unlucky roll", () => {
+    const unluckyRandom = () => 0;
+    const hint = pickPhoneAFriendHint([1, 2, 3, 4], 1, 5, unluckyRandom);
+    expect(hint).not.toBe(1);
+  });
+
+  it("suggests the correct answer given a lucky roll, even at max difficulty", () => {
+    const luckyRandom = () => 0.99;
+    expect(pickPhoneAFriendHint([1, 2, 3, 4], 1, 5, luckyRandom)).toBe(1);
+  });
+});
+
+describe("BRAINRUN_CONSUMABLES catalog", () => {
+  it("defines exactly the 3 documented jokers", () => {
+    expect(Object.keys(BRAINRUN_CONSUMABLES).sort()).toEqual(
+      ["FIFTY_FIFTY", "PHONE_A_FRIEND", "SHIELD"].sort(),
+    );
   });
 });

@@ -72,6 +72,42 @@
           </div>
         </div>
 
+        <!-- Reliques possédées (gauche) et emplacements de consommables (droite, 3 slots fixes,
+             remplis de gauche à droite au fur et à mesure des objets obtenus). -->
+        <div class="flex items-center justify-between gap-2 mt-2">
+          <div class="flex flex-wrap gap-1.5">
+            <div
+              v-for="relic in ownedRelics"
+              :key="relic.id"
+              :title="`${relic.name} — ${relic.description}`"
+              class="w-7 h-7 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 text-sm"
+            >
+              <UIcon :name="relic.icon" />
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <div
+              v-for="(consumable, index) in consumableSlots"
+              :key="consumable?.id ?? `empty-${index}`"
+              :title="consumable ? `${consumable.name} — ${consumable.description}` : undefined"
+              class="relative w-7 h-7 rounded-full flex items-center justify-center text-sm"
+              :class="
+                consumable
+                  ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+                  : 'bg-white/5 border border-dashed border-white/10'
+              "
+            >
+              <UIcon v-if="consumable" :name="consumable.icon" />
+              <span
+                v-if="consumable && consumable.count > 1"
+                class="absolute -bottom-1 -right-1 text-[9px] font-black font-display bg-slate-900 border border-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center text-white"
+              >
+                {{ consumable.count }}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <!-- Combat de boss : remplace le séparateur habituel par la barre de PV du boss +
              les dégâts qu'infligerait une réponse correcte à cet instant (décroissants). -->
         <div v-if="isBossRoom" class="flex items-center gap-2 mt-3">
@@ -104,33 +140,23 @@
              salle est déjà CLEARED/FAILED — la transition n'a lieu qu'au clic sur "Continuer". -->
         <template v-if="isRunActive || holdOnFeedback">
           <div :class="isBossRoom ? 'pt-2 pb-4' : 'py-4'">
-            <!-- Placeholder Boutique/Événement -->
-            <div v-if="placeholderChoice" class="text-center py-10 px-6 space-y-6">
-              <div
-                class="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl mx-auto"
-              >
-                🚧
-              </div>
-              <div class="space-y-1">
-                <h3 class="text-lg font-black font-display text-white tracking-wide">
-                  {{ roomTypeLabel(placeholderChoice) }} — en construction
-                </h3>
-                <p class="text-xs text-gray-400 max-w-sm mx-auto">
-                  Ce type de salle arrivera dans une prochaine mise à jour. Pour l'instant,
-                  poursuivez votre ascension !
-                </p>
-              </div>
-              <UButton
-                size="lg"
-                color="primary"
-                block
-                :loading="loading"
-                class="font-black font-display uppercase tracking-widest py-3.5"
-                @click="confirmPlaceholder"
-              >
-                Étape suivante
-              </UButton>
-            </div>
+            <!-- Boutique -->
+            <BrainrunShop
+              v-if="currentRoom?.type === 'SHOP' && currentRoom.status === 'ACTIVE'"
+              :offers="currentRoom.offers ?? []"
+              :gold="run?.gold ?? 0"
+              :loading="loading"
+              @buy="(index: number) => brainrun.buyShopItem(index)"
+              @leave="brainrun.leaveShop()"
+            />
+
+            <!-- Événement -->
+            <BrainrunEvent
+              v-else-if="currentRoom?.type === 'EVENT' && currentRoom.status === 'ACTIVE'"
+              :event-id="currentRoom.eventId"
+              :loading="loading"
+              @choose="(index: number) => brainrun.resolveEvent(index)"
+            />
 
             <!-- Écran de choix -->
             <div v-else-if="awaitingChoice" class="space-y-3">
@@ -161,7 +187,7 @@
             />
 
             <!-- Récap de fin de salle (or gagné, PV perdus) -->
-            <div v-else-if="roomRecap" class="text-center py-8 px-6 space-y-6">
+            <div v-else-if="roomRecap && !showBonusStep" class="text-center py-8 px-6 space-y-6">
               <div
                 class="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl mx-auto"
               >
@@ -209,11 +235,20 @@
                 block
                 :loading="loading"
                 class="font-black font-display uppercase tracking-widest py-3.5 max-w-sm mx-auto"
-                @click="brainrun.acknowledgeRoom()"
+                @click="handleRecapContinue"
               >
                 Continuer
               </UButton>
             </div>
+
+            <!-- Bonus post-combat (Elite/Boss uniquement) -->
+            <BrainrunBonusSelect
+              v-else-if="showBonusStep"
+              :offers="currentRoom?.offers ?? []"
+              :loading="loading"
+              @pick="handleBonusPick"
+              @skip="handleBonusSkip"
+            />
 
             <div v-else class="text-center py-10">
               <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
@@ -302,6 +337,12 @@ import {
   brainrunPotentialBossDamage,
   type BrainrunRoomType,
 } from "#shared/brainrun";
+import {
+  BRAINRUN_CONSUMABLES,
+  BRAINRUN_RELICS,
+  type BrainrunConsumableId,
+  type BrainrunRelicId,
+} from "#shared/brainrunItems";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -314,7 +355,8 @@ const showBottomNav = useState("showBottomNav", () => true);
 // de la dernière question d'une salle, pour ne pas basculer vers le récap/l'écran de fin
 // tant que le joueur n'a pas cliqué sur "Continuer".
 const holdOnFeedback = useState("brainrun-hold-on-feedback", () => false);
-const placeholderChoice = ref<BrainrunRoomType | null>(null);
+// true entre le récap de fin de salle Elite/Boss et la résolution du bonus (relique/consommable).
+const showBonusStep = ref(false);
 
 const roomsPerAct = BRAINRUN_ROOMS_PER_ACT;
 
@@ -358,6 +400,27 @@ const roomRecap = computed(() => {
   };
 });
 
+const ownedRelics = computed(() =>
+  (run.value?.relics ?? []).map((id) => BRAINRUN_RELICS[id as BrainrunRelicId]),
+);
+
+// Icônes seules (max 3, une par type possédé) alignées à droite sur la même ligne que les
+// reliques ; les boutons d'usage pendant une question restent dans BrainrunQuestionRunner.
+const ownedConsumables = computed(() => {
+  const consumables = run.value?.consumables ?? {};
+  return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[])
+    .filter((id) => (consumables[id] ?? 0) > 0)
+    .map((id) => ({ ...BRAINRUN_CONSUMABLES[id], count: consumables[id]! }))
+    .slice(0, 3);
+});
+
+const CONSUMABLE_SLOT_COUNT = 3;
+// 3 emplacements fixes (même taille que l'icône finale) : vides tant qu'aucun objet ne les
+// occupe, remplis de gauche à droite au fur et à mesure des nouveaux objets obtenus.
+const consumableSlots = computed(() =>
+  Array.from({ length: CONSUMABLE_SLOT_COUNT }, (_, i) => ownedConsumables.value[i] ?? null),
+);
+
 watch(
   () => isRunActive.value && !awaitingChoice.value && !!currentQuestion.value,
   (inQuestion) => {
@@ -370,21 +433,30 @@ onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
 
-const INSTANT_TYPES: BrainrunRoomType[] = ["SHOP", "EVENT"];
-
 async function selectChoice(option: BrainrunRoomType) {
-  if (INSTANT_TYPES.includes(option)) {
-    placeholderChoice.value = option;
-    return;
-  }
   await brainrun.chooseOption(option);
 }
 
-async function confirmPlaceholder() {
-  if (!placeholderChoice.value) return;
-  const choice = placeholderChoice.value;
-  placeholderChoice.value = null;
-  await brainrun.chooseOption(choice);
+/** "Continuer" du récap : bascule vers l'écran de bonus si la salle Elite/Boss en propose un
+ * non résolu, sinon avance directement vers la salle suivante. */
+async function handleRecapContinue() {
+  if (currentRoom.value?.offersRequireChoice && !currentRoom.value.offersResolved) {
+    showBonusStep.value = true;
+    return;
+  }
+  await brainrun.acknowledgeRoom();
+}
+
+async function handleBonusPick(id: string) {
+  await brainrun.resolveBonus(id);
+  showBonusStep.value = false;
+  await brainrun.acknowledgeRoom();
+}
+
+async function handleBonusSkip() {
+  await brainrun.resolveBonus("SKIP");
+  showBonusStep.value = false;
+  await brainrun.acknowledgeRoom();
 }
 
 function roomTypeLabel(type: BrainrunRoomType): string {

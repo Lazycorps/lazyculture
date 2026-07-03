@@ -47,9 +47,9 @@
         <button
           v-for="proposition in propositions"
           :key="proposition.id"
-          :disabled="disabled"
+          :disabled="disabled || eliminatedIds.includes(proposition.id)"
           class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-md tracking-wide font-display border transition-all duration-150 relative select-none"
-          :class="getOptionClass(proposition.id)"
+          :class="[getOptionClass(proposition.id), hintClass(proposition.id)]"
           @click="selectOption(proposition.id)"
         >
           <div class="flex items-center justify-between">
@@ -72,6 +72,12 @@
                 name="i-heroicons-x-circle-20-solid"
                 class="text-xl text-rose-500 animate-shake"
               />
+            </span>
+            <span
+              v-else-if="!showCorrectIncorrectColors && hintId === proposition.id"
+              title="Suggestion de l'Appel à un ami"
+            >
+              <UIcon name="i-heroicons-phone" class="text-lg text-amber-400" />
             </span>
             <span v-else-if="!showCorrectIncorrectColors && selectedOptionId === proposition.id">
               <UIcon name="i-heroicons-check-circle-20-solid" class="text-xl text-violet-400" />
@@ -106,6 +112,10 @@ const props = withDefaults(
     showCorrectIncorrectColors?: boolean;
     showReporting?: boolean;
     questionId?: number;
+    /** Propositions éliminées par le consommable 50/50 : grisées et non cliquables. */
+    eliminatedIds?: number[];
+    /** Proposition suggérée par le consommable Appel à un ami (peut être fausse). */
+    hintId?: number | null;
   }>(),
   {
     img: "",
@@ -117,6 +127,8 @@ const props = withDefaults(
     showCorrectIncorrectColors: false,
     showReporting: false,
     questionId: 0,
+    eliminatedIds: () => [],
+    hintId: null,
   },
 );
 
@@ -144,11 +156,19 @@ watch(
 );
 
 function selectOption(id: number) {
-  if (props.disabled) return;
+  if (props.disabled || props.eliminatedIds.includes(id)) return;
   emit("selectOption", id);
 }
 
+function hintClass(id: number) {
+  if (props.showCorrectIncorrectColors || props.hintId !== id) return "";
+  return "ring-2 ring-amber-400/60";
+}
+
 function getOptionClass(id: number) {
+  if (!props.showCorrectIncorrectColors && props.eliminatedIds.includes(id)) {
+    return "bg-slate-900/30 border-white/5 text-gray-600 opacity-30 cursor-not-allowed line-through";
+  }
   // Post-response evaluation state (solo/series modes or when showing corrections)
   if (props.showCorrectIncorrectColors) {
     if (props.correctOptionId === id) {

@@ -19,8 +19,29 @@
       :showCorrectIncorrectColors="responded"
       :showReporting="true"
       :questionId="localQuestion.id"
+      :eliminatedIds="eliminatedIds"
+      :hintId="hintId"
       @selectOption="selectOption"
     />
+
+    <!-- Consommables : 50/50, Appel à un ami, Bouclier — usage unique pendant la question. -->
+    <div
+      v-if="!responded && availableConsumables.length > 0"
+      class="flex justify-center flex-wrap gap-2 mt-3"
+    >
+      <button
+        v-for="consumable in availableConsumables"
+        :key="consumable.id"
+        type="button"
+        :disabled="consumableLoading"
+        class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs font-bold font-display text-gray-300 disabled:opacity-40 transition-colors"
+        @click="handleUseConsumable(consumable.id)"
+      >
+        <UIcon :name="consumable.icon" class="text-sm text-amber-400" />
+        {{ consumable.name }}
+        <span class="text-gray-500">×{{ consumable.count }}</span>
+      </button>
+    </div>
 
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
@@ -99,6 +120,7 @@
 <script setup lang="ts">
 import type { QuestionDTO } from "#shared/question";
 import { BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
+import { BRAINRUN_CONSUMABLES, type BrainrunConsumableId } from "#shared/brainrunItems";
 
 const props = defineProps<{
   question: QuestionDTO | null;
@@ -135,6 +157,39 @@ const remainingMs = useState("brainrun-boss-remaining-ms", () => BRAINRUN_BOSS_Q
 let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
 
 const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
+
+// 50/50 / Appel à un ami : effet calculé et persisté côté serveur pour la question en cours
+// (le client a déjà data.response/propositions, mais l'inventaire et le tirage aléatoire sont
+// gérés par le serveur, cf. BrainrunService.useConsumable).
+const eliminatedIds = computed(
+  () => brainrun.currentRoom.value?.consumableReveal?.eliminatedIds ?? [],
+);
+const hintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.hintId ?? null);
+const consumableLoading = ref(false);
+const availableConsumables = computed(() => {
+  const consumables = brainrun.run.value?.consumables ?? {};
+  const shieldArmed = brainrun.run.value?.shieldArmed ?? false;
+  return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[])
+    .filter((id) => {
+      if ((consumables[id] ?? 0) <= 0) return false;
+      if (id === "SHIELD") return !shieldArmed;
+      if (id === "FIFTY_FIFTY") return eliminatedIds.value.length === 0;
+      if (id === "PHONE_A_FRIEND") return hintId.value === null;
+      return true;
+    })
+    .map((id) => ({ ...BRAINRUN_CONSUMABLES[id], count: consumables[id]! }));
+});
+
+async function handleUseConsumable(type: BrainrunConsumableId) {
+  consumableLoading.value = true;
+  try {
+    await brainrun.useConsumable(type);
+  } catch (e) {
+    console.error("Failed to use brainrun consumable:", e);
+  } finally {
+    consumableLoading.value = false;
+  }
+}
 
 function updateRemainingMs() {
   const deadline = brainrun.currentRoom.value?.questionDeadline;
