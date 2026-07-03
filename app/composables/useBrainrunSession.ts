@@ -6,6 +6,7 @@ import type {
   BrainrunRunDTO,
   BrainrunStateDTO,
 } from "#shared/brainrun";
+import type { BrainrunConsumableId } from "#shared/brainrunItems";
 
 /** État de session Brainrun : solo, tour par tour, pas de SSE — un simple fetch authentifié suffit. */
 export const useBrainrunSession = () => {
@@ -78,6 +79,82 @@ export const useBrainrunSession = () => {
     );
   }
 
+  /** pick = id de relique/consommable proposé dans currentRoom.offers, ou "SKIP". */
+  async function resolveBonus(pick: string) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/bonus", {
+          method: "post",
+          body: { runId: run.value.id, pick },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function buyShopItem(offerIndex: number) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/shop-buy", {
+          method: "post",
+          body: { runId: run.value.id, offerIndex },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function leaveShop() {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/shop-leave", {
+          method: "post",
+          body: { runId: run.value.id },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function resolveEvent(optionIndex: number) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/event", {
+          method: "post",
+          body: { runId: run.value.id, optionIndex },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function useConsumable(type: BrainrunConsumableId) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    const state = await authFetch<BrainrunStateDTO>("/api/brainrun/consumable", {
+      method: "post",
+      body: { runId: run.value.id, type },
+    });
+    applyState(state);
+    return state;
+  }
+
   async function acknowledgeRoom() {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -129,6 +206,11 @@ export const useBrainrunSession = () => {
     submitAnswer,
     chooseOption,
     readyNextBossQuestion,
+    resolveBonus,
+    buyShopItem,
+    leaveShop,
+    resolveEvent,
+    useConsumable,
     acknowledgeRoom,
     startNewRun,
     abandonRun,
