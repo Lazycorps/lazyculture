@@ -3,13 +3,17 @@ import { isCorrectAnswer, questionService } from "~~/server/services/QuestionSer
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import {
+  brainrunBossDamage,
   brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
   generateActChoicePoints,
   instantRoomHealthDelta,
+  isBossAnswerTimedOut,
   nextRoomAfterClear,
 } from "~~/server/utils/brainrunLogic";
 import {
+  BRAINRUN_BOSS_MAX_HP,
+  BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_DIFFICULTY_BY_ACT,
   BRAINRUN_GOLD_BY_ROOM_TYPE,
   BRAINRUN_MAX_HP,
@@ -120,7 +124,9 @@ export class BrainrunService {
       const combatType = choice as CombatRoomType;
       const [minDifficulty, maxDifficulty] =
         BRAINRUN_DIFFICULTY_BY_ACT[run.currentAct]![combatType]!;
-      const count = BRAINRUN_QUESTIONS_PER_ROOM[combatType];
+      // Le combat de boss n'a pas de nombre de questions fixe : on n'en tire qu'une seule ici,
+      // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
+      const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
       const questionIds = await questionService.getRandomIdsByDifficulty(
         minDifficulty,
         maxDifficulty,
@@ -131,7 +137,19 @@ export class BrainrunService {
 
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { type: choice, status: "ACTIVE", questionIds, responses: [] },
+        data: {
+          type: choice,
+          status: "ACTIVE",
+          questionIds,
+          responses: [],
+          ...(combatType === "BOSS"
+            ? {
+                bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
+                bossMaxHealthPoint: BRAINRUN_BOSS_MAX_HP,
+                questionStartedAt: new Date(),
+              }
+            : {}),
+        },
       });
       await prisma.brainrunRun.update({
         where: { id: run.id },
@@ -165,17 +183,37 @@ export class BrainrunService {
     }
 
     const question = await prisma.question.findFirstOrThrow({ where: { id: questionId } });
-    const success = isCorrectAnswer(question, userResponseId);
+    const isBossRoom = activeRoom.type === "BOSS";
+    const elapsedMs = activeRoom.questionStartedAt
+      ? Date.now() - activeRoom.questionStartedAt.getTime()
+      : 0;
+    // Contre-la-montre : passé le délai imparti, la réponse est forcée en échec, quelle
+    // que soit la proposition envoyée par le client (le boss riposte).
+    const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs);
+    const success = !timedOut && isCorrectAnswer(question, userResponseId);
     const hpLoss = success ? 0 : brainrunHpLossForDifficulty(question.difficulty);
+    const bossDamage = isBossRoom ? brainrunBossDamage(elapsedMs, success) : 0;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
-      { questionId, responseId: userResponseId, success, hpLoss },
+      {
+        questionId,
+        responseId: userResponseId,
+        success,
+        hpLoss,
+        ...(isBossRoom ? { bossDamage, timedOut } : {}),
+      },
     ];
     const newHealthPoint = run.healthPoint - hpLoss;
     const died = newHealthPoint <= 0;
+    const newBossHealthPoint = isBossRoom
+      ? Math.max((activeRoom.bossHealthPoint ?? BRAINRUN_BOSS_MAX_HP) - bossDamage, 0)
+      : null;
+    const bossDefeated = isBossRoom && newBossHealthPoint === 0;
     // La salle se termine dès que toutes ses questions ont été posées, qu'elles aient
     // été réussies ou non — seule la mort met fin à la salle avant la dernière question.
-    const roomQuestionsDone = newResponses.length === activeRoom.questionIds.length;
+    // Un combat de boss n'a pas de fin sur épuisement des questions : il ne se termine
+    // que lorsque le boss est vaincu (bossDefeated) ou que le joueur meurt.
+    const roomQuestionsDone = !isBossRoom && newResponses.length === activeRoom.questionIds.length;
 
     await prisma.brainrunRun.update({
       where: { id: run.id },
@@ -185,14 +223,23 @@ export class BrainrunService {
     if (died) {
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { responses: newResponses, status: "FAILED" },
+        data: {
+          responses: newResponses,
+          status: "FAILED",
+          ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint } : {}),
+        },
       });
       await this.finalizeRun(run.id, "LOST");
-    } else if (roomQuestionsDone) {
+    } else if (bossDefeated || roomQuestionsDone) {
       const goldEarned = BRAINRUN_GOLD_BY_ROOM_TYPE[activeRoom.type as CombatRoomType];
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { responses: newResponses, status: "CLEARED", goldEarned },
+        data: {
+          responses: newResponses,
+          status: "CLEARED",
+          goldEarned,
+          ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint } : {}),
+        },
       });
       await prisma.brainrunRun.update({
         where: { id: run.id },
@@ -201,9 +248,34 @@ export class BrainrunService {
       // L'avancée vers la salle suivante est différée : acknowledgeRoom() la déclenche
       // une fois que le joueur a vu le récap (or gagné / PV perdus) de cette salle.
     } else {
+      // Boss non vaincu : si la réserve de questions déjà tirées est épuisée, on en tire
+      // une nouvelle à la volée (pas de limite de questions pour un combat de boss).
+      let updatedQuestionIds = activeRoom.questionIds;
+      let updatedUsedQuestionIds: number[] | undefined;
+      if (isBossRoom && newResponses.length === activeRoom.questionIds.length) {
+        updatedUsedQuestionIds = [...run.usedQuestionIds, ...activeRoom.questionIds];
+        const nextQuestionId = await this.getNextBossQuestionId(
+          run.currentAct,
+          updatedUsedQuestionIds,
+          userId,
+        );
+        updatedQuestionIds = [...activeRoom.questionIds, nextQuestionId];
+        await prisma.brainrunRun.update({
+          where: { id: run.id },
+          data: { usedQuestionIds: updatedUsedQuestionIds },
+        });
+      }
+
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { responses: newResponses },
+        data: {
+          responses: newResponses,
+          questionIds: updatedQuestionIds,
+          // Le chrono de la question suivante ne démarre qu'à l'appel explicite de
+          // prepareNextBossQuestion(), une fois que le joueur a fini de lire le feedback
+          // de cette réponse — sinon le temps de lecture serait décompté à son insu.
+          ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint, questionStartedAt: null } : {}),
+        },
       });
     }
 
@@ -223,6 +295,32 @@ export class BrainrunService {
     }
 
     await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentSequence);
+    return this.getStateById(run.id);
+  }
+
+  /**
+   * Démarre le chrono de la prochaine question d'un combat de boss, une fois que le joueur
+   * a terminé de lire le feedback de la question précédente (cf. commentaire dans submitAnswer :
+   * le chrono ne doit pas courir pendant que le joueur lit ce feedback).
+   */
+  async prepareNextBossQuestion(runId: string, userId: string): Promise<BrainrunStateDTO> {
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const activeRoom = this.findActiveRoom(run);
+
+    if (activeRoom.type !== "BOSS" || activeRoom.status !== "ACTIVE") {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Aucun combat de boss en attente de question.",
+      });
+    }
+
+    if (activeRoom.questionStartedAt === null) {
+      await prisma.brainrunRoom.update({
+        where: { id: activeRoom.id },
+        data: { questionStartedAt: new Date() },
+      });
+    }
+
     return this.getStateById(run.id);
   }
 
@@ -307,6 +405,40 @@ export class BrainrunService {
     }
   }
 
+  /**
+   * Tire la prochaine question d'un combat de boss en cours, en excluant les questions déjà
+   * posées dans la run. Si le palier de difficulté n'a plus de question inédite disponible
+   * (run très longue), on retombe sur n'importe quelle question de ce palier plutôt que
+   * d'échouer — le combat de boss ne doit jamais se retrouver bloqué faute de question.
+   */
+  private async getNextBossQuestionId(
+    act: number,
+    excludeIds: number[],
+    userId: string,
+  ): Promise<number> {
+    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[act]!.BOSS;
+    const [id] = await questionService.getRandomIdsByDifficulty(
+      minDifficulty,
+      maxDifficulty,
+      1,
+      excludeIds,
+      userId,
+    );
+    if (id !== undefined) return id;
+
+    const [fallbackId] = await questionService.getRandomIdsByDifficulty(
+      minDifficulty,
+      maxDifficulty,
+      1,
+      [],
+      userId,
+    );
+    if (fallbackId === undefined) {
+      throw createError({ statusCode: 500, statusMessage: "Aucune question de boss disponible." });
+    }
+    return fallbackId;
+  }
+
   private async getOwnedInProgressRun(runId: string, userId: string) {
     const run = await prisma.brainrunRun.findFirst({
       where: { id: runId, userId },
@@ -380,6 +512,11 @@ export class BrainrunService {
   }
 
   private toRoomDTO(room: BrainrunRoomRow): BrainrunRoomDTO {
+    const questionDeadline =
+      room.type === "BOSS" && room.status === "ACTIVE" && room.questionStartedAt
+        ? new Date(room.questionStartedAt.getTime() + BRAINRUN_BOSS_QUESTION_TIME_MS)
+        : null;
+
     return {
       id: room.id,
       runId: room.runId,
@@ -391,6 +528,9 @@ export class BrainrunService {
       questionIds: room.questionIds,
       responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],
       goldEarned: room.goldEarned,
+      bossHealthPoint: room.bossHealthPoint,
+      bossMaxHealthPoint: room.bossMaxHealthPoint,
+      questionDeadline,
     };
   }
 }

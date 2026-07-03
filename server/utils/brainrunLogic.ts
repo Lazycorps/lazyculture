@@ -1,4 +1,5 @@
 import type { BrainrunRoomType } from "#shared/brainrun";
+import { brainrunPotentialBossDamage, BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
 import {
   BRAINRUN_CHOICE_POINTS_PER_ACT,
   BRAINRUN_MIN_EVENT_OFFERS,
@@ -42,6 +43,20 @@ export function nextRoomAfterClear(act: number, sequence: number): NextRoomOutco
 
 export function instantRoomHealthDelta(type: "REST" | "SHOP" | "EVENT"): number {
   return type === "REST" ? 1 : 0;
+}
+
+/** true dès que le temps imparti pour répondre à la question de boss est écoulé. */
+export function isBossAnswerTimedOut(elapsedMs: number): boolean {
+  return elapsedMs >= BRAINRUN_BOSS_QUESTION_TIME_MS;
+}
+
+/**
+ * Dégâts infligés au boss pour une réponse donnée : 0 si incorrecte, sinon la valeur
+ * potentielle décroissante selon le temps écoulé (cf. brainrunPotentialBossDamage, partagée
+ * avec le client qui l'utilise pour afficher l'aperçu de dégâts pendant le combat).
+ */
+export function brainrunBossDamage(elapsedMs: number, success: boolean): number {
+  return success ? brainrunPotentialBossDamage(elapsedMs) : 0;
 }
 
 export function calculBrainrunUserXP(

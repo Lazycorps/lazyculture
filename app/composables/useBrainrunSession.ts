@@ -66,6 +66,18 @@ export const useBrainrunSession = () => {
     }
   }
 
+  /** Démarre le chrono de la question de boss suivante ; à appeler une fois le feedback lu. */
+  async function readyNextBossQuestion() {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    applyState(
+      await authFetch<BrainrunStateDTO>("/api/brainrun/boss-ready", {
+        method: "post",
+        body: { runId: run.value.id },
+      }),
+    );
+  }
+
   async function acknowledgeRoom() {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -116,6 +128,7 @@ export const useBrainrunSession = () => {
     fetchCurrent,
     submitAnswer,
     chooseOption,
+    readyNextBossQuestion,
     acknowledgeRoom,
     startNewRun,
     abandonRun,

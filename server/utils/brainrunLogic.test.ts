@@ -1,14 +1,22 @@
 import { describe, it, expect } from "vite-plus/test";
 import {
+  brainrunBossDamage,
   brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
   generateActChoicePoints,
   instantRoomHealthDelta,
   isAwaitingChoice,
+  isBossAnswerTimedOut,
   nextRoomAfterClear,
   shouldEndRunOnDamage,
 } from "./brainrunLogic";
-import { BRAINRUN_CHOICE_POINTS_PER_ACT } from "./brainrunConfig";
+import {
+  BRAINRUN_BOSS_BASE_DAMAGE,
+  BRAINRUN_BOSS_FAST_ANSWER_MS,
+  BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
+  BRAINRUN_BOSS_QUESTION_TIME_MS,
+  BRAINRUN_CHOICE_POINTS_PER_ACT,
+} from "./brainrunConfig";
 
 describe("brainrunHpLossForDifficulty", () => {
   it("maps difficulty tiers to the expected HP loss", () => {
@@ -40,6 +48,36 @@ describe("instantRoomHealthDelta", () => {
     expect(instantRoomHealthDelta("REST")).toBe(1);
     expect(instantRoomHealthDelta("SHOP")).toBe(0);
     expect(instantRoomHealthDelta("EVENT")).toBe(0);
+  });
+});
+
+describe("isBossAnswerTimedOut", () => {
+  it("is true once the elapsed time reaches the boss question time limit", () => {
+    expect(isBossAnswerTimedOut(0)).toBe(false);
+    expect(isBossAnswerTimedOut(BRAINRUN_BOSS_QUESTION_TIME_MS - 1)).toBe(false);
+    expect(isBossAnswerTimedOut(BRAINRUN_BOSS_QUESTION_TIME_MS)).toBe(true);
+    expect(isBossAnswerTimedOut(BRAINRUN_BOSS_QUESTION_TIME_MS + 1000)).toBe(true);
+  });
+});
+
+describe("brainrunBossDamage", () => {
+  it("deals no damage on an incorrect answer, regardless of elapsed time", () => {
+    expect(brainrunBossDamage(0, false)).toBe(0);
+    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS - 1, false)).toBe(0);
+  });
+
+  it("deals no damage once the question has timed out, even if marked correct", () => {
+    expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS, true)).toBe(0);
+  });
+
+  it("deals base damage on a correct answer at normal speed", () => {
+    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS, true)).toBe(BRAINRUN_BOSS_BASE_DAMAGE);
+  });
+
+  it("deals multiplied damage on a fast correct answer", () => {
+    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS - 1, true)).toBe(
+      BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
+    );
   });
 });
 

@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import type { QuestionDTO } from "#shared/question";
+import { BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
 
 const props = defineProps<{
   question: QuestionDTO | null;
@@ -109,6 +110,11 @@ const emit = defineEmits<{
 
 const brainrun = useBrainrunSession();
 const showBottomNav = useState("showBottomNav", () => true);
+// Signale à la page parente de garder cet écran affiché tant que le feedback de la
+// dernière question d'une salle est visible, même si l'état serveur (currentQuestion/
+// isRunActive) a déjà basculé vers la salle/run suivante — la transition visuelle
+// n'a lieu qu'au clic sur "Continuer" (cf. nextQuestion()).
+const holdOnFeedback = useState("brainrun-hold-on-feedback", () => false);
 
 const loading = ref(false);
 const commentaire = ref("");
@@ -119,6 +125,41 @@ const greenResponse = ref<number | null>(null);
 const questionDisplay = ref<any>(null);
 const containerRef = ref<HTMLElement | null>(null);
 const actionBarRef = ref<HTMLElement | null>(null);
+
+// Combat de boss (contre-la-montre) : chrono par question, dérivé de brainrun.currentRoom
+// (mis à jour par le serveur, seule source de vérité du temps restant). Partagé via useState
+// avec la page parente, qui affiche la barre de PV du boss + les dégâts potentiels à partir
+// de cette même valeur (à la place du séparateur habituel entre l'en-tête et la question).
+const timedOutFlag = ref(false);
+const remainingMs = useState("brainrun-boss-remaining-ms", () => BRAINRUN_BOSS_QUESTION_TIME_MS);
+let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
+
+const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
+
+function updateRemainingMs() {
+  const deadline = brainrun.currentRoom.value?.questionDeadline;
+  remainingMs.value = deadline
+    ? Math.max(0, new Date(deadline).getTime() - Date.now())
+    : BRAINRUN_BOSS_QUESTION_TIME_MS;
+}
+
+function stopBossTimer() {
+  if (bossTimerInterval) clearInterval(bossTimerInterval);
+  bossTimerInterval = null;
+}
+
+function startBossTimerIfNeeded() {
+  stopBossTimer();
+  // Pas de question à afficher (salle terminée, écran de récap/fin à venir) : rien à chronométrer.
+  if (!isBossRoom.value || !localQuestion.value) return;
+  updateRemainingMs();
+  bossTimerInterval = setInterval(() => {
+    updateRemainingMs();
+    if (remainingMs.value <= 0 && !responded.value) {
+      handleBossTimeout();
+    }
+  }, 200);
+}
 
 // Snapshot local de la question affichée : protège l'affichage du feedback (couleurs,
 // commentaire) du fait que useBrainrunSession().currentQuestion avance déjà vers la
@@ -146,11 +187,14 @@ onMounted(() => {
     });
     actionBarObserver.observe(actionBarRef.value);
   }
+  startBossTimerIfNeeded();
 });
 
 onBeforeUnmount(() => {
   showBottomNav.value = true;
+  holdOnFeedback.value = false;
   actionBarObserver?.disconnect();
+  stopBossTimer();
 });
 
 async function scrollFeedbackIntoView() {
@@ -161,6 +205,7 @@ async function scrollFeedbackIntoView() {
 }
 
 const isCorrect = computed(() => {
+  if (timedOutFlag.value) return false;
   return greenResponse.value === redResponse.value
     ? false
     : greenResponse.value !== null && redResponse.value === null;
@@ -192,29 +237,76 @@ async function validateResponse() {
     // Fixé avant l'appel réseau : le watcher ci-dessus ignore alors le nouveau
     // currentQuestion que submitAnswer va déclencher pendant qu'on montre le feedback.
     responded.value = true;
+    holdOnFeedback.value = true;
+    stopBossTimer();
     await brainrun.submitAnswer(question.id, selectedResponse.value);
     scrollFeedbackIntoView();
   } catch (e) {
     console.error("Failed to submit brainrun answer:", e);
     responded.value = false;
+    holdOnFeedback.value = false;
   } finally {
     loading.value = false;
   }
 }
 
+/** Contre-la-montre : le temps imparti à la question de boss en cours est écoulé. */
+async function handleBossTimeout() {
+  if (responded.value) return;
+  const question = localQuestion.value;
+  if (!question) return;
+  stopBossTimer();
+  commentaire.value = question.data.commentaire;
+  redResponse.value = null;
+  greenResponse.value = question.data.response;
+  timedOutFlag.value = true;
+  responded.value = true;
+  holdOnFeedback.value = true;
+  try {
+    // -1 : sentinelle "aucune réponse", le serveur force de toute façon l'échec au vu du délai écoulé.
+    await brainrun.submitAnswer(question.id, selectedResponse.value ?? -1);
+    scrollFeedbackIntoView();
+  } catch (e) {
+    console.error("Failed to submit brainrun boss timeout:", e);
+    responded.value = false;
+    timedOutFlag.value = false;
+    holdOnFeedback.value = false;
+  }
+}
+
 async function nextQuestion() {
+  // Levé dès le clic : si une question suivante existe, currentQuestion reste de toute
+  // façon truthy côté parent ; sinon (salle terminée), c'est ce flag qui autorisait
+  // encore l'affichage — sa levée déclenche enfin la transition vers le récap/l'écran de fin.
+  holdOnFeedback.value = false;
   responded.value = false;
   commentaire.value = "";
   selectedResponse.value = null;
   redResponse.value = null;
   greenResponse.value = null;
+  timedOutFlag.value = false;
   questionDisplay.value?.resetReporting();
 
-  localQuestion.value = props.question;
+  // Démarre le chrono de la question de boss suivante seulement maintenant que le joueur
+  // a fini de lire le feedback précédent (cf. commentaire côté serveur dans submitAnswer).
+  if (
+    isBossRoom.value &&
+    !brainrun.currentRoom.value?.questionDeadline &&
+    brainrun.currentQuestion.value
+  ) {
+    await brainrun.readyNextBossQuestion();
+    // brainrun.currentQuestion est la même ref partagée que le prop "question" du parent :
+    // on la lit directement pour éviter de dépendre du timing de propagation du prop après cet await.
+    localQuestion.value = brainrun.currentQuestion.value;
+  } else {
+    localQuestion.value = props.question;
+  }
   emit("advanced");
 
   await nextTick();
   containerRef.value?.scrollIntoView({ block: "start" });
+
+  startBossTimerIfNeeded();
 }
 </script>
 

@@ -310,19 +310,22 @@ model BrainrunRun {
 }
 
 model BrainrunRoom {
-    id          Int         @id @default(autoincrement())
-    runId       String
-    run         BrainrunRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-    act         Int // 1..3
-    sequence    Int // 1..7 dans l'acte
-    type        String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
-    status      String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
-    choiceTypes String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
-    questionIds Int[]       @default([])
-    responses   Json?
-    goldEarned  Int         @default(0)
-    createDate  DateTime    @default(now())
-    updateDate  DateTime    @default(now())
+    id                 Int         @id @default(autoincrement())
+    runId              String
+    run                BrainrunRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+    act                Int // 1..3
+    sequence           Int // 1..7 dans l'acte
+    type               String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
+    status             String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
+    choiceTypes        String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
+    questionIds        Int[]       @default([])
+    responses          Json?
+    goldEarned         Int         @default(0)
+    bossHealthPoint    Int? // PV courants du boss, uniquement pour type=BOSS
+    bossMaxHealthPoint Int? // PV max du boss au démarrage du combat, uniquement pour type=BOSS
+    questionStartedAt  DateTime? // horodatage d'affichage de la question en attente, sert de base au chrono du combat de boss
+    createDate         DateTime    @default(now())
+    updateDate         DateTime    @default(now())
 
     @@unique([runId, act, sequence])
     @@index([runId])
