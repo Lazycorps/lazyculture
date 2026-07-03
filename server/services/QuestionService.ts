@@ -3,6 +3,11 @@ import prisma from "~~/server/utils/prisma";
 import { QuestionDataDTO, QuestionDTO, QuestionReportingDTO } from "#shared/question";
 import type { ReportingDTO } from "#shared/DTO/reportingDTO";
 
+/** Vrai si la réponse donnée correspond à la réponse attendue de la question. Source unique de vérité, réutilisée par ResponseService et BrainrunService. */
+export function isCorrectAnswer(question: { data: unknown }, userResponseId: number): boolean {
+  return (question.data as unknown as QuestionDataDTO).response === userResponseId;
+}
+
 export class QuestionService {
   async getById(id: number) {
     const question = await prisma.question.findFirst({ where: { id } });
@@ -74,6 +79,40 @@ export class QuestionService {
       ...question,
       themes: themes.map((t) => t.name),
     };
+  }
+
+  /**
+   * Jusqu'à `count` IDs de questions aléatoires dans [minDifficulty, maxDifficulty], en excluant
+   * `excludeIds` (anti-répétition sur une run Brainrun). Préfère les questions jamais réussies par
+   * l'utilisateur (même logique que getRandom) ; si le pool est trop restreint, retombe sur toutes
+   * les questions de la plage sans cette préférence plutôt que de renvoyer moins que `count`.
+   */
+  async getRandomIdsByDifficulty(
+    minDifficulty: number,
+    maxDifficulty: number,
+    count: number,
+    excludeIds: number[],
+    userId?: string,
+  ): Promise<number[]> {
+    const baseWhere = {
+      deleted: false,
+      difficulty: { gte: minDifficulty, lte: maxDifficulty },
+      id: { notIn: excludeIds },
+    };
+
+    let candidates = await prisma.question.findMany({
+      where: {
+        ...baseWhere,
+        ...(userId && { Response: { none: { userId, success: true } } }),
+      },
+      select: { id: true },
+    });
+
+    if (candidates.length < count) {
+      candidates = await prisma.question.findMany({ where: baseWhere, select: { id: true } });
+    }
+
+    return this.shuffleArray(candidates.map((c) => c.id)).slice(0, count);
   }
 
   async create(question: QuestionDTO, authorName: string) {
@@ -273,7 +312,7 @@ export class QuestionService {
     return ids[randomIndex]?.id;
   }
 
-  private shuffleArray<T>(array: T[]): T[] {
+  shuffleArray<T>(array: T[]): T[] {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j]!, array[i]!]; // Échange des éléments

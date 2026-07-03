@@ -1,6 +1,6 @@
 import prisma from "~~/server/utils/prisma";
 import type { ResponseDTO } from "#shared/DTO/responseDTO";
-import { QuestionDataDTO } from "#shared/question";
+import { isCorrectAnswer } from "~~/server/services/QuestionService";
 
 export class ResponseService {
   async validateResponse(body: ResponseDTO, userId: string) {
@@ -10,7 +10,7 @@ export class ResponseService {
 
     if (!question?.data) return;
 
-    const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+    const success = isCorrectAnswer(question, body.userResponseId);
 
     await prisma.questionResponse.create({
       data: {

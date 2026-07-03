@@ -127,6 +127,7 @@ export default defineNuxtConfig({
     "/adventure/**": { ssr: false },
     "/series/battle-royale": { ssr: false },
     "/series/showdown": { ssr: false },
+    "/series/brainrun": { ssr: false },
     "/login": { ssr: false },
     "/confirm": { ssr: false },
   },

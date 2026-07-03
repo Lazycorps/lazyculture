@@ -18,7 +18,9 @@ type ActionType =
   | "brGames"
   | "brWins"
   | "showdownGames"
-  | "showdownWins";
+  | "showdownWins"
+  | "brainrunGames"
+  | "brainrunWins";
 
 // Conditions d'achievement
 interface AchievementCondition {
