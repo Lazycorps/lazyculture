@@ -34,6 +34,7 @@ model User {
     FollowNotifReceived    FollowNotification[]     @relation("FollowNotifFollowing")
     notifications          Notification[]
     BrainrunRun            BrainrunRun[]
+    BrainrunMetaProgress   BrainrunMetaProgress?
 }
 
 model Follow {
@@ -303,6 +304,7 @@ model BrainrunRun {
     consumables     Json           @default("{}") // Record<consumableId, count>
     shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
     xpEarned        Int?
+    knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)
     createDate      DateTime       @default(now())
     updateDate      DateTime       @default(now())
     endDate         DateTime?
@@ -337,6 +339,15 @@ model BrainrunRoom {
 
     @@unique([runId, act, sequence])
     @@index([runId])
+}
+
+model BrainrunMetaProgress {
+    userId          String   @id
+    user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    knowledgePoints Int      @default(0)
+    unlockedTalents String[] @default([]) // ids du catalogue BRAINRUN_TALENTS (shared/brainrunTalents.ts)
+    createDate      DateTime @default(now())
+    updateDate      DateTime @default(now())
 }
 
 model PushSubscription {

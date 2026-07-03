@@ -36,6 +36,11 @@ export const BRAINRUN_XP_BY_ROOM_TYPE: Record<"STANDARD" | "ELITE" | "BOSS", num
 };
 export const BRAINRUN_WIN_BONUS_XP = 150;
 
+/** Taux de conversion de l'or de fin de run en Points de Savoir (monnaie meta persistante),
+ * arrondi à l'entier inférieur (cf. goldToKnowledgePoints dans brainrunLogic.ts). Valeur
+ * indicative, à ajuster après tests réels : ~10-50 PS pour une run typique. */
+export const BRAINRUN_KP_PER_GOLD = 0.2;
+
 /** Nombre de questions pour les salles de combat standard ; le combat de boss n'a pas de
  * limite de questions, il continue jusqu'à ce que le boss soit à 0 PV (cf. BRAINRUN_BOSS_MAX_HP). */
 export const BRAINRUN_QUESTIONS_PER_ROOM: Record<"STANDARD" | "ELITE", number> = {

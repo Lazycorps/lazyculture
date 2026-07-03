@@ -18,6 +18,7 @@ import {
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_CHOICE_POINTS_PER_ACT,
+  BRAINRUN_KP_PER_GOLD,
   BRAINRUN_MIN_EVENT_OFFERS,
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
@@ -27,6 +28,7 @@ import {
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
 } from "./brainrunConfig";
+import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 
 export function brainrunHpLossForDifficulty(difficulty: number): number {
   if (difficulty <= 2) return 1;
@@ -148,6 +150,49 @@ export function consumeShieldIfArmed(
   return { hpLoss, shieldConsumed: false };
 }
 
+/** Conversion de l'or de fin de run en Points de Savoir (monnaie meta persistante), arrondie
+ * à l'entier inférieur. Appelée à la fin d'une run (WON/LOST/ABANDONED). */
+export function goldToKnowledgePoints(gold: number): number {
+  return Math.max(0, Math.floor(gold * BRAINRUN_KP_PER_GOLD));
+}
+
+/** Effets agrégés des talents permanents débloqués ; valeurs neutres si aucun talent. */
+export type BrainrunTalentEffects = {
+  bonusStartHp: number;
+  bonusStartGold: number;
+  rareRelicWeightBonus: number;
+  bonusBossDamagePerHit: number;
+};
+
+const NEUTRAL_TALENT_EFFECTS: BrainrunTalentEffects = {
+  bonusStartHp: 0,
+  bonusStartGold: 0,
+  rareRelicWeightBonus: 0,
+  bonusBossDamagePerHit: 0,
+};
+
+export function getActiveTalentEffects(talentIds: string[]): BrainrunTalentEffects {
+  return talentIds.reduce((effects, id) => {
+    const talent = BRAINRUN_TALENTS[id as BrainrunTalentId];
+    if (!talent) return effects;
+    switch (talent.effect) {
+      case "START_HP":
+        return { ...effects, bonusStartHp: effects.bonusStartHp + talent.value };
+      case "START_GOLD":
+        return { ...effects, bonusStartGold: effects.bonusStartGold + talent.value };
+      case "RELIC_RARITY_BOOST":
+        return { ...effects, rareRelicWeightBonus: effects.rareRelicWeightBonus + talent.value };
+      case "BOSS_DAMAGE":
+        return {
+          ...effects,
+          bonusBossDamagePerHit: effects.bonusBossDamagePerHit + talent.value,
+        };
+      default:
+        return effects;
+    }
+  }, NEUTRAL_TALENT_EFFECTS);
+}
+
 function weightedRandomPick<T>(items: T[], weight: (item: T) => number, random: () => number): T {
   const totalWeight = items.reduce((sum, item) => sum + weight(item), 0);
   let roll = random() * totalWeight;
@@ -162,6 +207,8 @@ function pickUnownedRelics(
   ownedRelics: string[],
   count: number,
   random: () => number,
+  /** Bonus de poids ajouté aux reliques RARE (talent "Œil affûté"), 0 par défaut. */
+  rareWeightBonus: number = 0,
 ): BrainrunRelicId[] {
   const available = (Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[]).filter(
     (id) => !ownedRelics.includes(id),
@@ -172,7 +219,9 @@ function pickUnownedRelics(
     picked.push(
       weightedRandomPick(
         remaining,
-        (id) => BRAINRUN_RELIC_RARITY_WEIGHT[BRAINRUN_RELICS[id].rarity],
+        (id) =>
+          BRAINRUN_RELIC_RARITY_WEIGHT[BRAINRUN_RELICS[id].rarity] +
+          (BRAINRUN_RELICS[id].rarity === "RARE" ? rareWeightBonus : 0),
         random,
       ),
     );
@@ -188,8 +237,14 @@ function pickUnownedRelics(
 export function generateBonusOffers(
   ownedRelics: string[],
   random: () => number = Math.random,
+  rareWeightBonus: number = 0,
 ): BrainrunOffer[] {
-  const relics = pickUnownedRelics(ownedRelics, BRAINRUN_BONUS_OFFER_COUNT, random);
+  const relics = pickUnownedRelics(
+    ownedRelics,
+    BRAINRUN_BONUS_OFFER_COUNT,
+    random,
+    rareWeightBonus,
+  );
   const offers: BrainrunOffer[] = relics.map((id) => ({
     kind: "RELIC",
     id,
@@ -216,8 +271,14 @@ export function generateBonusOffers(
 export function generateShopOffers(
   ownedRelics: string[],
   random: () => number = Math.random,
+  rareWeightBonus: number = 0,
 ): BrainrunOffer[] {
-  const relics = pickUnownedRelics(ownedRelics, BRAINRUN_SHOP_RELIC_OFFER_COUNT, random);
+  const relics = pickUnownedRelics(
+    ownedRelics,
+    BRAINRUN_SHOP_RELIC_OFFER_COUNT,
+    random,
+    rareWeightBonus,
+  );
   const offers: BrainrunOffer[] = relics.map((id) => ({
     kind: "RELIC",
     id,
@@ -248,7 +309,7 @@ export function generateShopOffers(
  */
 export function resolveEventOption(
   option: BrainrunEventOption,
-  context: { ownedRelics: string[] },
+  context: { ownedRelics: string[]; rareWeightBonus?: number },
   random: () => number = Math.random,
 ): {
   hpDelta: number;
@@ -281,7 +342,12 @@ export function resolveEventOption(
     // Exclut aussi la relique tout juste sacrifiée (relicLost) : un "échange" ne doit pas
     // pouvoir rendre la même relique. Comme elle fait déjà partie de ownedRelics, elle est
     // naturellement exclue par pickUnownedRelics.
-    const [picked] = pickUnownedRelics(context.ownedRelics, 1, random);
+    const [picked] = pickUnownedRelics(
+      context.ownedRelics,
+      1,
+      random,
+      context.rareWeightBonus ?? 0,
+    );
     if (picked) {
       relicGranted = picked;
     } else {
