@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full max-w-xl mx-auto py-2 space-y-6 select-none">
+  <div class="w-full max-w-xl py-2 space-y-6 select-none pb-18">
     <!-- Header Title -->
     <div class="text-center md:text-left space-y-2">
       <h1
