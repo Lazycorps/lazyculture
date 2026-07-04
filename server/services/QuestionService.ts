@@ -217,25 +217,27 @@ export class QuestionService {
   }
 
   async recalculateDifficulties() {
-    // Récupérer et grouper les statistiques de réponses par question et succès
-    const stats = await prisma.questionResponse.groupBy({
-      by: ["questionId", "success"],
-      _count: {
-        _all: true,
+    // Récupérer la première tentative de chaque utilisateur pour chaque question
+    const firstAttempts = await prisma.questionResponse.findMany({
+      distinct: ["userId", "questionId"],
+      orderBy: [{ userId: "asc" }, { questionId: "asc" }, { date: "asc" }],
+      select: {
+        questionId: true,
+        success: true,
       },
     });
 
     // Associer les stats par questionId : { correct: number, total: number }
     const questionStats: Record<number, { correct: number; total: number }> = {};
-    for (const item of stats) {
+    for (const item of firstAttempts) {
       if (!questionStats[item.questionId]) {
         questionStats[item.questionId] = { correct: 0, total: 0 };
       }
       const current = questionStats[item.questionId]!;
       if (item.success) {
-        current.correct += item._count._all;
+        current.correct += 1;
       }
-      current.total += item._count._all;
+      current.total += 1;
     }
 
     // Récupérer toutes les questions non supprimées
