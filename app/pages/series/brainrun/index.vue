@@ -122,29 +122,51 @@
             </div>
           </div>
 
-          <!-- Combat de boss : remplace le séparateur habituel par la barre de PV du boss +
-             les dégâts qu'infligerait une réponse correcte à cet instant (décroissants). -->
-          <div v-if="isBossRoom" class="flex items-center gap-2 mt-3">
-            <UIcon name="i-heroicons-shield-exclamation" class="text-rose-400 text-base shrink-0" />
-            <div
-              class="flex-1 h-2.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden shadow-inner"
-            >
-              <div
-                class="h-full bg-gradient-to-r from-rose-600 to-orange-500 rounded-full transition-all duration-500"
-                :style="{ width: `${bossHealthPercent}%` }"
-              ></div>
+          <!-- Combat de boss : remplace le séparateur habituel par le nom du boss, sa barre de
+             PV + les dégâts qu'infligerait une réponse correcte à cet instant (décroissants). -->
+          <div v-if="isBossRoom" class="mt-3">
+            <div v-if="currentBossName" class="flex items-center justify-center gap-1.5 mb-1.5">
+              <UIcon name="i-heroicons-sparkles" class="text-rose-400 text-sm shrink-0" />
+              <span class="text-xs font-black font-display text-gray-300 tracking-wide">
+                {{ currentBossName }}
+              </span>
             </div>
-            <span class="text-[11px] font-bold text-gray-400 font-display shrink-0">
-              {{ bossHealthPoint }}/{{ bossMaxHealthPoint }}
-            </span>
-            <span
-              v-if="currentRoom?.status === 'ACTIVE'"
-              class="flex items-center gap-0.5 text-xs font-black font-display shrink-0 tabular-nums"
-              :class="potentialDamage > 0 ? 'text-amber-400' : 'text-rose-400 animate-pulse'"
+            <p
+              v-if="bossRevivedFlash"
+              class="text-center text-xs font-black font-display text-amber-400 uppercase tracking-wide mb-1.5 animate-pulse"
             >
-              <UIcon name="i-heroicons-bolt" />
-              -{{ potentialDamage }}
-            </span>
+              {{ currentBossName }} se relève !
+            </p>
+            <div class="flex items-center gap-2">
+              <UIcon
+                name="i-heroicons-shield-exclamation"
+                class="text-rose-400 text-base shrink-0"
+              />
+              <div
+                class="flex-1 h-2.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden shadow-inner"
+              >
+                <div
+                  class="h-full rounded-full transition-all duration-500"
+                  :class="
+                    bossRevivedFlash
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-300 animate-pulse'
+                      : 'bg-gradient-to-r from-rose-600 to-orange-500'
+                  "
+                  :style="{ width: `${bossHealthPercent}%` }"
+                ></div>
+              </div>
+              <span class="text-[11px] font-bold text-gray-400 font-display shrink-0">
+                {{ bossHealthPoint }}/{{ bossMaxHealthPoint }}
+              </span>
+              <span
+                v-if="currentRoom?.status === 'ACTIVE'"
+                class="flex items-center gap-0.5 text-xs font-black font-display shrink-0 tabular-nums"
+                :class="potentialDamage > 0 ? 'text-amber-400' : 'text-rose-400 animate-pulse'"
+              >
+                <UIcon name="i-heroicons-bolt" />
+                -{{ potentialDamage }}
+              </span>
+            </div>
           </div>
           <!-- Identité de l'ennemi Standard/Elite affronté (nom uniquement, pas de barre de PV). -->
           <div
@@ -382,6 +404,7 @@ import {
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import { getBrainrunEnemyById } from "#shared/brainrunEnemies";
+import { getBrainrunBossById } from "#shared/brainrunBosses";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -421,6 +444,9 @@ const isBossRoom = computed(() => currentRoom.value?.type === "BOSS");
 const currentEnemyName = computed(
   () => getBrainrunEnemyById(currentRoom.value?.enemyId)?.name ?? null,
 );
+const currentBossName = computed(
+  () => getBrainrunBossById(currentRoom.value?.bossId)?.name ?? null,
+);
 const bossHealthPoint = computed(() => currentRoom.value?.bossHealthPoint ?? 0);
 const bossMaxHealthPoint = computed(() => currentRoom.value?.bossMaxHealthPoint ?? 1);
 const bossHealthPercent = computed(() =>
@@ -433,6 +459,9 @@ const bossRemainingMs = useState(
 const potentialDamage = computed(() =>
   brainrunPotentialBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS - bossRemainingMs.value),
 );
+// Résurrection du Phoenix (malus "phoenix_revive") : signalée par BrainrunQuestionRunner
+// pendant la courte pause avant l'affichage de la question suivante (cf. nextQuestion()).
+const bossRevivedFlash = useState("brainrun-boss-revived-flash", () => false);
 
 const roomRecap = computed(() => {
   const room = brainrun.currentRoom.value;
@@ -443,7 +472,8 @@ const roomRecap = computed(() => {
     goldEarned: room.goldEarned,
     heartsLost,
     healed: room.type === "REST",
-    enemyName: getBrainrunEnemyById(room.enemyId)?.name ?? null,
+    enemyName:
+      getBrainrunEnemyById(room.enemyId)?.name ?? getBrainrunBossById(room.bossId)?.name ?? null,
   };
 });
 

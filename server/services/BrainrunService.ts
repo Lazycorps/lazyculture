@@ -51,6 +51,7 @@ import {
   type BrainrunOffer,
 } from "#shared/brainrunItems";
 import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
+import { getBrainrunBossesByAct, getBrainrunBossById } from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
   BrainrunMetaProgressDTO,
@@ -178,20 +179,26 @@ export class BrainrunService {
       // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
       const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
 
-      // Le Boss reste générique (pas d'identité pour ce chantier) ; Standard/Elite tirent un
-      // ennemi du pool de l'acte, en excluant ceux déjà rencontrés dans cet acte (réinitialisé au
-      // changement d'acte). Si le pool filtré est vide (run très long), retombe sur le pool complet
-      // plutôt que de bloquer la partie.
+      // Standard/Elite tirent un ennemi du pool de l'acte, en excluant ceux déjà rencontrés dans
+      // cet acte (réinitialisé au changement d'acte). Boss tire un boss nommé parmi les 2 candidats
+      // de l'acte (une seule salle de boss par acte, pas besoin d'exclusion). Si le pool filtré est
+      // vide (run très long), retombe sur le pool complet plutôt que de bloquer la partie.
       let enemyId: string | null = null;
-      let enemyThemes: string[] | undefined;
-      if (combatType !== "BOSS") {
+      let bossId: string | null = null;
+      let combatThemes: string[] | undefined;
+      if (combatType === "BOSS") {
+        const bossPool = getBrainrunBossesByAct(run.currentAct);
+        const boss = bossPool[Math.floor(Math.random() * bossPool.length)]!;
+        bossId = boss.id;
+        combatThemes = boss.themes;
+      } else {
         const tier = combatType === "STANDARD" ? "CLASSIC" : "ELITE";
         const pool = getBrainrunEnemiesByActAndTier(run.currentAct, tier);
         const available = pool.filter((e) => !run.usedEnemyIds.includes(e.id));
         const candidates = available.length > 0 ? available : pool;
         const enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
         enemyId = enemy.id;
-        enemyThemes = enemy.themes;
+        combatThemes = enemy.themes;
       }
 
       const questionIds = await questionService.getRandomIdsByDifficulty(
@@ -200,7 +207,7 @@ export class BrainrunService {
         count,
         run.usedQuestionIds,
         userId,
-        enemyThemes,
+        combatThemes,
       );
 
       await prisma.brainrunRoom.update({
@@ -213,8 +220,10 @@ export class BrainrunService {
           ...(enemyId ? { enemyId } : {}),
           ...(combatType === "BOSS"
             ? {
+                bossId,
                 bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
                 bossMaxHealthPoint: BRAINRUN_BOSS_MAX_HP,
+                bossPhase: 0,
                 questionStartedAt: new Date(),
               }
             : {}),
@@ -280,6 +289,7 @@ export class BrainrunService {
         })()
       : 0;
     const questionData = question.data as any;
+    const bossDef = isBossRoom ? getBrainrunBossById(activeRoom.bossId) : undefined;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
       {
@@ -305,7 +315,19 @@ export class BrainrunService {
     const newBossHealthPoint = isBossRoom
       ? Math.max((activeRoom.bossHealthPoint ?? BRAINRUN_BOSS_MAX_HP) - bossDamage, 0)
       : null;
-    const bossDefeated = isBossRoom && newBossHealthPoint === 0;
+    // Le Phoenix (malus "phoenix_revive") ne meurt pas aux 2 premières mises à 0 : le combat
+    // continue comme si le boss n'était pas vaincu (la vraie résurrection — remontée des PV +
+    // incrément de bossPhase — n'a lieu qu'au clic sur "Continuer", cf. prepareNextBossQuestion,
+    // pour laisser au joueur le temps de croire qu'il a gagné avant l'animation de résurrection).
+    const isPhoenixPendingRevive =
+      isBossRoom &&
+      bossDef?.malus === "phoenix_revive" &&
+      activeRoom.bossPhase < 2 &&
+      newBossHealthPoint === 0;
+    if (isPhoenixPendingRevive) {
+      newResponses[newResponses.length - 1]!.bossRevived = true;
+    }
+    const bossDefeated = isBossRoom && newBossHealthPoint === 0 && !isPhoenixPendingRevive;
     // La salle se termine dès que toutes ses questions ont été posées, qu'elles aient
     // été réussies ou non — seule la mort met fin à la salle avant la dernière question.
     // Un combat de boss n'a pas de fin sur épuisement des questions : il ne se termine
@@ -376,6 +398,7 @@ export class BrainrunService {
           run.currentAct,
           updatedUsedQuestionIds,
           userId,
+          bossDef?.themes,
         );
         updatedQuestionIds = [...activeRoom.questionIds, nextQuestionId];
         await prisma.brainrunRun.update({
@@ -721,10 +744,31 @@ export class BrainrunService {
       });
     }
 
-    if (activeRoom.questionStartedAt === null) {
+    // Résurrection différée du Phoenix : 0 PV alors que la salle est toujours ACTIVE ne peut
+    // arriver que pour ce malus (tout autre boss passe en CLEARED dès que ses PV tombent à 0,
+    // cf. submitAnswer) — c'est le signal sans ambiguïté qu'une résurrection est due. Elle est
+    // déclenchée ici (au clic sur "Continuer") plutôt que dans submitAnswer, pour que le joueur
+    // ait d'abord vu le feedback "boss à 0 PV" avant l'animation de résurrection côté client.
+    const bossDef = getBrainrunBossById(activeRoom.bossId);
+    const pendingRevive =
+      bossDef?.malus === "phoenix_revive" &&
+      activeRoom.bossHealthPoint === 0 &&
+      activeRoom.bossPhase < 2;
+
+    if (activeRoom.questionStartedAt === null || pendingRevive) {
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { questionStartedAt: new Date() },
+        data: {
+          ...(activeRoom.questionStartedAt === null ? { questionStartedAt: new Date() } : {}),
+          ...(pendingRevive
+            ? {
+                bossHealthPoint: Math.round(
+                  BRAINRUN_BOSS_MAX_HP * (activeRoom.bossPhase === 0 ? 0.5 : 0.25),
+                ),
+                bossPhase: activeRoom.bossPhase + 1,
+              }
+            : {}),
+        },
       });
     }
 
@@ -848,6 +892,7 @@ export class BrainrunService {
     act: number,
     excludeIds: number[],
     userId: string,
+    themes?: string[],
   ): Promise<number> {
     const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[act]!.BOSS;
     const [id] = await questionService.getRandomIdsByDifficulty(
@@ -856,6 +901,7 @@ export class BrainrunService {
       1,
       excludeIds,
       userId,
+      themes,
     );
     if (id !== undefined) return id;
 
@@ -962,12 +1008,14 @@ export class BrainrunService {
       type: room.type as BrainrunRoomType | null,
       status: room.status as BrainrunRoomDTO["status"],
       enemyId: room.enemyId,
+      bossId: room.bossId,
       choiceTypes: room.choiceTypes as BrainrunRoomType[],
       questionIds: room.questionIds,
       responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],
       goldEarned: room.goldEarned,
       bossHealthPoint: room.bossHealthPoint,
       bossMaxHealthPoint: room.bossMaxHealthPoint,
+      bossPhase: room.bossPhase,
       questionDeadline,
       offers: (room.offers as unknown as BrainrunOffer[] | null) ?? null,
       offersRequireChoice: room.offersRequireChoice,

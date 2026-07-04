@@ -328,8 +328,10 @@ model BrainrunRoom {
     questionIds         Int[]       @default([])
     responses           Json?
     goldEarned          Int         @default(0)
+    bossId              String? // id du catalogue BRAINRUN_BOSSES (shared/brainrunBosses.ts), uniquement pour type=BOSS
     bossHealthPoint     Int? // PV courants du boss, uniquement pour type=BOSS
     bossMaxHealthPoint  Int? // PV max du boss au démarrage du combat, uniquement pour type=BOSS
+    bossPhase           Int         @default(0) // nombre de résurrections consommées (malus "phoenix_revive" uniquement)
     questionStartedAt   DateTime? // horodatage d'affichage de la question en attente, sert de base au chrono du combat de boss
     offers              Json? // BrainrunOffer[] — bonus post-combat (ELITE/BOSS) ou offres de la Boutique
     offersRequireChoice Boolean     @default(false) // true seulement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu

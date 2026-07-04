@@ -4,6 +4,9 @@
     class="relative w-full flex flex-col justify-center select-none min-h-0 transition-all duration-300"
     :style="{ paddingBottom: `${actionBarHeight + 12}px` }"
     v-if="localQuestion"
+    @pointerdown="pauseSwap"
+    @pointerup="resumeSwap"
+    @pointercancel="resumeSwap"
   >
     <QuestionDisplay
       v-if="localQuestion"
@@ -11,7 +14,7 @@
       :libelle="localQuestion.data.libelle"
       :img="localQuestion.data.img"
       :themes="localQuestion.themes"
-      :propositions="localQuestion.data.propositions"
+      :propositions="displayPropositions"
       :disabled="responded"
       :selectedOptionId="selectedResponse"
       :correctOptionId="greenResponse"
@@ -21,6 +24,8 @@
       :questionId="localQuestion.id"
       :eliminatedIds="eliminatedIds"
       :hintId="hintId"
+      :answerBlurPx="answerBlurPx"
+      :mirrorAnswers="mirrorAnswers"
       @selectOption="selectOption"
     />
 
@@ -121,6 +126,7 @@
 import type { QuestionDTO } from "#shared/question";
 import { BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
 import { BRAINRUN_CONSUMABLES, type BrainrunConsumableId } from "#shared/brainrunItems";
+import { getBrainrunBossById } from "#shared/brainrunBosses";
 
 const props = defineProps<{
   question: QuestionDTO | null;
@@ -230,6 +236,23 @@ watch(
     }
   },
 );
+
+// Malus du boss actif (shared/brainrunBosses.ts) : transforme uniquement l'affichage des
+// propositions (texte/ordre/présence), jamais la logique de soumission de réponse.
+const activeBossMalus = computed(
+  () => getBrainrunBossById(brainrun.currentRoom.value?.bossId)?.malus,
+);
+const questionPropositions = computed(() => localQuestion.value?.data.propositions ?? []);
+const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap } =
+  useBrainrunBossMalus({
+    malus: activeBossMalus,
+    propositions: questionPropositions,
+    remainingMs,
+  });
+
+// Signale à la page parente (barre de PV du boss) qu'une résurrection du Phoenix est en cours,
+// pour une courte animation avant que la question suivante ne s'affiche (cf. nextQuestion()).
+const bossRevivedFlash = useState("brainrun-boss-revived-flash", () => false);
 
 const actionBarHeight = ref(96);
 let actionBarObserver: ResizeObserver | null = null;
@@ -363,7 +386,18 @@ async function nextQuestion() {
     !brainrun.currentRoom.value?.questionDeadline &&
     brainrun.currentQuestion.value
   ) {
+    // 0 PV juste avant cet appel puis > 0 juste après : c'est la résurrection différée du
+    // Phoenix qui vient de se déclencher côté serveur (cf. BrainrunService.prepareNextBossQuestion).
+    // Le joueur a déjà vu le feedback "boss à 0 PV" ; on marque une courte pause avec l'animation
+    // de résurrection avant d'afficher la question suivante, pour ne pas ressembler à un bug.
+    const hpBeforeReady = brainrun.currentRoom.value?.bossHealthPoint ?? null;
     await brainrun.readyNextBossQuestion();
+    const hpAfterReady = brainrun.currentRoom.value?.bossHealthPoint ?? null;
+    if (hpBeforeReady === 0 && (hpAfterReady ?? 0) > 0) {
+      bossRevivedFlash.value = true;
+      await new Promise((resolve) => setTimeout(resolve, 1400));
+      bossRevivedFlash.value = false;
+    }
     // brainrun.currentQuestion est la même ref partagée que le prop "question" du parent :
     // on la lit directement pour éviter de dépendre du timing de propagation du prop après cet await.
     localQuestion.value = brainrun.currentQuestion.value;

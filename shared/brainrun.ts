@@ -44,6 +44,8 @@ export type BrainrunRoomResponse = {
   timedOut?: boolean;
   /** true si la relique Seconde Chance a été consommée pour annuler la mort sur ce coup. */
   extraLifeUsed?: boolean;
+  /** true si ce coup a mis le boss à 0 PV mais qu'il va se relever (malus "phoenix_revive"). */
+  bossRevived?: boolean;
   correctResponseId?: number;
   commentaire?: string;
   commentaireImg?: string;
@@ -58,6 +60,10 @@ export type BrainrunRoomDTO = {
   status: BrainrunRoomStatus;
   /** Id du catalogue BRAINRUN_ENEMIES (shared/brainrunEnemies.ts) ; uniquement pour STANDARD/ELITE. */
   enemyId: string | null;
+  /** Id du catalogue BRAINRUN_BOSSES (shared/brainrunBosses.ts) ; uniquement pour BOSS. */
+  bossId: string | null;
+  /** Nombre de résurrections déjà consommées par le boss (uniquement pertinent pour "phoenix_revive"). */
+  bossPhase: number;
   choiceTypes: BrainrunRoomType[];
   questionIds: number[];
   responses: BrainrunRoomResponse[];

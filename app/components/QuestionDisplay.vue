@@ -43,7 +43,7 @@
       </div>
 
       <!-- Options / Propositions list -->
-      <div class="flex flex-col gap-1.5 py-0.5 w-full">
+      <TransitionGroup tag="div" name="option-swap" class="flex flex-col gap-1.5 py-0.5 w-full">
         <button
           v-for="proposition in propositions"
           :key="proposition.id"
@@ -53,7 +53,16 @@
           @click="selectOption(proposition.id)"
         >
           <div class="flex items-center justify-between">
-            <span>{{ proposition.value }}</span>
+            <span
+              :style="{
+                filter: answerBlurPx > 0 ? `blur(${answerBlurPx}px)` : undefined,
+                transition: 'filter 0.3s ease-out',
+                display: mirrorAnswers ? 'inline-block' : undefined,
+                marginLeft: mirrorAnswers ? 'auto' : undefined,
+                transform: mirrorAnswers ? 'scaleX(-1)' : undefined,
+              }"
+              >{{ proposition.value }}</span
+            >
 
             <!-- Check/Cross icon indicator in option -->
             <span
@@ -84,7 +93,7 @@
             </span>
           </div>
         </button>
-      </div>
+      </TransitionGroup>
     </div>
   </div>
 </template>
@@ -116,6 +125,10 @@ const props = withDefaults(
     eliminatedIds?: number[];
     /** Proposition suggérée par le consommable Appel à un ami (peut être fausse). */
     hintId?: number | null;
+    /** Flou appliqué au texte de chaque réponse, en px (malus boss Brainrun "Gérard"). */
+    answerBlurPx?: number;
+    /** Affiche chaque réponse en miroir horizontal (malus boss Brainrun "La Sorcière"). */
+    mirrorAnswers?: boolean;
   }>(),
   {
     img: "",
@@ -129,6 +142,8 @@ const props = withDefaults(
     questionId: 0,
     eliminatedIds: () => [],
     hintId: null,
+    answerBlurPx: 0,
+    mirrorAnswers: false,
   },
 );
 
@@ -221,5 +236,10 @@ defineExpose({
 
 .animate-shake {
   animation: shake 0.2s ease-in-out 2;
+}
+
+/* Anime le changement de position des réponses (malus boss Brainrun "Le Joker"). */
+.option-swap-move {
+  transition: transform 0.4s ease;
 }
 </style>
