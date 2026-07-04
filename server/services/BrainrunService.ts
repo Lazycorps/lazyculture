@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import prisma from "~~/server/utils/prisma";
-import { isCorrectAnswer, questionService } from "~~/server/services/QuestionService";
+import {
+  isCorrectAnswer,
+  questionService,
+  sanitizeQuestionForClient,
+} from "~~/server/services/QuestionService";
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import {
@@ -252,6 +256,7 @@ export class BrainrunService {
           return relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
         })()
       : 0;
+    const questionData = question.data as any;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
       {
@@ -259,6 +264,9 @@ export class BrainrunService {
         responseId: userResponseId,
         success,
         hpLoss,
+        correctResponseId: questionData.response,
+        commentaire: questionData.commentaire || "",
+        commentaireImg: questionData.commentaireImg || "",
         ...(isBossRoom ? { bossDamage, timedOut } : {}),
       },
     ];
@@ -878,7 +886,7 @@ export class BrainrunService {
         if (question) {
           const questionData = question.data as unknown as QuestionDataDTO;
           questionData.propositions = questionService.shuffleArray(questionData.propositions);
-          currentQuestion = { ...question, data: questionData } as any;
+          currentQuestion = sanitizeQuestionForClient({ ...question, data: questionData });
         }
       }
     }

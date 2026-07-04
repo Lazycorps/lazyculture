@@ -32,16 +32,29 @@ export class ResponseService {
       },
     });
 
+    const questionData = question.data as any;
+    const responseResult = {
+      success,
+      correctResponseId: questionData.response as number,
+      commentaire: (questionData.commentaire as string) || "",
+      commentaireImg: (questionData.commentaireImg as string) || "",
+      xpEarned: 0,
+      xpTot: 0,
+      previousLevel: 0,
+      newLevel: 0,
+    };
+
     if (success) {
       const userProgress = await this.updateUserProgress(userId, question.xp_earned, successCount);
-      return {
-        success,
-        xpEarned: userProgress.xpEarned,
-        xpTot: userProgress.xpTot,
-        previousLevel: userProgress.previousLevel,
-        newLevel: userProgress.currentLevel,
-      };
-    } else return;
+      responseResult.xpEarned = (userProgress.xpEarned ??
+        (userProgress as any).userXpWin ??
+        0) as number;
+      responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
+      responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
+      responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
+    }
+
+    return responseResult;
   }
 
   private async updateUserProgress(userId: string, xpEarned: number, successCount: number) {

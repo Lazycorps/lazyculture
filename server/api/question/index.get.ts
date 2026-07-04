@@ -1,7 +1,8 @@
-import { questionService } from "~~/server/services/QuestionService";
+import { questionService, sanitizeQuestionForClient } from "~~/server/services/QuestionService";
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   if (!query.id) return;
-  return questionService.getById(+query.id);
+  const question = await questionService.getById(+query.id);
+  return sanitizeQuestionForClient(question);
 });

@@ -245,13 +245,17 @@ async function validateResponse() {
   if (selectedResponse.value == null) return;
   try {
     loading.value = true;
-    commentaire.value = question.value.data.commentaire;
     const reponseDTO = new ResponseDTO();
     reponseDTO.questionId = question.value.id;
     reponseDTO.userResponseId = selectedResponse.value;
 
-    // Evaluate answer matching local schema
-    const isAnswerCorrect = selectedResponse.value === question.value.data.response;
+    const responseResult = await $fetch<any>("/api/response/validate", {
+      method: "post",
+      body: { ...reponseDTO },
+    });
+
+    commentaire.value = responseResult.commentaire || "";
+    const isAnswerCorrect = responseResult.success;
 
     if (isAnswerCorrect) {
       greenResponse.value = selectedResponse.value;
@@ -260,13 +264,8 @@ async function validateResponse() {
       playSound("response-success");
     } else {
       redResponse.value = selectedResponse.value;
-      greenResponse.value = question.value.data.response;
+      greenResponse.value = responseResult.correctResponseId;
     }
-
-    const responseResult = await $fetch<any>("/api/response/validate", {
-      method: "post",
-      body: { ...reponseDTO },
-    });
 
     responded.value = true;
     achievementStore.answerQuestion();

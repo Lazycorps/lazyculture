@@ -44,6 +44,9 @@ export type BrainrunRoomResponse = {
   timedOut?: boolean;
   /** true si la relique Seconde Chance a été consommée pour annuler la mort sur ce coup. */
   extraLifeUsed?: boolean;
+  correctResponseId?: number;
+  commentaire?: string;
+  commentaireImg?: string;
 };
 
 export type BrainrunRoomDTO = {

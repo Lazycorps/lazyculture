@@ -8,6 +8,19 @@ export function isCorrectAnswer(question: { data: unknown }, userResponseId: num
   return (question.data as unknown as QuestionDataDTO).response === userResponseId;
 }
 
+/** Retourne un clone de l'objet question expurgé de la réponse attendue et du commentaire d'explication pour éviter la triche. */
+export function sanitizeQuestionForClient(question: any): any {
+  if (!question || !question.data) return question;
+  const safeData = { ...question.data };
+  delete safeData.response;
+  delete safeData.commentaire;
+  delete safeData.commentaireImg;
+  return {
+    ...question,
+    data: safeData,
+  };
+}
+
 export class QuestionService {
   async getById(id: number) {
     const question = await prisma.question.findFirst({ where: { id } });

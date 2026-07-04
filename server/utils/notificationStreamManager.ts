@@ -13,16 +13,10 @@ class NotificationStreamManager {
 
   registerClient(connectionId: string, userId: string, pushFn: (notif: any) => void) {
     this.clients.push({ connectionId, userId, push: pushFn });
-    console.log(
-      `[NotificationStreamManager] Client registered: ${userId} (Conn: ${connectionId}). Total connections: ${this.clients.length}`,
-    );
   }
 
   unregisterClient(connectionId: string) {
     this.clients = this.clients.filter((c) => c.connectionId !== connectionId);
-    console.log(
-      `[NotificationStreamManager] Client unregistered (Conn: ${connectionId}). Total connections: ${this.clients.length}`,
-    );
   }
 
   /**
@@ -47,17 +41,10 @@ class NotificationStreamManager {
         client.push(notificationToSend);
         sentCount++;
       } catch (err) {
-        console.error(
-          `[NotificationStreamManager] Failed to push to client connection ${client.connectionId} of user ${userId}:`,
-          err,
-        );
         // Suppression différée / nettoyage
         this.unregisterClient(client.connectionId);
       }
     }
-    console.log(
-      `[NotificationStreamManager] Pushed notification to ${sentCount}/${userClients.length} connections of user ${userId}`,
-    );
     return sentCount > 0;
   }
 

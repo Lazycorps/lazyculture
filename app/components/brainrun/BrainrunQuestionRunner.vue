@@ -276,25 +276,32 @@ async function validateResponse() {
   if (selectedResponse.value == null || !question) return;
   try {
     loading.value = true;
-    commentaire.value = question.data.commentaire;
-
-    const isAnswerCorrect = selectedResponse.value === question.data.response;
-    if (isAnswerCorrect) {
-      greenResponse.value = selectedResponse.value;
-      redResponse.value = null;
-      const { playSound } = useAudio();
-      playSound("response-success");
-    } else {
-      redResponse.value = selectedResponse.value;
-      greenResponse.value = question.data.response;
-    }
 
     // Fixé avant l'appel réseau : le watcher ci-dessus ignore alors le nouveau
     // currentQuestion que submitAnswer va déclencher pendant qu'on montre le feedback.
     responded.value = true;
     holdOnFeedback.value = true;
     stopBossTimer();
-    await brainrun.submitAnswer(question.id, selectedResponse.value);
+
+    const state = await brainrun.submitAnswer(question.id, selectedResponse.value);
+    const lastResponse = state?.currentRoom?.responses?.find(
+      (r: any) => r.questionId === question.id,
+    );
+
+    if (lastResponse) {
+      commentaire.value = lastResponse.commentaire || "";
+      const isAnswerCorrect = lastResponse.success;
+      if (isAnswerCorrect) {
+        greenResponse.value = selectedResponse.value;
+        redResponse.value = null;
+        const { playSound } = useAudio();
+        playSound("response-success");
+      } else {
+        redResponse.value = selectedResponse.value;
+        greenResponse.value = lastResponse.correctResponseId ?? null;
+      }
+    }
+
     scrollFeedbackIntoView();
   } catch (e) {
     console.error("Failed to submit brainrun answer:", e);
@@ -311,15 +318,22 @@ async function handleBossTimeout() {
   const question = localQuestion.value;
   if (!question) return;
   stopBossTimer();
-  commentaire.value = question.data.commentaire;
-  redResponse.value = null;
-  greenResponse.value = question.data.response;
   timedOutFlag.value = true;
   responded.value = true;
   holdOnFeedback.value = true;
   try {
     // -1 : sentinelle "aucune réponse", le serveur force de toute façon l'échec au vu du délai écoulé.
-    await brainrun.submitAnswer(question.id, selectedResponse.value ?? -1);
+    const state = await brainrun.submitAnswer(question.id, selectedResponse.value ?? -1);
+    const lastResponse = state?.currentRoom?.responses?.find(
+      (r: any) => r.questionId === question.id,
+    );
+
+    if (lastResponse) {
+      commentaire.value = lastResponse.commentaire || "";
+      redResponse.value = null;
+      greenResponse.value = lastResponse.correctResponseId ?? null;
+    }
+
     scrollFeedbackIntoView();
   } catch (e) {
     console.error("Failed to submit brainrun boss timeout:", e);
