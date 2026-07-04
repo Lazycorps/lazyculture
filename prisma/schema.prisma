@@ -300,6 +300,7 @@ model BrainrunRun {
     maxHealthPoint  Int
     gold            Int            @default(0)
     usedQuestionIds Int[]          @default([]) // anti-répétition sur toute la run
+    usedEnemyIds    String[]       @default([]) // ennemis déjà tirés dans l'acte en cours (shared/brainrunEnemies.ts), réinitialisé à chaque changement d'acte
     relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
     consumables     Json           @default("{}") // Record<consumableId, count>
     shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
@@ -322,6 +323,7 @@ model BrainrunRoom {
     sequence            Int // 1..7 dans l'acte
     type                String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
     status              String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
+    enemyId             String? // id du catalogue BRAINRUN_ENEMIES (shared/brainrunEnemies.ts), uniquement pour type=STANDARD/ELITE
     choiceTypes         String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
     questionIds         Int[]       @default([])
     responses           Json?

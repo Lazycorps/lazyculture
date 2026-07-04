@@ -56,6 +56,8 @@ export type BrainrunRoomDTO = {
   sequence: number;
   type: BrainrunRoomType | null;
   status: BrainrunRoomStatus;
+  /** Id du catalogue BRAINRUN_ENEMIES (shared/brainrunEnemies.ts) ; uniquement pour STANDARD/ELITE. */
+  enemyId: string | null;
   choiceTypes: BrainrunRoomType[];
   questionIds: number[];
   responses: BrainrunRoomResponse[];

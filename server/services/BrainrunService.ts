@@ -50,6 +50,7 @@ import {
   type BrainrunConsumableId,
   type BrainrunOffer,
 } from "#shared/brainrunItems";
+import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
   BrainrunMetaProgressDTO,
@@ -176,12 +177,30 @@ export class BrainrunService {
       // Le combat de boss n'a pas de nombre de questions fixe : on n'en tire qu'une seule ici,
       // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
       const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
+
+      // Le Boss reste générique (pas d'identité pour ce chantier) ; Standard/Elite tirent un
+      // ennemi du pool de l'acte, en excluant ceux déjà rencontrés dans cet acte (réinitialisé au
+      // changement d'acte). Si le pool filtré est vide (run très long), retombe sur le pool complet
+      // plutôt que de bloquer la partie.
+      let enemyId: string | null = null;
+      let enemyThemes: string[] | undefined;
+      if (combatType !== "BOSS") {
+        const tier = combatType === "STANDARD" ? "CLASSIC" : "ELITE";
+        const pool = getBrainrunEnemiesByActAndTier(run.currentAct, tier);
+        const available = pool.filter((e) => !run.usedEnemyIds.includes(e.id));
+        const candidates = available.length > 0 ? available : pool;
+        const enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
+        enemyId = enemy.id;
+        enemyThemes = enemy.themes;
+      }
+
       const questionIds = await questionService.getRandomIdsByDifficulty(
         minDifficulty,
         maxDifficulty,
         count,
         run.usedQuestionIds,
         userId,
+        enemyThemes,
       );
 
       await prisma.brainrunRoom.update({
@@ -191,6 +210,7 @@ export class BrainrunService {
           status: "ACTIVE",
           questionIds,
           responses: [],
+          ...(enemyId ? { enemyId } : {}),
           ...(combatType === "BOSS"
             ? {
                 bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
@@ -202,7 +222,10 @@ export class BrainrunService {
       });
       await prisma.brainrunRun.update({
         where: { id: run.id },
-        data: { usedQuestionIds: [...run.usedQuestionIds, ...questionIds] },
+        data: {
+          usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
+          ...(enemyId ? { usedEnemyIds: [...run.usedEnemyIds, enemyId] } : {}),
+        },
       });
     }
 
@@ -773,7 +796,13 @@ export class BrainrunService {
 
     await prisma.brainrunRun.update({
       where: { id: runId },
-      data: { currentAct: outcome.act, currentSequence: outcome.sequence },
+      data: {
+        currentAct: outcome.act,
+        currentSequence: outcome.sequence,
+        // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours (chaque acte a son
+        // propre roster) : on le réinitialise dès qu'on change d'acte.
+        ...(outcome.act !== act ? { usedEnemyIds: [] } : {}),
+      },
     });
   }
 
@@ -932,6 +961,7 @@ export class BrainrunService {
       sequence: room.sequence,
       type: room.type as BrainrunRoomType | null,
       status: room.status as BrainrunRoomDTO["status"],
+      enemyId: room.enemyId,
       choiceTypes: room.choiceTypes as BrainrunRoomType[],
       questionIds: room.questionIds,
       responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],

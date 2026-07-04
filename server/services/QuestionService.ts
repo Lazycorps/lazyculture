@@ -99,6 +99,11 @@ export class QuestionService {
    * `excludeIds` (anti-répétition sur une run Brainrun). Préfère les questions jamais réussies par
    * l'utilisateur (même logique que getRandom) ; si le pool est trop restreint, retombe sur toutes
    * les questions de la plage sans cette préférence plutôt que de renvoyer moins que `count`.
+   *
+   * Si `themes` est fourni (ennemi Brainrun), le filtre thème ("au moins un des thèmes donnés",
+   * même pattern que getRandomQuestionsIds) est toujours appliqué : en cas de pool insuffisant,
+   * l'élargissement se fait uniquement en remontant `maxDifficulty` jusqu'à 5, jamais en abandonnant
+   * le filtre thème.
    */
   async getRandomIdsByDifficulty(
     minDifficulty: number,
@@ -106,23 +111,39 @@ export class QuestionService {
     count: number,
     excludeIds: number[],
     userId?: string,
+    themes?: string[],
   ): Promise<number[]> {
-    const baseWhere = {
+    const themeFilter =
+      themes && themes.length > 0
+        ? { OR: themes.map((slug) => ({ data: { path: ["theme"], array_contains: slug } })) }
+        : {};
+    const whereForMaxDifficulty = (maxDiff: number) => ({
       deleted: false,
-      difficulty: { gte: minDifficulty, lte: maxDifficulty },
+      difficulty: { gte: minDifficulty, lte: maxDiff },
       id: { notIn: excludeIds },
-    };
+      ...themeFilter,
+    });
 
     let candidates = await prisma.question.findMany({
       where: {
-        ...baseWhere,
+        ...whereForMaxDifficulty(maxDifficulty),
         ...(userId && { Response: { none: { userId, success: true } } }),
       },
       select: { id: true },
     });
 
     if (candidates.length < count) {
-      candidates = await prisma.question.findMany({ where: baseWhere, select: { id: true } });
+      candidates = await prisma.question.findMany({
+        where: whereForMaxDifficulty(maxDifficulty),
+        select: { id: true },
+      });
+    }
+
+    if (candidates.length < count && themes && themes.length > 0 && maxDifficulty < 5) {
+      candidates = await prisma.question.findMany({
+        where: whereForMaxDifficulty(5),
+        select: { id: true },
+      });
     }
 
     return this.shuffleArray(candidates.map((c) => c.id)).slice(0, count);

@@ -146,6 +146,16 @@
               -{{ potentialDamage }}
             </span>
           </div>
+          <!-- Identité de l'ennemi Standard/Elite affronté (nom uniquement, pas de barre de PV). -->
+          <div
+            v-else-if="currentEnemyName && currentRoom?.status === 'ACTIVE'"
+            class="flex items-center justify-center gap-1.5 mt-3 mb-1"
+          >
+            <UIcon name="i-heroicons-sparkles" class="text-violet-400 text-sm shrink-0" />
+            <span class="text-xs font-black font-display text-gray-300 tracking-wide">
+              {{ currentEnemyName }}
+            </span>
+          </div>
           <hr v-else class="border-white/5 my-3" />
 
           <!-- Run active : choix ponctuel, question en cours, ou état de chargement.
@@ -209,7 +219,11 @@
                 </div>
                 <div class="space-y-1">
                   <h3 class="text-lg font-black font-display text-white tracking-wide">
-                    {{ roomTypeLabel(roomRecap.type) }} terminée
+                    {{
+                      roomRecap.enemyName
+                        ? `${roomRecap.enemyName} vaincu`
+                        : `${roomTypeLabel(roomRecap.type)} terminée`
+                    }}
                   </h3>
                 </div>
                 <div class="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
@@ -367,6 +381,7 @@ import {
   type BrainrunConsumableId,
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
+import { getBrainrunEnemyById } from "#shared/brainrunEnemies";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -402,6 +417,10 @@ const currentChoiceTypes = computed(() => currentRoom.value?.choiceTypes ?? []);
 // Barre de PV du boss + dégâts potentiels (remplace le séparateur habituel pendant un combat
 // de boss) : le décompte est celui tenu par BrainrunQuestionRunner, partagé via useState.
 const isBossRoom = computed(() => currentRoom.value?.type === "BOSS");
+// Nom de l'ennemi Standard/Elite affronté (Boss non concerné, cf. shared/brainrunEnemies.ts).
+const currentEnemyName = computed(
+  () => getBrainrunEnemyById(currentRoom.value?.enemyId)?.name ?? null,
+);
 const bossHealthPoint = computed(() => currentRoom.value?.bossHealthPoint ?? 0);
 const bossMaxHealthPoint = computed(() => currentRoom.value?.bossMaxHealthPoint ?? 1);
 const bossHealthPercent = computed(() =>
@@ -424,6 +443,7 @@ const roomRecap = computed(() => {
     goldEarned: room.goldEarned,
     heartsLost,
     healed: room.type === "REST",
+    enemyName: getBrainrunEnemyById(room.enemyId)?.name ?? null,
   };
 });
 
