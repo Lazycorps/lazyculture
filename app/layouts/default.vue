@@ -81,23 +81,23 @@ const navItems = computed(() => [
 onMounted(async () => {
   await userStore.fetchUser();
   if (user.value) {
-    notificationStore.startPolling();
+    notificationStore.connect();
   }
 });
 
 watch(user, async (newUser) => {
   if (newUser) {
     await userStore.fetchUser(true);
-    notificationStore.startPolling();
+    notificationStore.connect();
   } else {
     userStore.clearUser();
-    notificationStore.stopPolling();
+    notificationStore.disconnect();
     notificationStore.$reset();
   }
 });
 
 onUnmounted(() => {
-  notificationStore.stopPolling();
+  notificationStore.disconnect();
 });
 
 const route = useRoute();

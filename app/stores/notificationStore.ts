@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { markRaw } from "vue";
 import { useAuthFetch } from "~/composables/useAuthFetch";
 
 export interface DBNotification {
@@ -16,7 +17,7 @@ export const useNotificationStore = defineStore("notifications", {
   state: () => ({
     notifications: [] as DBNotification[],
     loading: false,
-    pollInterval: null as any,
+    eventSource: null as EventSource | null,
   }),
   getters: {
     unreadCount: (state) => state.notifications.filter((n) => !n.read).length,
@@ -25,6 +26,7 @@ export const useNotificationStore = defineStore("notifications", {
     async fetchNotifications() {
       // Pour éviter d'instancier plusieurs fois si déjà en cours
       if (this.loading && this.notifications.length === 0) return;
+      this.loading = true;
       const { authFetch } = useAuthFetch();
       try {
         const data = await authFetch<DBNotification[]>("/api/notifications");
@@ -57,19 +59,62 @@ export const useNotificationStore = defineStore("notifications", {
         await this.fetchNotifications();
       }
     },
-    startPolling(intervalMs = 15000) {
-      if (this.pollInterval) return;
-      // Premier fetch immédiat
+    connect() {
+      if (this.eventSource) return;
+
+      // Premier chargement de l'historique en base de données
       void this.fetchNotifications();
-      this.pollInterval = setInterval(() => {
-        void this.fetchNotifications();
-      }, intervalMs);
+
+      // Établissement de la connexion SSE
+      const source = new EventSource("/api/notifications/stream");
+      this.eventSource = markRaw(source);
+
+      source.addEventListener("notification", (event) => {
+        try {
+          const newNotif = JSON.parse(event.data) as DBNotification;
+          // Éviter les doublons
+          if (!this.notifications.some((n) => n.id === newNotif.id)) {
+            this.notifications.unshift(newNotif);
+
+            // Afficher le toast avec Nuxt UI
+            try {
+              const toast = useToast();
+              toast.add({
+                title: newNotif.title,
+                description: newNotif.body,
+                color: "primary",
+                icon: "i-heroicons-bell",
+                duration: 5000,
+              });
+            } catch (err) {
+              console.warn(
+                "[notificationStore] Impossible d'afficher le toast (contexte hors Vue) :",
+                err,
+              );
+            }
+          }
+        } catch (err) {
+          console.error("Erreur lors de la lecture de la notification temps réel :", err);
+        }
+      });
+
+      source.addEventListener("error", (err) => {
+        console.error("Erreur ou déconnexion du flux SSE notifications :", err);
+        // Note : le navigateur essaiera de se reconnecter automatiquement
+      });
+    },
+    disconnect() {
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+    },
+    // Compatibilité descendante
+    startPolling() {
+      this.connect();
     },
     stopPolling() {
-      if (this.pollInterval) {
-        clearInterval(this.pollInterval);
-        this.pollInterval = null;
-      }
+      this.disconnect();
     },
   },
 });

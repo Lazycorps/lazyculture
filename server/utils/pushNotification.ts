@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import prisma from "~~/server/utils/prisma";
+import { notificationStreamManager } from "./notificationStreamManager";
 
 export interface PushNotificationContent {
   title: string;
@@ -17,7 +18,7 @@ export async function sendPushToUser(
   notification: PushNotificationContent,
 ): Promise<{ successCount: number; failureCount: number }> {
   // Enregistrer d'abord en base de données pour la visualisation in-app (best-effort)
-  await prisma.notification
+  const dbNotif = await prisma.notification
     .create({
       data: {
         userId,
@@ -29,7 +30,13 @@ export async function sendPushToUser(
     })
     .catch((err) => {
       console.error("Erreur lors de la création de la notification in-app :", err);
+      return null;
     });
+
+  if (dbNotif) {
+    // Diffuser la notification en temps réel via SSE si l'utilisateur est connecté
+    void notificationStreamManager.sendToUser(userId, dbNotif);
+  }
 
   const config = useRuntimeConfig();
   const publicKey = config.public.vapidPublicKey;
