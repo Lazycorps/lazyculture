@@ -15,7 +15,7 @@
         v-for="(option, index) in event.options"
         :key="index"
         type="button"
-        :disabled="loading"
+        :disabled="loading || !canAfford(option)"
         class="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-4 text-left transition-colors disabled:opacity-50"
         @click="$emit('choose', index)"
       >
@@ -39,6 +39,7 @@ import {
 const props = defineProps<{
   eventId: string | null;
   loading: boolean;
+  gold: number;
 }>();
 
 defineEmits<{
@@ -46,6 +47,10 @@ defineEmits<{
 }>();
 
 const event = computed(() => (props.eventId ? BRAINRUN_EVENTS[props.eventId] : null));
+
+function canAfford(option: BrainrunEventOption): boolean {
+  return !option.cost?.gold || option.cost.gold <= props.gold;
+}
 
 function summarize(option: BrainrunEventOption): string {
   const parts: string[] = [];

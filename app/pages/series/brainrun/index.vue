@@ -201,6 +201,7 @@
                 v-else-if="currentRoom?.type === 'EVENT' && currentRoom.status === 'ACTIVE'"
                 :event-id="currentRoom.eventId"
                 :loading="loading"
+                :gold="run?.gold ?? 0"
                 @choose="(index: number) => brainrun.resolveEvent(index)"
               />
 
