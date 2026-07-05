@@ -210,6 +210,18 @@ watch(
   { deep: true },
 );
 
+// Colonne du nœud CLEARED sur la rangée juste avant currentRow — c'est-à-dire "ma position
+// actuelle" quand un choix est en attente. Sert à ne mettre en valeur QUE les arêtes qui en
+// partent réellement, pas toute arête menant à une colonne candidate (plusieurs nœuds d'une
+// même rangée peuvent converger vers le même nœud suivant sans que j'y sois pour autant).
+const currentPositionCol = computed(() => {
+  if (props.candidateCols === null || props.currentRow <= 1) return null;
+  const previousCleared = props.mapNodes.find(
+    (n) => n.row === props.currentRow - 1 && n.status === "CLEARED",
+  );
+  return previousCleared?.col ?? null;
+});
+
 const edgePaths = computed(() => {
   const paths: { key: string; d: string; traveled: boolean; reachable: boolean }[] = [];
   const nodeByKey = new Map(props.mapNodes.map((n) => [`${n.row}:${n.col}`, n]));
@@ -228,6 +240,7 @@ const edgePaths = computed(() => {
         !traveled &&
         props.candidateCols !== null &&
         node.row + 1 === props.currentRow &&
+        node.col === currentPositionCol.value &&
         props.candidateCols.includes(col);
       const cy = (from.y + to.y) / 2;
       paths.push({
