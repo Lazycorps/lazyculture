@@ -53,7 +53,7 @@
       ref="actionBarRef"
       class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-all duration-300"
       :class="
-        responded
+        revealed
           ? isCorrect
             ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
             : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
@@ -62,7 +62,7 @@
     >
       <div class="max-w-xl mx-auto w-full flex flex-col">
         <div class="w-full">
-          <div v-if="responded" class="flex items-start space-x-3 md:space-x-4">
+          <div v-if="revealed" class="flex items-start space-x-3 md:space-x-4">
             <div
               class="w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-lg md:text-xl flex-shrink-0"
               :class="
@@ -111,7 +111,9 @@
             v-else
             size="lg"
             class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="isCorrect ? 'success' : 'error'"
+            :color="revealed ? (isCorrect ? 'success' : 'error') : 'neutral'"
+            :loading="!revealed"
+            :disabled="!revealed"
             @click="nextQuestion"
           >
             Continuer
@@ -305,6 +307,13 @@ const isCorrect = computed(() => {
     ? false
     : greenResponse.value !== null && redResponse.value === null;
 });
+
+// `responded` se lève avant l'appel réseau (cf. validateResponse) pour geler le
+// timer/la sélection ; `revealed` ne se lève qu'une fois le résultat effectivement
+// connu, pour éviter d'afficher le cadre rouge par défaut pendant l'attente serveur.
+const revealed = computed(
+  () => timedOutFlag.value || greenResponse.value !== null || redResponse.value !== null,
+);
 
 function selectOption(id: number) {
   if (responded.value) return;
