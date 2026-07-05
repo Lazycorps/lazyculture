@@ -1,6 +1,16 @@
 <template>
-  <div ref="containerRef" class="relative w-full select-none py-4">
-    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0">
+  <div ref="containerRef" class="relative w-full select-none py-5 overflow-hidden">
+    <!-- Lueurs d'ambiance, façon carte Aventure, en version compacte pour ce cadre plus étroit. -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+      <div
+        class="absolute top-1/4 left-[10%] w-40 h-40 rounded-full bg-violet-600/10 blur-[60px] animate-pulse-slow"
+      />
+      <div
+        class="absolute bottom-1/4 right-[10%] w-48 h-48 rounded-full bg-indigo-500/10 blur-[70px] animate-pulse-slower"
+      />
+    </div>
+
+    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1">
       <defs>
         <linearGradient id="brainrun-map-progress" x1="0%" y1="100%" x2="0%" y2="0%">
           <stop offset="0%" stop-color="#8b5cf6" />
@@ -12,42 +22,76 @@
         :key="edge.key"
         :d="edge.d"
         fill="none"
-        stroke-width="4"
-        stroke-dasharray="6 6"
-        :stroke="edge.traveled ? 'url(#brainrun-map-progress)' : '#1e293b'"
+        :stroke-width="edge.traveled ? 5 : 4"
+        stroke-dasharray="7 7"
+        :stroke="
+          edge.traveled ? 'url(#brainrun-map-progress)' : edge.reachable ? '#8b5cf6' : '#1e293b'
+        "
+        :class="edge.traveled ? 'stroke-dash-fast' : edge.reachable ? 'stroke-dash-slow' : ''"
+        :style="
+          edge.traveled
+            ? 'filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.45))'
+            : edge.reachable
+              ? 'filter: drop-shadow(0 0 3px rgba(139, 92, 246, 0.3))'
+              : ''
+        "
       />
     </svg>
 
-    <div class="relative flex flex-col-reverse gap-7" style="z-index: 1">
-      <div v-for="row in rows" :key="row.row" class="flex justify-center gap-6">
-        <div v-for="node in row.nodes" :key="node.col" class="flex flex-col items-center gap-1">
-          <button
-            :id="nodeDomId(node.row, node.col)"
-            type="button"
-            :disabled="!isClickable(node) || loading"
-            class="relative w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all disabled:cursor-not-allowed"
-            :class="nodeClass(node)"
-            @click="emit('select-node', node.col)"
-          >
-            <UIcon
-              v-if="!node.type"
-              name="i-heroicons-question-mark-circle"
-              class="text-lg text-slate-600"
-            />
-            <UIcon
-              v-else-if="node.status === 'CLEARED'"
-              name="i-heroicons-check"
-              class="text-xl text-white"
-            />
-            <UIcon v-else :name="roomTypeIcon(node.type)" class="text-lg" />
-            <span
-              v-if="isClickable(node)"
-              class="absolute -inset-1 rounded-full border border-violet-500/50 animate-ping opacity-60 pointer-events-none"
-            />
-          </button>
+    <div class="relative flex flex-col-reverse gap-8" style="z-index: 2">
+      <div
+        v-for="row in rows"
+        :key="row.row"
+        class="flex justify-center gap-6 transition-transform duration-300"
+        :style="{ transform: `translateX(${rowOffset(row.row)}px)` }"
+      >
+        <div v-for="node in row.nodes" :key="node.col" class="flex flex-col items-center gap-1.5">
+          <div class="relative flex flex-col items-center">
+            <!-- Marqueur "vous êtes ici" au-dessus du nœud actif. -->
+            <div
+              v-if="node.status === 'ACTIVE'"
+              class="absolute -top-9 left-1/2 -translate-x-1/2 flex flex-col items-center z-30 pointer-events-none select-none"
+            >
+              <div
+                class="w-7 h-7 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 border-2 border-white shadow-neon flex items-center justify-center animate-bob"
+              >
+                <span class="text-[10px] font-black text-white uppercase select-none">
+                  {{ userStore.username ? userStore.username[0] : "🦥" }}
+                </span>
+              </div>
+            </div>
+
+            <button
+              :id="nodeDomId(node.row, node.col)"
+              type="button"
+              :disabled="!isClickable(node) || loading"
+              class="relative w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all duration-75 disabled:cursor-not-allowed"
+              :class="nodeClass(node)"
+              @click="emit('select-node', node.col)"
+            >
+              <UIcon
+                v-if="!node.type"
+                name="i-heroicons-question-mark-circle"
+                class="text-lg text-slate-600"
+              />
+              <UIcon
+                v-else-if="node.status === 'CLEARED'"
+                name="i-heroicons-check"
+                class="text-xl text-white font-bold"
+              />
+              <UIcon v-else :name="roomTypeIcon(node.type)" class="text-lg" />
+
+              <span
+                v-if="isClickable(node)"
+                class="absolute -inset-1.5 rounded-full border border-violet-500/50 animate-ping opacity-60 pointer-events-none"
+              />
+            </button>
+          </div>
+
           <span
             v-if="node.type && (isClickable(node) || node.status !== 'PENDING')"
-            class="text-[9px] font-black font-display uppercase tracking-wide text-gray-400 text-center max-w-[4.5rem] leading-tight"
+            class="text-[9px] font-black font-display uppercase tracking-wide text-center max-w-[4.5rem] leading-tight px-1.5 py-0.5 rounded-full"
+            :class="labelClass(node)"
           >
             {{ roomTypeLabel(node.type) }}
           </span>
@@ -59,6 +103,7 @@
 
 <script setup lang="ts">
 import type { BrainrunMapNodeDTO } from "#shared/brainrun";
+import { useUserStore } from "~/stores/userStore";
 
 const props = defineProps<{
   mapNodes: BrainrunMapNodeDTO[];
@@ -70,6 +115,7 @@ const props = defineProps<{
 const emit = defineEmits<{ "select-node": [col: number] }>();
 
 const { roomTypeLabel, roomTypeIcon } = useBrainrunRoomTypeDisplay();
+const userStore = useUserStore();
 
 const rows = computed(() => {
   const byRow = new Map<number, BrainrunMapNodeDTO[]>();
@@ -82,6 +128,12 @@ const rows = computed(() => {
     .map(([row, nodes]) => ({ row, nodes: [...nodes].sort((a, b) => a.col - b.col) }));
 });
 
+// Léger tracé sinueux d'une rangée à l'autre, façon carte Aventure — amplitude réduite car
+// chaque rangée occupe déjà de la largeur avec plusieurs nœuds côte à côte.
+function rowOffset(row: number): number {
+  return Math.sin((row - 1) * 0.9) * 28;
+}
+
 function isClickable(node: BrainrunMapNodeDTO): boolean {
   return (
     props.candidateCols !== null &&
@@ -92,22 +144,30 @@ function isClickable(node: BrainrunMapNodeDTO): boolean {
 
 function nodeClass(node: BrainrunMapNodeDTO): string {
   if (node.status === "CLEARED") {
-    return "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20";
+    return "bg-emerald-500 border-t-2 border-x-2 border-b-6 border-emerald-400 border-b-emerald-700 text-white shadow-lg shadow-emerald-500/20 hover:brightness-110";
   }
   if (node.status === "ACTIVE") {
-    return "bg-violet-600 border-violet-400 text-white shadow-lg shadow-violet-600/30";
+    return "bg-violet-600 border-t-2 border-x-2 border-b-6 border-violet-400 border-b-violet-800 text-white shadow-lg shadow-violet-600/30";
   }
   if (node.status === "FAILED") {
-    return "bg-rose-600 border-rose-400 text-white";
+    return "bg-rose-600 border-t-2 border-x-2 border-b-6 border-rose-400 border-b-rose-800 text-white shadow-lg shadow-rose-600/20";
   }
   if (isClickable(node)) {
-    return "bg-white/10 border-violet-500 text-violet-300 hover:bg-white/20 cursor-pointer";
+    return "bg-white/10 border-t-2 border-x-2 border-b-6 border-violet-500/60 border-b-violet-800/70 text-violet-200 hover:brightness-125 active:translate-y-[3px] active:border-b-2 cursor-pointer";
   }
   if (node.type) {
     // Révélé à distance par la relique Prévoyance, pas encore accessible.
-    return "bg-white/5 border-white/10 text-gray-300";
+    return "bg-white/5 border-2 border-white/10 text-gray-300";
   }
-  return "bg-slate-900 border-slate-800 text-slate-600";
+  return "bg-slate-900 border-2 border-slate-800 text-slate-600";
+}
+
+function labelClass(node: BrainrunMapNodeDTO): string {
+  if (node.status === "CLEARED") return "text-emerald-400 bg-emerald-500/10";
+  if (node.status === "ACTIVE") return "text-violet-400 bg-violet-500/10";
+  if (node.status === "FAILED") return "text-rose-400 bg-rose-500/10";
+  if (isClickable(node)) return "text-violet-300 bg-violet-500/10";
+  return "text-gray-500 bg-white/5";
 }
 
 // Positions DOM des nœuds, recalculées au montage/redimensionnement/changement de carte, pour
@@ -151,21 +211,89 @@ watch(
 );
 
 const edgePaths = computed(() => {
-  const paths: { key: string; d: string; traveled: boolean }[] = [];
+  const paths: { key: string; d: string; traveled: boolean; reachable: boolean }[] = [];
+  const nodeByKey = new Map(props.mapNodes.map((n) => [`${n.row}:${n.col}`, n]));
   for (const node of props.mapNodes) {
     const from = positions.value.get(`${node.row}:${node.col}`);
     if (!from) continue;
     for (const col of node.nextCols) {
       const to = positions.value.get(`${node.row + 1}:${col}`);
       if (!to) continue;
+      const targetNode = nodeByKey.get(`${node.row + 1}:${col}`);
+      // Emprunté : les deux extrémités ont été effectivement traversées (et pas seulement
+      // "un chemin possible depuis un nœud déjà joué" — un nœud CLEARED peut avoir plusieurs
+      // arêtes sortantes dont une seule a réellement été choisie).
+      const traveled = node.status !== "PENDING" && targetNode?.status !== "PENDING";
+      const reachable =
+        !traveled &&
+        props.candidateCols !== null &&
+        node.row + 1 === props.currentRow &&
+        props.candidateCols.includes(col);
       const cy = (from.y + to.y) / 2;
       paths.push({
         key: `${node.row}:${node.col}->${node.row + 1}:${col}`,
         d: `M ${from.x} ${from.y} C ${from.x} ${cy}, ${to.x} ${cy}, ${to.x} ${to.y}`,
-        traveled: node.status !== "PENDING",
+        traveled,
+        reachable,
       });
     }
   }
   return paths;
 });
 </script>
+
+<style scoped>
+@keyframes brainrun-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.stroke-dash-fast {
+  animation: brainrun-dash 1.2s linear infinite;
+}
+.stroke-dash-slow {
+  animation: brainrun-dash 2.4s linear infinite;
+}
+
+@keyframes brainrun-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.animate-bob {
+  animation: brainrun-bob 2s ease-in-out infinite;
+}
+
+@keyframes brainrun-pulse-slow {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1);
+  }
+}
+@keyframes brainrun-pulse-slower {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+.animate-pulse-slow {
+  animation: brainrun-pulse-slow 8s ease-in-out infinite;
+}
+.animate-pulse-slower {
+  animation: brainrun-pulse-slower 12s ease-in-out infinite;
+}
+</style>
