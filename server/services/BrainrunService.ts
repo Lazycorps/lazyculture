@@ -36,6 +36,8 @@ import {
 import {
   getMetaProgress,
   grantKnowledgePoints,
+  recordConsumableDiscovery,
+  recordRelicDiscovery,
   unlockTalent as unlockTalentPersist,
 } from "~~/server/utils/brainrunMetaHelper";
 import {
@@ -57,6 +59,7 @@ import {
   type BrainrunConsumableId,
   type BrainrunConsumableReveal,
   type BrainrunOffer,
+  type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_ENEMIES,
@@ -542,7 +545,7 @@ export class BrainrunService {
       if (!offer) {
         throw createError({ statusCode: 400, statusMessage: "Bonus non proposé." });
       }
-      await this.grantOffer(run.id, offer);
+      await this.grantOffer(run.id, offer, userId);
     } else {
       // Lot de Consolation : de l'or pour compenser un bonus ignoré.
       const effects = getActiveRelicEffects(run.relics);
@@ -591,7 +594,7 @@ export class BrainrunService {
       }
     }
 
-    await this.grantOffer(run.id, offer);
+    await this.grantOffer(run.id, offer, userId);
 
     // Fournisseur Fidèle : l'offre achetée est remplacée par une du même type plutôt que
     // supprimée. Inclut la relique tout juste achetée dans le calcul des effets, pour qu'acheter
@@ -719,6 +722,9 @@ export class BrainrunService {
           : {}),
       },
     });
+    if (resolved.relicGranted && !grantsThemePurge) {
+      await recordRelicDiscovery(userId, resolved.relicGranted);
+    }
     if (resolved.relicGranted === "EVENT_MAGNET") {
       await this.applyEventBonusToRemainingRooms(run.id, run.currentAct, run.currentSequence);
     }
@@ -768,6 +774,7 @@ export class BrainrunService {
         pendingThemeBanChoice: false,
       },
     });
+    await recordRelicDiscovery(userId, "THEME_PURGE");
     return this.getStateById(run.id);
   }
 
@@ -990,7 +997,7 @@ export class BrainrunService {
   }
 
   /** Applique le gain d'une offre (bonus post-combat ou achat en Boutique) au run. */
-  private async grantOffer(runId: string, offer: BrainrunOffer): Promise<void> {
+  private async grantOffer(runId: string, offer: BrainrunOffer, userId: string): Promise<void> {
     if (offer.kind === "RELIC") {
       // Purge Thématique : ne rejoint `relics` qu'une fois le thème choisi (cf. resolveThemeBan) ;
       // le joueur doit d'abord résoudre ce choix avant de pouvoir continuer la run.
@@ -1006,6 +1013,7 @@ export class BrainrunService {
         where: { id: runId },
         data: { relics: { push: offer.id } },
       });
+      await recordRelicDiscovery(userId, offer.id);
 
       if (offer.id === "EXTRA_HEART") {
         const run = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
@@ -1091,6 +1099,7 @@ export class BrainrunService {
       where: { id: runId },
       data: { consumables: consumables },
     });
+    await recordConsumableDiscovery(run.userId, type);
   }
 
   /**
@@ -1145,6 +1154,8 @@ export class BrainrunService {
     return {
       knowledgePoints: progress.knowledgePoints,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
+      discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
+      discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
     };
   }
 
@@ -1153,6 +1164,8 @@ export class BrainrunService {
     return {
       knowledgePoints: progress.knowledgePoints,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
+      discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
+      discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
     };
   }
 

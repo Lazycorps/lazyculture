@@ -1,5 +1,10 @@
 import type { QuestionDTO } from "./question";
-import type { BrainrunConsumableReveal, BrainrunOffer, BrainrunRelicId } from "./brainrunItems";
+import type {
+  BrainrunConsumableId,
+  BrainrunConsumableReveal,
+  BrainrunOffer,
+  BrainrunRelicId,
+} from "./brainrunItems";
 import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression). */
@@ -137,4 +142,7 @@ export type BrainrunStateDTO = {
 export type BrainrunMetaProgressDTO = {
   knowledgePoints: number;
   unlockedTalents: BrainrunTalentId[];
+  /** Reliques/consommables déjà obtenus au moins une fois, toutes runs confondues (glossaire). */
+  discoveredRelics: BrainrunRelicId[];
+  discoveredConsumables: BrainrunConsumableId[];
 };

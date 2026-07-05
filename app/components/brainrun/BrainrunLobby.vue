@@ -67,9 +67,24 @@
       >
         Arbre de talents
       </UButton>
+      <UButton
+        size="lg"
+        variant="ghost"
+        block
+        icon="i-heroicons-book-open"
+        class="font-black font-display uppercase tracking-wide py-3"
+        @click="showGlossary = true"
+      >
+        Glossaire
+      </UButton>
     </div>
 
     <BrainrunHelpModal v-model:open="showHelp" />
+    <BrainrunGlossaryModal
+      v-model:open="showGlossary"
+      :discovered-relics="metaProgress?.discoveredRelics ?? []"
+      :discovered-consumables="metaProgress?.discoveredConsumables ?? []"
+    />
   </div>
 </template>
 
@@ -89,4 +104,5 @@ defineEmits<{
 
 const hasRunInProgress = computed(() => props.run?.status === "IN_PROGRESS");
 const showHelp = ref(false);
+const showGlossary = ref(false);
 </script>

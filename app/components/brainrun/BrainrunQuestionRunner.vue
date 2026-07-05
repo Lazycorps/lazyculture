@@ -34,18 +34,35 @@
       v-if="!responded && availableConsumables.length > 0"
       class="flex justify-center flex-wrap gap-2 mt-3"
     >
-      <button
-        v-for="consumable in availableConsumables"
-        :key="consumable.id"
-        type="button"
-        :disabled="consumableLoading"
-        class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs font-bold font-display text-gray-300 disabled:opacity-40 transition-colors"
-        @click="handleUseConsumable(consumable.id)"
-      >
-        <UIcon :name="consumable.icon" class="text-sm text-amber-400" />
-        {{ consumable.name }}
-        <span class="text-gray-500">×{{ consumable.count }}</span>
-      </button>
+      <div v-for="consumable in availableConsumables" :key="consumable.id" class="relative">
+        <button
+          type="button"
+          :disabled="consumableLoading"
+          :title="consumable.description"
+          class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs font-bold font-display text-gray-300 disabled:opacity-40 transition-colors"
+          @pointerdown="longPress.onPointerDown(consumable.id, $event)"
+          @pointerup="longPress.onPointerUp(consumable.id)"
+          @pointerleave="longPress.onPointerLeave(consumable.id)"
+          @pointercancel="longPress.onPointerLeave(consumable.id)"
+          @contextmenu.prevent
+          @click="handleConsumableClick(consumable.id)"
+        >
+          <UIcon :name="consumable.icon" class="text-sm text-amber-400" />
+          {{ consumable.name }}
+          <span class="text-gray-500">×{{ consumable.count }}</span>
+        </button>
+        <div
+          v-if="longPress.activeId.value === consumable.id"
+          class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
+        >
+          <p class="text-[11px] font-black font-display text-white tracking-wide">
+            {{ consumable.name }}
+          </p>
+          <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
+            {{ consumable.description }}
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
@@ -221,6 +238,15 @@ async function handleUseConsumable(type: BrainrunConsumableId) {
   } finally {
     consumableLoading.value = false;
   }
+}
+
+// Appui maintenu 1,5s (mobile) pour révéler l'effet du consommable ; le clic qui suit ce
+// relâchement ne doit pas déclencher son usage, cf. useBrainrunLongPress.
+const longPress = useBrainrunLongPress();
+
+function handleConsumableClick(id: BrainrunConsumableId) {
+  if (longPress.consumeLongPress(id)) return;
+  handleUseConsumable(id);
 }
 
 function updateRemainingMs() {

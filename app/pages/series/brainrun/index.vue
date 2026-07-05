@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full max-w-xl mx-auto py-2 select-none">
+  <div class="w-full max-w-xl mx-auto py-2 select-none" @click="openedRelicId = null">
     <UCard
       class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
       :ui="{ body: 'p-2' }"
@@ -90,16 +90,32 @@
           </div>
 
           <!-- Reliques possédées (gauche) et emplacements de consommables (droite, 3 slots fixes,
-             remplis de gauche à droite au fur et à mesure des objets obtenus). -->
+             remplis de gauche à droite au fur et à mesure des objets obtenus).
+             Reliques : tap pour ouvrir/fermer une infobulle (aucune autre action au clic).
+             Consommables : appui maintenu 1,5s (mobile) pour simuler le hover et révéler
+             l'effet, cf. useBrainrunLongPress — le clic qui suit ne doit rien déclencher. -->
           <div class="flex items-center justify-between gap-2 mt-2">
             <div class="flex flex-wrap gap-1.5">
-              <div
-                v-for="relic in ownedRelics"
-                :key="relic.id"
-                :title="`${relic.name} — ${relic.description}`"
-                class="w-7 h-7 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 text-sm"
-              >
-                <UIcon :name="relic.icon" />
+              <div v-for="relic in ownedRelics" :key="relic.id" class="relative">
+                <button
+                  type="button"
+                  :title="`${relic.name} — ${relic.description}`"
+                  class="w-7 h-7 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 text-sm"
+                  @click.stop="openedRelicId = openedRelicId === relic.id ? null : relic.id"
+                >
+                  <UIcon :name="relic.icon" />
+                </button>
+                <div
+                  v-if="openedRelicId === relic.id"
+                  class="absolute z-20 bottom-full left-0 mb-2 w-48 bg-slate-900 border border-violet-500/30 rounded-xl p-2.5 shadow-xl text-left"
+                >
+                  <p class="text-[11px] font-black font-display text-white tracking-wide">
+                    {{ relic.name }}
+                  </p>
+                  <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
+                    {{ relic.description }}
+                  </p>
+                </div>
               </div>
             </div>
             <div class="flex items-center gap-1.5">
@@ -113,6 +129,11 @@
                     ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
                     : 'bg-white/5 border border-dashed border-white/10'
                 "
+                @pointerdown="consumable && longPress.onPointerDown(consumable.id, $event)"
+                @pointerup="consumable && longPress.onPointerUp(consumable.id)"
+                @pointerleave="consumable && longPress.onPointerLeave(consumable.id)"
+                @pointercancel="consumable && longPress.onPointerLeave(consumable.id)"
+                @contextmenu.prevent
               >
                 <UIcon v-if="consumable" :name="consumable.icon" />
                 <span
@@ -121,6 +142,17 @@
                 >
                   {{ consumable.count }}
                 </span>
+                <div
+                  v-if="consumable && longPress.activeId.value === consumable.id"
+                  class="absolute z-20 bottom-full right-0 mb-2 w-48 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
+                >
+                  <p class="text-[11px] font-black font-display text-white tracking-wide">
+                    {{ consumable.name }}
+                  </p>
+                  <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
+                    {{ consumable.description }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -523,6 +555,10 @@ const roomRecap = computed(() => {
 const ownedRelics = computed(() =>
   (run.value?.relics ?? []).map((id) => BRAINRUN_RELICS[id as BrainrunRelicId]),
 );
+
+// Infobulle relique ouverte par tap ; refermée par un tap sur elle-même ou ailleurs dans la carte.
+const openedRelicId = ref<BrainrunRelicId | null>(null);
+const longPress = useBrainrunLongPress();
 
 // Icônes seules (max 3, une par type possédé) alignées à droite sur la même ligne que les
 // reliques ; les boutons d'usage pendant une question restent dans BrainrunQuestionRunner.
