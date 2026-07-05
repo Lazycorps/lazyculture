@@ -29,6 +29,13 @@ export type BrainrunEventChoiceDTO = {
   optionIndex: number;
 };
 
+/** choice = "HEAL" (+1 PV) ou "BAN_THEME" (theme requis, doit figurer dans availableThemesToBan). */
+export type BrainrunRestChoiceDTO = {
+  runId: string;
+  choice: "HEAL" | "BAN_THEME";
+  theme?: string;
+};
+
 export type BrainrunConsumableUseDTO = {
   runId: string;
   type: BrainrunConsumableId;

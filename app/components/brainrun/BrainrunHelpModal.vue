@@ -49,7 +49,7 @@
           </div>
 
           <p class="text-[11px] text-gray-500 leading-relaxed">
-            L'or gagné en combat se dépense en Boutique. À la fin de la run, l'XP et les Points de
+            L'or gagné en combat se dépense en Librairie. À la fin de la run, l'XP et les Points de
             Savoir récoltés servent à progresser et à débloquer des talents permanents dans l'Arbre
             de talents.
           </p>
@@ -87,14 +87,15 @@ const rooms: { type: BrainrunRoomType; icon: string; label: string; description:
   },
   {
     type: "REST",
-    icon: "i-heroicons-heart",
-    label: "Repos",
-    description: "Aucune question : régénère 1 point de vie.",
+    icon: "i-heroicons-building-library",
+    label: "Bibliothèque",
+    description:
+      "Aucune question : reposez-vous pour regagner 1 point de vie, ou bannissez un thème pour le reste de la run (même règle que la relique Purge Thématique).",
   },
   {
     type: "SHOP",
-    icon: "i-heroicons-shopping-bag",
-    label: "Boutique",
+    icon: "i-heroicons-book-open",
+    label: "Librairie",
     description: "Dépensez votre or pour acheter des reliques et des consommables.",
   },
   {

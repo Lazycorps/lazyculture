@@ -250,7 +250,86 @@
                 </div>
               </div>
 
-              <!-- Boutique -->
+              <!-- Bibliothèque : se reposer (+1 PV) ou bannir un thème pour le reste de la run
+                   (même règle que la relique Purge Thématique, cf. run.availableThemesToBan). -->
+              <div
+                v-else-if="currentRoom?.type === 'REST' && currentRoom.status === 'ACTIVE'"
+                class="text-center py-6 px-2 space-y-5"
+              >
+                <template v-if="restBanMode">
+                  <div class="space-y-1">
+                    <h3 class="text-lg font-black font-display text-white tracking-wide">
+                      Bannir un thème
+                    </h3>
+                    <p class="text-xs text-gray-400">
+                      Choisissez un thème à bannir pour le reste de la run.
+                    </p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button
+                      v-for="theme in run?.availableThemesToBan ?? []"
+                      :key="theme"
+                      type="button"
+                      :disabled="loading"
+                      class="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3 text-xs font-black font-display text-white tracking-wide capitalize disabled:opacity-50"
+                      @click="handleRestBanPick(theme)"
+                    >
+                      {{ themeLabel(theme) }}
+                    </button>
+                  </div>
+                  <UButton
+                    variant="ghost"
+                    size="sm"
+                    :disabled="loading"
+                    class="font-bold font-display"
+                    @click="restBanMode = false"
+                  >
+                    Retour
+                  </UButton>
+                </template>
+                <template v-else>
+                  <div
+                    class="w-14 h-14 rounded-xl bg-sky-600/10 border border-sky-500/20 flex items-center justify-center text-3xl mx-auto"
+                  >
+                    <UIcon name="i-heroicons-building-library" class="text-sky-400" />
+                  </div>
+                  <div class="space-y-1">
+                    <h3 class="text-lg font-black font-display text-white tracking-wide">
+                      Bibliothèque
+                    </h3>
+                    <p class="text-xs text-gray-400 max-w-xs mx-auto">
+                      Reposez-vous pour regagner un point de vie, ou bannissez un thème pour le
+                      reste de la run.
+                    </p>
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 max-w-xs mx-auto">
+                    <UButton
+                      size="lg"
+                      color="primary"
+                      block
+                      icon="i-heroicons-heart"
+                      :loading="loading"
+                      class="font-black font-display uppercase tracking-widest py-3"
+                      @click="handleRestHeal"
+                    >
+                      Se reposer (+1 PV)
+                    </UButton>
+                    <UButton
+                      size="lg"
+                      variant="soft"
+                      block
+                      icon="i-heroicons-no-symbol"
+                      :disabled="loading"
+                      class="font-black font-display uppercase tracking-widest py-3"
+                      @click="restBanMode = true"
+                    >
+                      Bannir un thème
+                    </UButton>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Librairie -->
               <BrainrunShop
                 v-else-if="currentRoom?.type === 'SHOP' && currentRoom.status === 'ACTIVE'"
                 :offers="currentRoom.offers ?? []"
@@ -309,7 +388,20 @@
                     }}
                   </h3>
                 </div>
-                <div class="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
+                <div
+                  v-if="roomRecap.bannedTheme"
+                  class="bg-white/5 border border-white/10 rounded-2xl p-4 w-full max-w-sm mx-auto"
+                >
+                  <p class="text-lg font-black font-display text-white capitalize">
+                    {{ themeLabel(roomRecap.bannedTheme) }}
+                  </p>
+                  <p
+                    class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
+                  >
+                    Thème banni pour le reste de la run
+                  </p>
+                </div>
+                <div v-else class="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
                   <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
                     <p class="text-xl font-black font-display text-amber-400">
                       +{{ roomRecap.goldEarned }}
@@ -482,6 +574,13 @@ const showBottomNav = useState("showBottomNav", () => true);
 const holdOnFeedback = useState("brainrun-hold-on-feedback", () => false);
 // true entre le récap de fin de salle Elite/Boss et la résolution du bonus (relique/consommable).
 const showBonusStep = ref(false);
+// Bibliothèque : bascule vers la grille de thèmes tant que le joueur n'a pas choisi de bannir.
+const restBanMode = ref(false);
+// Suivi local du choix fait dans la Bibliothèque (repos ou bannissement), pour adapter le récap
+// de fin de salle juste après résolution — la salle CLEARED seule ne permet pas de distinguer
+// les deux cas côté serveur.
+const lastRestChoice = ref<"HEAL" | "BAN_THEME" | null>(null);
+const lastBannedTheme = ref<string | null>(null);
 // Le Lobby est le point d'entrée par défaut : la run ne s'affiche qu'après "Nouvelle run"/"Reprendre".
 const view = ref<"lobby" | "run">("lobby");
 
@@ -536,7 +635,9 @@ const roomRecap = computed(() => {
     type: room.type,
     goldEarned: room.goldEarned,
     heartsLost,
-    healed: room.type === "REST",
+    healed: room.type === "REST" && lastRestChoice.value === "HEAL",
+    bannedTheme:
+      room.type === "REST" && lastRestChoice.value === "BAN_THEME" ? lastBannedTheme.value : null,
     enemyName:
       getBrainrunEnemyById(room.enemyId)?.name ?? getBrainrunBossById(room.bossId)?.name ?? null,
   };
@@ -595,6 +696,9 @@ function backToLobby() {
 }
 
 async function selectNode(col: number) {
+  restBanMode.value = false;
+  lastRestChoice.value = null;
+  lastBannedTheme.value = null;
   await brainrun.chooseNode(col);
 }
 
@@ -630,6 +734,18 @@ async function handleThemeBanPick(theme: string) {
   if (currentRoom.value?.status === "CLEARED") {
     await brainrun.acknowledgeRoom();
   }
+}
+
+async function handleRestHeal() {
+  lastRestChoice.value = "HEAL";
+  await brainrun.resolveRest("HEAL");
+}
+
+async function handleRestBanPick(theme: string) {
+  lastRestChoice.value = "BAN_THEME";
+  lastBannedTheme.value = theme;
+  restBanMode.value = false;
+  await brainrun.resolveRest("BAN_THEME", theme);
 }
 
 function themeLabel(theme: string): string {

@@ -4,9 +4,9 @@
       <div
         class="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-2xl mx-auto text-amber-400"
       >
-        <UIcon name="i-heroicons-shopping-bag" />
+        <UIcon name="i-heroicons-book-open" />
       </div>
-      <h3 class="text-lg font-black font-display text-white tracking-wide">Boutique</h3>
+      <h3 class="text-lg font-black font-display text-white tracking-wide">Librairie</h3>
       <p class="text-xs text-gray-400">
         Vous avez <span class="text-amber-400 font-bold">{{ gold }}</span> or.
       </p>
@@ -50,7 +50,7 @@
       class="font-black font-display uppercase tracking-widest py-3.5"
       @click="$emit('leave')"
     >
-      Quitter la boutique
+      Quitter la librairie
     </UButton>
   </div>
 </template>

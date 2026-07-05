@@ -11,9 +11,9 @@ export function useBrainrunRoomTypeDisplay() {
       case "BOSS":
         return "Boss";
       case "REST":
-        return "Repos (+1 PV)";
+        return "Bibliothèque";
       case "SHOP":
-        return "Boutique";
+        return "Librairie";
       case "EVENT":
         return "Événement";
     }
@@ -28,9 +28,9 @@ export function useBrainrunRoomTypeDisplay() {
       case "BOSS":
         return "i-heroicons-shield-exclamation";
       case "REST":
-        return "i-heroicons-heart";
+        return "i-heroicons-building-library";
       case "SHOP":
-        return "i-heroicons-shopping-bag";
+        return "i-heroicons-book-open";
       case "EVENT":
         return "i-heroicons-question-mark-circle";
     }

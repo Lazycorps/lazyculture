@@ -161,20 +161,14 @@ export class BrainrunService {
     const effects = getActiveRelicEffects(run.relics);
 
     if (choice === "REST") {
-      // Salle "cleared" mais l'avancée reste différée jusqu'à acknowledgeRoom(), pour laisser
-      // le temps au joueur de voir le récap (+1 PV) avant de passer à la suite.
-      const newHealthPoint = Math.min(
-        run.maxHealthPoint,
-        run.healthPoint + instantRoomHealthDelta("REST"),
-      );
+      // Reste ACTIVE tant que le joueur n'a pas choisi entre se reposer et bannir un thème
+      // (cf. resolveRest) : contrairement aux autres salles instantanées, la Bibliothèque
+      // demande toujours un choix explicite.
       await prisma.brainrunRoom.update({
         where: { id: node.id },
-        data: { status: "CLEARED", goldEarned: 0 },
+        data: { status: "ACTIVE" },
       });
-      await prisma.brainrunRun.update({
-        where: { id: run.id },
-        data: { healthPoint: newHealthPoint, currentCol: col },
-      });
+      await prisma.brainrunRun.update({ where: { id: run.id }, data: { currentCol: col } });
     } else if (choice === "SHOP") {
       // Reste ACTIVE tant que le joueur n'a pas cliqué "Quitter la boutique" (cf. leaveShop) :
       // il peut acheter plusieurs offres avant de continuer sa route.
@@ -653,6 +647,52 @@ export class BrainrunService {
       data: { status: "CLEARED", goldEarned: 0 },
     });
     await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentRow);
+    return this.getStateById(run.id);
+  }
+
+  /**
+   * Résout le choix fait dans la Bibliothèque active : "HEAL" régénère 1 PV, "BAN_THEME"
+   * bannit un thème pour le reste de la run (même validation que resolveThemeBan, mais sans
+   * octroyer la relique Purge Thématique). Marque la salle CLEARED ; l'avancée reste différée
+   * jusqu'à acknowledgeRoom, comme pour REST auparavant.
+   */
+  async resolveRest(
+    runId: string,
+    choice: "HEAL" | "BAN_THEME",
+    userId: string,
+    theme?: string,
+  ): Promise<BrainrunStateDTO> {
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const activeRoom = this.getActiveNode(run);
+
+    if (activeRoom.type !== "REST" || activeRoom.status !== "ACTIVE") {
+      throw createError({ statusCode: 409, statusMessage: "Aucune Bibliothèque active." });
+    }
+
+    if (choice === "HEAL") {
+      const newHealthPoint = Math.min(
+        run.maxHealthPoint,
+        run.healthPoint + instantRoomHealthDelta("REST"),
+      );
+      await prisma.brainrunRun.update({
+        where: { id: run.id },
+        data: { healthPoint: newHealthPoint },
+      });
+    } else {
+      const availableThemes = this.computeAvailableThemesToBan(run.bannedThemes);
+      if (!theme || !availableThemes.includes(theme)) {
+        throw createError({ statusCode: 400, statusMessage: "Thème invalide." });
+      }
+      await prisma.brainrunRun.update({
+        where: { id: run.id },
+        data: { bannedThemes: [...run.bannedThemes, theme] },
+      });
+    }
+
+    await prisma.brainrunRoom.update({
+      where: { id: activeRoom.id },
+      data: { status: "CLEARED", goldEarned: 0 },
+    });
     return this.getStateById(run.id);
   }
 
@@ -1456,19 +1496,26 @@ export class BrainrunService {
       shieldArmed: run.shieldArmed,
       bannedThemes: run.bannedThemes,
       pendingThemeBanChoice: run.pendingThemeBanChoice,
-      availableThemesToBan: run.pendingThemeBanChoice
-        ? this.computeAvailableThemesToBan(run.bannedThemes)
-        : [],
+      // Utilisé à la fois par le choix de thème de la relique Purge Thématique
+      // (pendingThemeBanChoice) et par la Bibliothèque (resolveRest) : toujours calculé, léger
+      // (dérivé des catalogues statiques + bannedThemes) et sans effet de bord à exposer au repos.
+      availableThemesToBan: this.computeAvailableThemesToBan(run.bannedThemes),
     };
   }
 
-  /** Thèmes non bannis encore présents dans les pools d'ennemis/boss (les 3 actes confondus). */
+  /**
+   * Thèmes non bannis encore présents dans les pools d'ennemis/boss (les 3 actes confondus),
+   * triés par ordre alphabétique. `culture_generale` n'est jamais bannissable (inclus
+   * systématiquement dans les boss, cf. shared/brainrunBosses.ts).
+   */
   private computeAvailableThemesToBan(bannedThemes: string[]): string[] {
     const allThemes = [
       ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
       ...BRAINRUN_BOSSES.flatMap((b) => b.themes),
     ];
-    return [...new Set(allThemes)].filter((theme) => !bannedThemes.includes(theme));
+    return [...new Set(allThemes)]
+      .filter((theme) => theme !== "culture_generale" && !bannedThemes.includes(theme))
+      .sort((a, b) => a.localeCompare(b));
   }
 
   private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {

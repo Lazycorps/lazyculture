@@ -150,6 +150,23 @@ export const useBrainrunSession = () => {
     }
   }
 
+  /** Résout le choix fait dans la Bibliothèque active : se reposer (+1 PV) ou bannir un thème. */
+  async function resolveRest(choice: "HEAL" | "BAN_THEME", theme?: string) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/rest", {
+          method: "post",
+          body: { runId: run.value.id, choice, theme },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function resolveEvent(optionIndex: number) {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -236,6 +253,7 @@ export const useBrainrunSession = () => {
     buyShopItem,
     leaveShop,
     resolveThemeBan,
+    resolveRest,
     resolveEvent,
     useConsumable,
     acknowledgeRoom,
