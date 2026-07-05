@@ -19,9 +19,11 @@
 
         <div class="space-y-5">
           <p class="text-xs text-gray-400 leading-relaxed">
-            Chaque acte compte 7 salles : 6 salles à choisir librement puis un Boss pour le
-            terminer. Répondez correctement aux questions pour progresser ; une mauvaise réponse
-            vous coûte un point de vie. Survivez aux 3 actes pour gagner la run !
+            Chaque acte se joue sur une carte à embranchements : choisissez votre chemin parmi
+            plusieurs salles jusqu'au Boss qui termine l'acte. Le type des salles trop lointaines
+            reste masqué (icône "?") tant que vous ne les avez pas atteintes — la relique Prévoyance
+            permet de voir plus loin. Répondez correctement aux questions pour progresser ; une
+            mauvaise réponse vous coûte un point de vie. Survivez aux 3 actes pour gagner la run !
           </p>
 
           <div class="space-y-2.5">

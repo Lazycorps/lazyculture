@@ -18,9 +18,10 @@ import {
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import {
-  BRAINRUN_CHOICE_POINTS_PER_ACT,
+  BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
+  BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
   BRAINRUN_HAGGLER_MULTIPLIER,
   BRAINRUN_KP_PER_GOLD,
   BRAINRUN_MIN_EVENT_OFFERS,
@@ -45,21 +46,17 @@ export function shouldEndRunOnDamage(healthPointAfter: number): boolean {
   return healthPointAfter <= 0;
 }
 
-export function isAwaitingChoice(room: { type: string | null }): boolean {
-  return room.type === null;
-}
-
-export type NextRoomOutcome =
-  | { kind: "AWAIT_CHOICE"; act: number; sequence: number }
+export type NextRowOutcome =
+  | { kind: "AWAIT_CHOICE"; act: number; row: number }
   | { kind: "RUN_WON" };
 
-/** Détermine la prochaine salle à proposer une fois la salle courante (act/sequence) nettoyée. */
-export function nextRoomAfterClear(act: number, sequence: number): NextRoomOutcome {
-  if (sequence < BRAINRUN_ROOMS_PER_ACT) {
-    return { kind: "AWAIT_CHOICE", act, sequence: sequence + 1 };
+/** Détermine la prochaine rangée à proposer une fois la rangée courante (act/row) nettoyée. */
+export function nextRowAfterClear(act: number, row: number): NextRowOutcome {
+  if (row < BRAINRUN_ROOMS_PER_ACT) {
+    return { kind: "AWAIT_CHOICE", act, row: row + 1 };
   }
   if (act < BRAINRUN_TOTAL_ACTS) {
-    return { kind: "AWAIT_CHOICE", act: act + 1, sequence: 1 };
+    return { kind: "AWAIT_CHOICE", act: act + 1, row: 1 };
   }
   return { kind: "RUN_WON" };
 }
@@ -98,10 +95,11 @@ export type BrainrunRelicEffects = {
   shopPriceMultiplier: number;
   /** Fournisseur Fidèle : un objet acheté en Boutique est remplacé par un autre du même type. */
   autoRestockShop: boolean;
-  /** Aimant à Événements : probabilité par point de choix restant qu'un Événement s'ajoute en 3e option. */
+  /** Aimant à Événements : probabilité qu'un futur nœud Combat soit converti en Événement. */
   eventBonusChance: number;
-  /** Prévoyance : révèle les propositions du point de choix suivant. */
-  showsNextRoomPreview: boolean;
+  /** Prévoyance : nombre de rangées de vision supplémentaires sur la carte, au-delà de la
+   * rangée immédiatement accessible (toujours visible par défaut). */
+  mapVisionRows: number;
   /** Lot de Consolation : or gagné en ignorant le bonus post-combat. */
   goldOnBonusSkip: number;
   /** Sixième Sens : probabilité par question de révéler la bonne réponse après un délai. */
@@ -118,7 +116,7 @@ const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   shopPriceMultiplier: 1,
   autoRestockShop: false,
   eventBonusChance: 0,
-  showsNextRoomPreview: false,
+  mapVisionRows: 0,
   goldOnBonusSkip: 0,
   autoHintChance: 0,
 };
@@ -145,7 +143,10 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
       case "EVENT_MAGNET":
         return { ...effects, eventBonusChance: BRAINRUN_EVENT_MAGNET_CHANCE };
       case "FORESIGHT":
-        return { ...effects, showsNextRoomPreview: true };
+        return {
+          ...effects,
+          mapVisionRows: effects.mapVisionRows + BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
+        };
       case "CONSOLATION_PRIZE":
         return { ...effects, goldOnBonusSkip: effects.goldOnBonusSkip + BRAINRUN_CONSOLATION_GOLD };
       case "SIXTH_SENSE":
@@ -503,11 +504,6 @@ export function calculBrainrunUserXP(
   return won ? base + BRAINRUN_WIN_BONUS_XP : base;
 }
 
-export type BrainrunChoicePoint = {
-  sequence: number;
-  choiceTypes: BrainrunRoomType[];
-};
-
 function shuffle<T>(items: T[], random: () => number): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -517,95 +513,223 @@ function shuffle<T>(items: T[], random: () => number): T[] {
   return copy;
 }
 
-/** true si un point de choix est purement combat ([STANDARD, ELITE], sans salle spéciale). */
-function isPureCombatChoice(choiceTypes: BrainrunRoomType[]): boolean {
-  return (
-    choiceTypes.length === 2 && choiceTypes.includes("STANDARD") && choiceTypes.includes("ELITE")
-  );
+/** Position proportionnelle d'une colonne d'une rangée de largeur fromWidth dans une rangée de
+ * largeur toWidth (utilisé pour router les arêtes du graphe sans qu'elles ne s'entrecroisent trop). */
+function proportionalCol(col: number, fromWidth: number, toWidth: number): number {
+  if (fromWidth <= 1) return Math.round((toWidth - 1) / 2);
+  return Math.round((col / (fromWidth - 1)) * (toWidth - 1));
 }
 
+export type BrainrunGraphEdge = { row: number; col: number; nextCols: number[] };
+
+function pickInitialTargets(
+  col: number,
+  fromWidth: number,
+  toWidth: number,
+  random: () => number,
+): number[] {
+  const center = proportionalCol(col, fromWidth, toWidth);
+  const neighbors = [center - 1, center, center + 1].filter((c) => c >= 0 && c < toWidth);
+  const extraCandidates = [...new Set(neighbors)].filter((c) => c !== center);
+  const targets = [center];
+  if (extraCandidates.length > 0 && random() < 0.5) {
+    targets.push(extraCandidates[Math.floor(random() * extraCandidates.length)]!);
+  }
+  return [...new Set(targets)];
+}
+
+/** Rattache tout nœud sans arête entrante au nœud le plus proche (par position proportionnelle)
+ * de la rangée précédente, pour qu'aucun nœud de la carte ne soit inaccessible. */
+function attachOrphans(edges: BrainrunGraphEdge[], widths: number[]): void {
+  for (let row = 1; row < widths.length; row++) {
+    const fromWidth = widths[row - 1]!;
+    const toWidth = widths[row]!;
+    const rowEdges = edges.filter((e) => e.row === row);
+    const incoming = Array.from({ length: toWidth }, () => 0);
+    for (const e of rowEdges) for (const c of e.nextCols) incoming[c]!++;
+
+    for (let col = 0; col < toWidth; col++) {
+      if (incoming[col]! > 0) continue;
+      let closest = rowEdges[0]!;
+      let closestDist = Infinity;
+      for (const e of rowEdges) {
+        const dist = Math.abs(proportionalCol(e.col, fromWidth, toWidth) - col);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = e;
+        }
+      }
+      closest.nextCols = [...new Set([...closest.nextCols, col])];
+    }
+  }
+}
+
+/** Construit la forme du graphe d'un acte (nœuds + arêtes vers la rangée suivante), sans les
+ * types de salle. Chaque nœud a toujours au moins une arête sortante (sauf la dernière rangée,
+ * le Boss) et au moins une arête entrante (sauf la rangée 1) — jamais de nœud inaccessible. */
+export function generateActEdges(random: () => number = Math.random): BrainrunGraphEdge[] {
+  const widths = BRAINRUN_ACT_ROW_WIDTHS;
+  const edges: BrainrunGraphEdge[] = [];
+  for (let row = 1; row <= widths.length; row++) {
+    const width = widths[row - 1]!;
+    const nextWidth = widths[row];
+    for (let col = 0; col < width; col++) {
+      edges.push({
+        row,
+        col,
+        nextCols: nextWidth === undefined ? [] : pickInitialTargets(col, width, nextWidth, random),
+      });
+    }
+  }
+  attachOrphans(edges, widths);
+  return edges;
+}
+
+export type BrainrunNodeTypeAssignment = { row: number; col: number; type: BrainrunRoomType };
+
 /**
- * Génère la forme des points de choix d'un acte (hors salle Boss finale, toujours fixe/séparée) :
- * au moins BRAINRUN_MIN_PURE_COMBAT_RATIO de points purement [STANDARD, ELITE], et au moins
- * une occurrence de SHOP/REST et deux de EVENT réparties sur des points distincts.
- * `random` est injectable pour des tests déterministes (par défaut Math.random). Si
- * `forceFirstPure` est vrai (premier acte de la run), le premier point (sequence 1) est
- * garanti purement combat — pas de Boutique/Repos/Événement dès la toute première salle.
+ * Relique Aimant à Événements : convertit un nœud Combat (STANDARD/ELITE) pas encore atteint en
+ * Événement, avec probabilité eventBonusChance. Ne touche jamais une salle spéciale déjà présente
+ * (SHOP/REST/EVENT) ni le Boss — on ne fait qu'ajouter une chance de tomber sur un événement là où
+ * il y aurait eu un combat, jamais retirer une salle spéciale existante.
  */
-/**
- * Relique Aimant à Événements : ajoute "EVENT" en 3e option d'un point de choix (les options
- * existantes ne sont jamais retirées), avec probabilité eventBonusChance. Sans effet si le point
- * propose déjà un Événement ou est le point Boss fixe (une seule option, jamais négociable).
- */
-export function maybeAddEventOption(
-  choiceTypes: BrainrunRoomType[],
+export function maybeConvertNodeToEvent(
+  type: BrainrunRoomType,
   eventBonusChance: number,
   random: () => number = Math.random,
-): BrainrunRoomType[] {
-  if (eventBonusChance <= 0) return choiceTypes;
-  if (choiceTypes.includes("EVENT") || choiceTypes.includes("BOSS")) return choiceTypes;
-  if (random() >= eventBonusChance) return choiceTypes;
-  return [...choiceTypes, "EVENT"];
+): BrainrunRoomType {
+  if (eventBonusChance <= 0) return type;
+  if (type !== "STANDARD" && type !== "ELITE") return type;
+  if (random() >= eventBonusChance) return type;
+  return "EVENT";
 }
 
-export function generateActChoicePoints(
+/**
+ * Assigne un type de salle à chaque nœud non-Boss d'un acte (BRAINRUN_ACT_ROW_WIDTHS moins la
+ * dernière rangée) : majorité de combats (BRAINRUN_MIN_PURE_COMBAT_RATIO), au moins
+ * BRAINRUN_MIN_SHOP_OFFERS/REST_OFFERS/EVENT_OFFERS occurrences de chaque salle spéciale.
+ * `random` est injectable pour des tests déterministes. Si `forceFirstPure` est vrai (premier
+ * acte de la run), les nœuds de la rangée 1 sont garantis un Standard + un Elite — pas de
+ * Boutique/Repos/Événement dès la toute première salle, tout en préservant un vrai choix.
+ */
+export function assignNodeTypes(
   random: () => number = Math.random,
   forceFirstPure: boolean = false,
   eventBonusChance: number = 0,
-): BrainrunChoicePoint[] {
-  const totalPoints = BRAINRUN_CHOICE_POINTS_PER_ACT;
-  const minPure = Math.ceil(totalPoints * BRAINRUN_MIN_PURE_COMBAT_RATIO);
-  const mixedCount = totalPoints - minPure;
-
+): BrainrunNodeTypeAssignment[] {
+  const widths = BRAINRUN_ACT_ROW_WIDTHS.slice(0, -1); // toutes les rangées hors Boss
+  const totalNodes = widths.reduce((sum, w) => sum + w, 0);
   const specialsPool: BrainrunRoomType[] = [
     ...(Array(BRAINRUN_MIN_SHOP_OFFERS).fill("SHOP") as BrainrunRoomType[]),
     ...(Array(BRAINRUN_MIN_REST_OFFERS).fill("REST") as BrainrunRoomType[]),
     ...(Array(BRAINRUN_MIN_EVENT_OFFERS).fill("EVENT") as BrainrunRoomType[]),
   ];
+  const combatCount = totalNodes - specialsPool.length;
+  // Garanti par construction : le nombre de salles spéciales est fixé indépendamment de la taille
+  // de l'acte, donc le combat occupe toujours la majorité des nœuds restants.
+  const minPure = Math.ceil(totalNodes * BRAINRUN_MIN_PURE_COMBAT_RATIO);
+  if (combatCount < minPure) {
+    throw new Error("BRAINRUN_ACT_ROW_WIDTHS/quotas incohérents : pas assez de nœuds de combat.");
+  }
+  const combatPool: BrainrunRoomType[] = Array.from({ length: combatCount }, () =>
+    random() < 0.5 ? "STANDARD" : "ELITE",
+  );
 
-  const buckets: BrainrunRoomType[][] = Array.from({ length: mixedCount }, () => []);
-  const shuffledSpecials = shuffle(specialsPool, random);
-  shuffledSpecials.forEach((special, i) => {
-    if (i < mixedCount) {
-      buckets[i]!.push(special);
-      return;
-    }
-    // Item excédentaire : on évite de le placer dans un bucket qui a déjà ce même type,
-    // pour garantir que EVENT (2 occurrences minimum) apparaisse sur 2 points distincts.
-    const eligible = buckets.map((_, idx) => idx).filter((idx) => !buckets[idx]!.includes(special));
-    const pickFrom = eligible.length > 0 ? eligible : buckets.map((_, idx) => idx);
-    const pick = pickFrom[Math.floor(random() * pickFrom.length)]!;
-    buckets[pick]!.push(special);
+  const slots: { row: number; col: number }[] = [];
+  widths.forEach((width, idx) => {
+    for (let col = 0; col < width; col++) slots.push({ row: idx + 1, col });
   });
+  const row1Slots = slots.filter((s) => s.row === 1);
+  const otherSlots = slots.filter((s) => s.row !== 1);
 
-  const purePoints: BrainrunChoicePoint[] = Array.from({ length: minPure }, () => ({
-    sequence: 0,
-    choiceTypes: shuffle(["STANDARD", "ELITE"], random),
-  }));
-
-  const mixedPoints: BrainrunChoicePoint[] = buckets.map((specials) => ({
-    sequence: 0,
-    choiceTypes: shuffle([random() < 0.5 ? "STANDARD" : "ELITE", ...specials], random),
-  }));
-
-  const points = shuffle([...purePoints, ...mixedPoints], random).map((point, index) => ({
-    ...point,
-    sequence: index + 1,
-  }));
-
-  if (forceFirstPure && !isPureCombatChoice(points[0]!.choiceTypes)) {
-    const pureIndex = points.findIndex((p) => isPureCombatChoice(p.choiceTypes));
-    if (pureIndex > 0) {
-      const firstSequence = points[0]!.sequence;
-      const pureSequence = points[pureIndex]!.sequence;
-      [points[0], points[pureIndex]] = [points[pureIndex]!, points[0]!];
-      points[0]!.sequence = firstSequence;
-      points[pureIndex]!.sequence = pureSequence;
-    }
+  let assignments: BrainrunNodeTypeAssignment[];
+  if (forceFirstPure) {
+    const row1Types = shuffle(["STANDARD", "ELITE"] as BrainrunRoomType[], random);
+    const remainingPool = shuffle(
+      [...combatPool.slice(0, combatCount - row1Slots.length), ...specialsPool],
+      random,
+    );
+    assignments = [
+      ...row1Slots.map((slot, i) => ({ ...slot, type: row1Types[i % row1Types.length]! })),
+      ...otherSlots.map((slot, i) => ({ ...slot, type: remainingPool[i]! })),
+    ];
+  } else {
+    const pool = shuffle([...combatPool, ...specialsPool], random);
+    assignments = slots.map((slot, i) => ({ ...slot, type: pool[i]! }));
   }
 
-  return points.map((point) => ({
-    ...point,
-    choiceTypes: maybeAddEventOption(point.choiceTypes, eventBonusChance, random),
+  return assignments.map((a) => ({
+    ...a,
+    type: maybeConvertNodeToEvent(a.type, eventBonusChance, random),
   }));
+}
+
+export type BrainrunGraphNode = {
+  row: number;
+  col: number;
+  type: BrainrunRoomType;
+  nextCols: number[];
+};
+
+/** Génère la carte complète d'un acte (graphe + types), prête à être persistée en base
+ * (un BrainrunRoom par nœud). Combine generateActEdges et assignNodeTypes. */
+export function generateActGraph(
+  random: () => number = Math.random,
+  forceFirstPure: boolean = false,
+  eventBonusChance: number = 0,
+): BrainrunGraphNode[] {
+  const edges = generateActEdges(random);
+  const types = assignNodeTypes(random, forceFirstPure, eventBonusChance);
+  const typeByKey = new Map(types.map((t) => [`${t.row}:${t.col}`, t.type]));
+  const bossRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+  return edges.map((e) => ({
+    row: e.row,
+    col: e.col,
+    nextCols: e.nextCols,
+    type: e.row === bossRow ? "BOSS" : typeByKey.get(`${e.row}:${e.col}`)!,
+  }));
+}
+
+/** Colonnes accessibles sur `currentRow` : toutes les colonnes de la rangée 1 si elle n'a pas
+ * encore de nœud CLEARED en amont (début d'acte), sinon les nextCols du nœud CLEARED de la
+ * rangée précédente (il n'y en a jamais qu'un seul, la carte est parcourue en file simple). */
+export function getCandidateCols(
+  actRooms: { row: number; col: number; status: string; nextCols: number[] }[],
+  currentRow: number,
+): number[] {
+  if (currentRow <= 1) {
+    return actRooms
+      .filter((r) => r.row === 1)
+      .map((r) => r.col)
+      .sort((a, b) => a - b);
+  }
+  const previousCleared = actRooms.find((r) => r.row === currentRow - 1 && r.status === "CLEARED");
+  return previousCleared?.nextCols ?? [];
+}
+
+/** Parcourt le graphe en largeur depuis `startCols` (sur `startRow`) sur `extraRows` rangées
+ * supplémentaires, et retourne l'ensemble des clés "row:col" révélées par la vision (relique
+ * Prévoyance) — startCols lui-même est toujours inclus, extraRows peut valoir 0. */
+export function computeVisibleCols(
+  actNodes: { row: number; col: number; nextCols: number[] }[],
+  startCols: number[],
+  startRow: number,
+  extraRows: number,
+): Set<string> {
+  const visible = new Set<string>();
+  let frontier = startCols;
+  startCols.forEach((c) => visible.add(`${startRow}:${c}`));
+
+  let row = startRow;
+  for (let step = 0; step < extraRows && frontier.length > 0; step++) {
+    const next = new Set<number>();
+    for (const col of frontier) {
+      const node = actNodes.find((n) => n.row === row && n.col === col);
+      node?.nextCols.forEach((c) => next.add(c));
+    }
+    row += 1;
+    next.forEach((c) => visible.add(`${row}:${c}`));
+    frontier = [...next];
+  }
+  return visible;
 }

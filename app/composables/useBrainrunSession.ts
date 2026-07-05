@@ -1,8 +1,8 @@
 import { computed } from "vue";
 import type { QuestionDTO } from "#shared/question";
 import type {
+  BrainrunMapNodeDTO,
   BrainrunRoomDTO,
-  BrainrunRoomType,
   BrainrunRunDTO,
   BrainrunStateDTO,
 } from "#shared/brainrun";
@@ -14,6 +14,8 @@ export const useBrainrunSession = () => {
   const currentRoom = useState<BrainrunRoomDTO | null>("brainrun-room", () => null);
   const currentQuestion = useState<QuestionDTO | null>("brainrun-question", () => null);
   const awaitingChoice = useState<boolean>("brainrun-awaiting-choice", () => false);
+  const mapNodes = useState<BrainrunMapNodeDTO[]>("brainrun-map-nodes", () => []);
+  const candidateCols = useState<number[] | null>("brainrun-candidate-cols", () => null);
   const loading = useState<boolean>("brainrun-loading", () => false);
 
   const isRunActive = computed(() => run.value?.status === "IN_PROGRESS");
@@ -24,6 +26,8 @@ export const useBrainrunSession = () => {
     currentRoom.value = state.currentRoom;
     currentQuestion.value = state.currentQuestion;
     awaitingChoice.value = state.awaitingChoice;
+    mapNodes.value = state.mapNodes;
+    candidateCols.value = state.candidateCols;
   }
 
   async function fetchCurrent() {
@@ -51,7 +55,8 @@ export const useBrainrunSession = () => {
     return state;
   }
 
-  async function chooseOption(choice: BrainrunRoomType) {
+  /** col = colonne du nœud choisi sur la rangée courante, parmi candidateCols. */
+  async function chooseNode(col: number) {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
     loading.value = true;
@@ -59,7 +64,7 @@ export const useBrainrunSession = () => {
       applyState(
         await authFetch<BrainrunStateDTO>("/api/brainrun/choice", {
           method: "post",
-          body: { runId: run.value.id, choice },
+          body: { runId: run.value.id, col },
         }),
       );
     } finally {
@@ -209,6 +214,8 @@ export const useBrainrunSession = () => {
     currentRoom.value = null;
     currentQuestion.value = null;
     awaitingChoice.value = false;
+    mapNodes.value = [];
+    candidateCols.value = null;
   }
 
   return {
@@ -216,12 +223,14 @@ export const useBrainrunSession = () => {
     currentRoom,
     currentQuestion,
     awaitingChoice,
+    mapNodes,
+    candidateCols,
     loading,
     isRunActive,
     isRunEnded,
     fetchCurrent,
     submitAnswer,
-    chooseOption,
+    chooseNode,
     readyNextBossQuestion,
     resolveBonus,
     buyShopItem,

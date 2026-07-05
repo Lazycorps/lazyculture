@@ -16,18 +16,20 @@ import {
   brainrunBossDamage,
   brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
+  computeVisibleCols,
   consumeShieldIfArmed,
-  generateActChoicePoints,
+  generateActGraph,
   generateBonusOffers,
   generateShopOffers,
   generateShopReplacementOffer,
   getActiveRelicEffects,
   getActiveTalentEffects,
+  getCandidateCols,
   goldToKnowledgePoints,
   instantRoomHealthDelta,
   isBossAnswerTimedOut,
-  maybeAddEventOption,
-  nextRoomAfterClear,
+  maybeConvertNodeToEvent,
+  nextRowAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
   pickRandomStashConsumables,
@@ -49,7 +51,6 @@ import {
   BRAINRUN_GOLD_BY_ROOM_TYPE,
   BRAINRUN_MAX_HP,
   BRAINRUN_QUESTIONS_PER_ROOM,
-  BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_START_HP,
 } from "~~/server/utils/brainrunConfig";
 import { QuestionDataDTO } from "#shared/question";
@@ -74,9 +75,11 @@ import {
 } from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
+  BrainrunMapNodeDTO,
   BrainrunMetaProgressDTO,
   BrainrunRoomDTO,
   BrainrunRoomResponse,
+  BrainrunRoomStatus,
   BrainrunRoomType,
   BrainrunRunDTO,
   BrainrunStateDTO,
@@ -122,7 +125,7 @@ export class BrainrunService {
         gold: talentEffects.bonusStartGold,
       },
     });
-    await this.seedAct(created.id, 1);
+    await this.seedActGraph(created.id, 1);
     return this.getStateById(created.id);
   }
 
@@ -141,20 +144,19 @@ export class BrainrunService {
     await checkAndAwardAchievements(userId, "brainrunGames", totalGames);
   }
 
-  async chooseOption(
-    runId: string,
-    choice: BrainrunRoomType,
-    userId: string,
-  ): Promise<BrainrunStateDTO> {
+  /** col = colonne du nœud choisi sur run.currentRow, parmi les candidats accessibles depuis la
+   * dernière salle nettoyée (cf. getCandidateNodes). Le type de la salle est celui déjà assigné
+   * à la génération de l'acte (cf. seedActGraph) — jamais fourni par le client. */
+  async chooseNode(runId: string, col: number, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
-
-    if (activeRoom.type !== null) {
+    if (run.currentCol !== null) {
       throw createError({ statusCode: 409, statusMessage: "Cette salle n'attend pas de choix." });
     }
-    if (!activeRoom.choiceTypes.includes(choice)) {
-      throw createError({ statusCode: 400, statusMessage: "Choix non proposé pour cette salle." });
+    const node = this.getCandidateNodes(run).find((n) => n.col === col);
+    if (!node) {
+      throw createError({ statusCode: 400, statusMessage: "Nœud non accessible." });
     }
+    const choice = node.type as BrainrunRoomType;
     const effects = getActiveRelicEffects(run.relics);
 
     if (choice === "REST") {
@@ -165,21 +167,20 @@ export class BrainrunService {
         run.healthPoint + instantRoomHealthDelta("REST"),
       );
       await prisma.brainrunRoom.update({
-        where: { id: activeRoom.id },
-        data: { type: choice, status: "CLEARED", goldEarned: 0 },
+        where: { id: node.id },
+        data: { status: "CLEARED", goldEarned: 0 },
       });
       await prisma.brainrunRun.update({
         where: { id: run.id },
-        data: { healthPoint: newHealthPoint },
+        data: { healthPoint: newHealthPoint, currentCol: col },
       });
     } else if (choice === "SHOP") {
       // Reste ACTIVE tant que le joueur n'a pas cliqué "Quitter la boutique" (cf. leaveShop) :
       // il peut acheter plusieurs offres avant de continuer sa route.
       const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
       await prisma.brainrunRoom.update({
-        where: { id: activeRoom.id },
+        where: { id: node.id },
         data: {
-          type: choice,
           status: "ACTIVE",
           offers: generateShopOffers(
             run.relics,
@@ -189,14 +190,16 @@ export class BrainrunService {
           ),
         },
       });
+      await prisma.brainrunRun.update({ where: { id: run.id }, data: { currentCol: col } });
     } else if (choice === "EVENT") {
       // Reste ACTIVE tant que le joueur n'a pas choisi une des 2 options (cf. resolveEvent).
       const eventIds = Object.keys(BRAINRUN_EVENTS);
       const eventId = eventIds[Math.floor(Math.random() * eventIds.length)]!;
       await prisma.brainrunRoom.update({
-        where: { id: activeRoom.id },
-        data: { type: choice, status: "ACTIVE", eventId },
+        where: { id: node.id },
+        data: { status: "ACTIVE", eventId },
       });
+      await prisma.brainrunRun.update({ where: { id: run.id }, data: { currentCol: col } });
     } else {
       const combatType = choice as CombatRoomType;
       const [minDifficulty, maxDifficulty] =
@@ -248,9 +251,8 @@ export class BrainrunService {
       const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
 
       await prisma.brainrunRoom.update({
-        where: { id: activeRoom.id },
+        where: { id: node.id },
         data: {
-          type: choice,
           status: "ACTIVE",
           questionIds,
           responses: [],
@@ -270,6 +272,7 @@ export class BrainrunService {
       await prisma.brainrunRun.update({
         where: { id: run.id },
         data: {
+          currentCol: col,
           usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
           ...(enemyId ? { usedEnemyIds: [...run.usedEnemyIds, enemyId] } : {}),
         },
@@ -286,9 +289,15 @@ export class BrainrunService {
     userId: string,
   ): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    if (run.currentCol === null) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Aucune question en attente pour cette salle.",
+      });
+    }
+    const activeRoom = this.getActiveNode(run);
 
-    if (activeRoom.type === null || activeRoom.status !== "ACTIVE") {
+    if (activeRoom.status !== "ACTIVE") {
       throw createError({
         statusCode: 409,
         statusMessage: "Aucune question en attente pour cette salle.",
@@ -495,7 +504,7 @@ export class BrainrunService {
    */
   async acknowledgeRoom(runId: string, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (activeRoom.status !== "CLEARED") {
       throw createError({ statusCode: 409, statusMessage: "Aucune salle terminée à valider." });
@@ -516,7 +525,7 @@ export class BrainrunService {
       });
     }
 
-    await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentSequence);
+    await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentRow);
     return this.getStateById(run.id);
   }
 
@@ -527,7 +536,7 @@ export class BrainrunService {
    */
   async resolveBonus(runId: string, pick: string, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (
       !activeRoom.offersRequireChoice ||
@@ -572,7 +581,7 @@ export class BrainrunService {
    */
   async buyShopItem(runId: string, offerIndex: number, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (activeRoom.type !== "SHOP" || activeRoom.status !== "ACTIVE") {
       throw createError({ statusCode: 409, statusMessage: "Aucune boutique active." });
@@ -626,7 +635,7 @@ export class BrainrunService {
   /** Quitte la Boutique : marque la salle CLEARED et avance vers la salle suivante. */
   async leaveShop(runId: string, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (activeRoom.type !== "SHOP" || activeRoom.status !== "ACTIVE") {
       throw createError({ statusCode: 409, statusMessage: "Aucune boutique active." });
@@ -642,7 +651,7 @@ export class BrainrunService {
       where: { id: activeRoom.id },
       data: { status: "CLEARED", goldEarned: 0 },
     });
-    await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentSequence);
+    await this.advanceAfterRoomClear(run.id, run.currentAct, run.currentRow);
     return this.getStateById(run.id);
   }
 
@@ -657,7 +666,7 @@ export class BrainrunService {
     userId: string,
   ): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (activeRoom.type !== "EVENT" || activeRoom.status !== "ACTIVE" || !activeRoom.eventId) {
       throw createError({ statusCode: 409, statusMessage: "Aucun événement actif." });
@@ -727,7 +736,7 @@ export class BrainrunService {
       await recordRelicDiscovery(userId, resolved.relicGranted);
     }
     if (resolved.relicGranted === "EVENT_MAGNET") {
-      await this.applyEventBonusToRemainingRooms(run.id, run.currentAct, run.currentSequence);
+      await this.convertUpcomingNodesToEvents(run.id, run.currentAct, run.currentRow);
     }
     for (const grant of resolved.consumablesGranted) {
       await this.grantConsumable(run.id, grant.id, grant.amount);
@@ -792,7 +801,6 @@ export class BrainrunService {
     userId: string,
   ): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
     const consumables = (run.consumables as ConsumableCounts) ?? {};
     if (!consumables[type] || consumables[type]! <= 0) {
       throw createError({ statusCode: 400, statusMessage: "Consommable indisponible." });
@@ -845,7 +853,11 @@ export class BrainrunService {
       return this.getStateById(run.id);
     }
 
-    if (activeRoom.type === null || activeRoom.status !== "ACTIVE") {
+    if (run.currentCol === null) {
+      throw createError({ statusCode: 409, statusMessage: "Aucune question en cours." });
+    }
+    const activeRoom = this.getActiveNode(run);
+    if (activeRoom.status !== "ACTIVE") {
       throw createError({ statusCode: 409, statusMessage: "Aucune question en cours." });
     }
     const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
@@ -1028,7 +1040,7 @@ export class BrainrunService {
         });
       } else if (offer.id === "EVENT_MAGNET") {
         const run = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
-        await this.applyEventBonusToRemainingRooms(runId, run.currentAct, run.currentSequence);
+        await this.convertUpcomingNodesToEvents(runId, run.currentAct, run.currentRow);
       }
     } else if (offer.kind === "CONSUMABLE") {
       await this.grantConsumable(runId, offer.id as BrainrunConsumableId, 1);
@@ -1041,29 +1053,35 @@ export class BrainrunService {
   }
 
   /**
-   * Relique Aimant à Événements : pour chaque salle non résolue de l'acte en cours qui vient
-   * après la salle active (pas encore rencontrée), tire une chance d'ajouter un Événement en
-   * 3e option. N'a jamais d'effet sur la salle Boss finale (choiceTypes fixe ["BOSS"]) ni sur
-   * un point qui propose déjà un Événement (cf. maybeAddEventOption).
+   * Relique Aimant à Événements : pour chaque nœud Combat (STANDARD/ELITE) pas encore atteint de
+   * l'acte en cours (rangée courante incluse, tant qu'il n'a pas déjà été résolu), tire une chance
+   * de le convertir en Événement. N'a jamais d'effet sur le Boss ni sur une salle déjà spéciale
+   * (SHOP/REST/EVENT), ni sur un nœud déjà résolu (cf. maybeConvertNodeToEvent).
    */
-  private async applyEventBonusToRemainingRooms(
+  private async convertUpcomingNodesToEvents(
     runId: string,
     act: number,
-    currentSequence: number,
+    currentRow: number,
   ): Promise<void> {
-    const remainingRooms = await prisma.brainrunRoom.findMany({
-      where: { runId, act, sequence: { gt: currentSequence }, type: null },
+    const candidates = await prisma.brainrunRoom.findMany({
+      where: {
+        runId,
+        act,
+        row: { gte: currentRow },
+        status: "PENDING",
+        type: { in: ["STANDARD", "ELITE"] },
+      },
     });
-    for (const room of remainingRooms) {
-      const updatedChoiceTypes = maybeAddEventOption(
-        room.choiceTypes as BrainrunRoomType[],
+    for (const room of candidates) {
+      const converted = maybeConvertNodeToEvent(
+        room.type as BrainrunRoomType,
         BRAINRUN_EVENT_MAGNET_CHANCE,
         Math.random,
       );
-      if (updatedChoiceTypes.length !== room.choiceTypes.length) {
+      if (converted !== room.type) {
         await prisma.brainrunRoom.update({
           where: { id: room.id },
-          data: { choiceTypes: updatedChoiceTypes },
+          data: { type: converted },
         });
       }
     }
@@ -1110,7 +1128,7 @@ export class BrainrunService {
    */
   async prepareNextBossQuestion(runId: string, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
-    const activeRoom = this.findActiveRoom(run);
+    const activeRoom = this.getActiveNode(run);
 
     if (activeRoom.type !== "BOSS" || activeRoom.status !== "ACTIVE") {
       throw createError({
@@ -1178,31 +1196,29 @@ export class BrainrunService {
     return this.buildState(run);
   }
 
-  private async seedAct(runId: string, act: number, eventBonusChance: number = 0): Promise<void> {
-    // La toute première salle de l'acte 1 doit d'office être un combat (pas de Boutique/
+  private async seedActGraph(
+    runId: string,
+    act: number,
+    eventBonusChance: number = 0,
+  ): Promise<void> {
+    // La toute première rangée de l'acte 1 doit d'office être un combat (pas de Boutique/
     // Repos/Événement dès le début de la run) ; les autres actes restent entièrement aléatoires.
     // Aimant à Événements (déjà possédée) : s'applique aussi aux actes suivants générés ici.
-    const choicePoints = generateActChoicePoints(Math.random, act === 1, eventBonusChance);
+    const nodes = generateActGraph(Math.random, act === 1, eventBonusChance);
     await prisma.brainrunRoom.createMany({
-      data: choicePoints.map((point) => ({
+      data: nodes.map((node) => ({
         runId,
         act,
-        sequence: point.sequence,
-        choiceTypes: point.choiceTypes,
+        row: node.row,
+        col: node.col,
+        nextCols: node.nextCols,
+        type: node.type,
       })),
-    });
-    await prisma.brainrunRoom.create({
-      data: {
-        runId,
-        act,
-        sequence: BRAINRUN_ROOMS_PER_ACT,
-        choiceTypes: ["BOSS"],
-      },
     });
   }
 
-  private async advanceAfterRoomClear(runId: string, act: number, sequence: number): Promise<void> {
-    const outcome = nextRoomAfterClear(act, sequence);
+  private async advanceAfterRoomClear(runId: string, act: number, row: number): Promise<void> {
+    const outcome = nextRowAfterClear(act, row);
 
     if (outcome.kind === "RUN_WON") {
       await this.finalizeRun(runId, "WON");
@@ -1216,7 +1232,7 @@ export class BrainrunService {
       if (!nextActSeeded) {
         const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
         const effects = getActiveRelicEffects(currentRun.relics);
-        await this.seedAct(runId, outcome.act, effects.eventBonusChance);
+        await this.seedActGraph(runId, outcome.act, effects.eventBonusChance);
       }
     }
 
@@ -1224,7 +1240,8 @@ export class BrainrunService {
       where: { id: runId },
       data: {
         currentAct: outcome.act,
-        currentSequence: outcome.sequence,
+        currentRow: outcome.row,
+        currentCol: null,
         // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours (chaque acte a son
         // propre roster) : on le réinitialise dès qu'on change d'acte.
         ...(outcome.act !== act ? { usedEnemyIds: [] } : {}),
@@ -1239,7 +1256,7 @@ export class BrainrunService {
     });
 
     const clearedRooms = run.rooms
-      .filter((r) => r.status === "CLEARED" && r.type !== null)
+      .filter((r) => r.status === "CLEARED")
       .map((r) => ({ type: r.type as BrainrunRoomType }));
     const xpEarned = calculBrainrunUserXP(clearedRooms, status === "WON");
     const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
@@ -1315,13 +1332,18 @@ export class BrainrunService {
     return run;
   }
 
-  private findActiveRoom<T extends { act: number; sequence: number }>(run: {
+  /** Nœud actif (en cours de résolution), quand run.currentCol est défini. */
+  private getActiveNode<T extends { act: number; row: number; col: number }>(run: {
     currentAct: number;
-    currentSequence: number;
+    currentRow: number;
+    currentCol: number | null;
     rooms: T[];
   }): T {
+    if (run.currentCol === null) {
+      throw createError({ statusCode: 500, statusMessage: "Aucun nœud actif : choix en attente." });
+    }
     const room = run.rooms.find(
-      (r) => r.act === run.currentAct && r.sequence === run.currentSequence,
+      (r) => r.act === run.currentAct && r.row === run.currentRow && r.col === run.currentCol,
     );
     if (!room) {
       throw createError({ statusCode: 500, statusMessage: "Salle active introuvable." });
@@ -1329,40 +1351,67 @@ export class BrainrunService {
     return room;
   }
 
+  /** Nœuds accessibles sur run.currentRow depuis la dernière salle nettoyée (ou tous les nœuds
+   * de la rangée 1 en début d'acte) ; pertinent uniquement quand run.currentCol est null. */
+  private getCandidateNodes<
+    T extends { act: number; row: number; col: number; status: string; nextCols: number[] },
+  >(run: { currentAct: number; currentRow: number; rooms: T[] }): T[] {
+    const actRooms = run.rooms.filter((r) => r.act === run.currentAct);
+    const cols = getCandidateCols(actRooms, run.currentRow);
+    return actRooms.filter((r) => r.row === run.currentRow && cols.includes(r.col));
+  }
+
   private async buildState(
     run: BrainrunRunRow & { rooms: BrainrunRoomRow[] },
   ): Promise<BrainrunStateDTO> {
-    const activeRoom = this.findActiveRoom(run);
-    const awaitingChoice = activeRoom.type === null;
+    const awaitingChoice = run.currentCol === null;
+    const actRooms = run.rooms.filter((r) => r.act === run.currentAct);
 
     let currentQuestion = null;
-    if (!awaitingChoice && activeRoom.status === "ACTIVE") {
-      const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
-      const nextQuestionId = activeRoom.questionIds[responses.length];
-      if (nextQuestionId !== undefined) {
-        const question = await questionService.getById(nextQuestionId);
-        if (question) {
-          const questionData = question.data as unknown as QuestionDataDTO;
-          questionData.propositions = questionService.shuffleArray(questionData.propositions);
-          currentQuestion = sanitizeQuestionForClient({ ...question, data: questionData });
+    let activeRoom: BrainrunRoomRow | null = null;
+    if (!awaitingChoice) {
+      activeRoom = this.getActiveNode(run);
+      if (activeRoom.status === "ACTIVE") {
+        const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
+        const nextQuestionId = activeRoom.questionIds[responses.length];
+        if (nextQuestionId !== undefined) {
+          const question = await questionService.getById(nextQuestionId);
+          if (question) {
+            const questionData = question.data as unknown as QuestionDataDTO;
+            questionData.propositions = questionService.shuffleArray(questionData.propositions);
+            currentQuestion = sanitizeQuestionForClient({ ...question, data: questionData });
+          }
         }
       }
     }
 
     const effects = getActiveRelicEffects(run.relics);
-    let nextChoiceTypes: BrainrunRoomType[] | null = null;
-    if (awaitingChoice && effects.showsNextRoomPreview) {
-      const nextRoom = run.rooms.find(
-        (r) => r.act === activeRoom.act && r.sequence === activeRoom.sequence + 1,
-      );
-      nextChoiceTypes = (nextRoom?.choiceTypes as BrainrunRoomType[] | undefined) ?? null;
-    }
+    const candidateCols = awaitingChoice ? getCandidateCols(actRooms, run.currentRow) : null;
+    const visionStartCols = awaitingChoice ? (candidateCols ?? []) : [activeRoom!.col];
+    const visibleKeys = computeVisibleCols(
+      actRooms,
+      visionStartCols,
+      run.currentRow,
+      effects.mapVisionRows,
+    );
+    const mapNodes: BrainrunMapNodeDTO[] = actRooms.map((r) => {
+      const revealed = r.status !== "PENDING" || visibleKeys.has(`${r.row}:${r.col}`);
+      return {
+        row: r.row,
+        col: r.col,
+        nextCols: r.nextCols,
+        status: r.status as BrainrunRoomStatus,
+        type: revealed ? (r.type as BrainrunRoomType) : null,
+      };
+    });
 
     return {
       run: this.toRunDTO(run),
-      currentRoom: this.toRoomDTO(activeRoom, effects, nextChoiceTypes),
+      currentRoom: activeRoom ? this.toRoomDTO(activeRoom, effects) : null,
       currentQuestion,
       awaitingChoice,
+      mapNodes,
+      candidateCols,
     };
   }
 
@@ -1372,7 +1421,8 @@ export class BrainrunService {
       userId: run.userId,
       status: run.status as BrainrunRunDTO["status"],
       currentAct: run.currentAct,
-      currentSequence: run.currentSequence,
+      currentRow: run.currentRow,
+      currentCol: run.currentCol,
       healthPoint: run.healthPoint,
       maxHealthPoint: run.maxHealthPoint,
       gold: run.gold,
@@ -1400,11 +1450,7 @@ export class BrainrunService {
     return [...new Set(allThemes)].filter((theme) => !bannedThemes.includes(theme));
   }
 
-  private toRoomDTO(
-    room: BrainrunRoomRow,
-    effects: BrainrunRelicEffects,
-    nextChoiceTypes: BrainrunRoomType[] | null = null,
-  ): BrainrunRoomDTO {
+  private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {
     const reveal = (room.consumableReveal as ConsumableReveal | null) ?? {};
     const questionDeadline =
       room.type === "BOSS" && room.status === "ACTIVE" && room.questionStartedAt
@@ -1419,13 +1465,13 @@ export class BrainrunService {
       id: room.id,
       runId: room.runId,
       act: room.act,
-      sequence: room.sequence,
-      type: room.type as BrainrunRoomType | null,
+      row: room.row,
+      col: room.col,
+      nextCols: room.nextCols,
+      type: room.type as BrainrunRoomType,
       status: room.status as BrainrunRoomDTO["status"],
       enemyId: room.enemyId,
       bossId: room.bossId,
-      choiceTypes: room.choiceTypes as BrainrunRoomType[],
-      nextChoiceTypes,
       questionIds: room.questionIds,
       responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],
       goldEarned: room.goldEarned,

@@ -7,10 +7,12 @@ import type {
 } from "./brainrunItems";
 import type { BrainrunTalentId } from "./brainrunTalents";
 
-/** Constantes de structure de run partagées entre client et serveur (affichage de la progression). */
+/** Constantes de structure de run partagées entre client et serveur (affichage de la progression).
+ * BRAINRUN_ROOMS_PER_ACT = nombre de rangées par acte (6 rangées de choix + 1 rangée Boss) ; la
+ * forme détaillée de la carte (nœuds par rangée) est BRAINRUN_ACT_ROW_WIDTHS, côté serveur uniquement
+ * (server/utils/brainrunConfig.ts), le client n'a besoin que du décompte de rangées pour la progression. */
 export const BRAINRUN_TOTAL_ACTS = 3;
-export const BRAINRUN_CHOICE_POINTS_PER_ACT = 6;
-export const BRAINRUN_ROOMS_PER_ACT = BRAINRUN_CHOICE_POINTS_PER_ACT + 1;
+export const BRAINRUN_ROOMS_PER_ACT = 7;
 /** Temps imparti par question du combat de boss (contre-la-montre) ; le client en a besoin pour afficher le chrono. */
 export const BRAINRUN_BOSS_QUESTION_TIME_MS = 10_000;
 /** Sous ce délai de réponse (correcte), les dégâts infligés au boss sont doublés ; le client en a besoin pour afficher l'aperçu de dégâts. */
@@ -41,6 +43,18 @@ export type BrainrunRoomType = "STANDARD" | "ELITE" | "BOSS" | "REST" | "SHOP" |
 export type BrainrunRoomStatus = "PENDING" | "ACTIVE" | "CLEARED" | "FAILED" | "SKIPPED";
 export type BrainrunRunStatus = "IN_PROGRESS" | "WON" | "LOST" | "ABANDONED";
 
+/** Nœud de la carte d'acte tel qu'exposé au client : la position/le tracé sont toujours visibles,
+ * `type` est masqué (null) tant que le nœud n'est ni joué ni dans la portée de vision du joueur
+ * (relique Prévoyance) — cf. BrainrunService.buildState. */
+export type BrainrunMapNodeDTO = {
+  row: number;
+  col: number;
+  /** Colonnes de la rangée row+1 accessibles depuis ce nœud ; vide pour le Boss. */
+  nextCols: number[];
+  status: BrainrunRoomStatus;
+  type: BrainrunRoomType | null;
+};
+
 export type BrainrunRoomResponse = {
   questionId: number;
   responseId: number;
@@ -64,8 +78,11 @@ export type BrainrunRoomDTO = {
   id: number;
   runId: string;
   act: number;
-  sequence: number;
-  type: BrainrunRoomType | null;
+  row: number;
+  col: number;
+  /** Colonnes de la rangée row+1 accessibles depuis ce nœud ; vide pour le Boss. */
+  nextCols: number[];
+  type: BrainrunRoomType;
   status: BrainrunRoomStatus;
   /** Id du catalogue BRAINRUN_ENEMIES (shared/brainrunEnemies.ts) ; uniquement pour STANDARD/ELITE. */
   enemyId: string | null;
@@ -73,10 +90,6 @@ export type BrainrunRoomDTO = {
   bossId: string | null;
   /** Nombre de résurrections déjà consommées par le boss (uniquement pertinent pour "phoenix_revive"). */
   bossPhase: number;
-  choiceTypes: BrainrunRoomType[];
-  /** Aperçu des propositions du point de choix suivant (relique Prévoyance) ; null si non
-   * possédée, salle non-en-attente-de-choix, ou pas de salle suivante connue. */
-  nextChoiceTypes: BrainrunRoomType[] | null;
   questionIds: number[];
   responses: BrainrunRoomResponse[];
   goldEarned: number;
@@ -103,7 +116,9 @@ export type BrainrunRunDTO = {
   userId: string;
   status: BrainrunRunStatus;
   currentAct: number;
-  currentSequence: number;
+  currentRow: number;
+  /** Colonne du nœud actif dans currentRow ; null tant qu'aucun choix n'a été fait sur cette rangée. */
+  currentCol: number | null;
   healthPoint: number;
   maxHealthPoint: number;
   gold: number;
@@ -131,11 +146,18 @@ export type BrainrunRunDTO = {
 /** Réponse de GET /api/brainrun/current : reflète intégralement l'état courant, dérivé côté serveur. */
 export type BrainrunStateDTO = {
   run: BrainrunRunDTO;
+  /** Nœud actif (en cours de résolution) ; null tant qu'aucun nœud n'a été choisi sur currentRow. */
   currentRoom: BrainrunRoomDTO | null;
   /** Question à afficher si la salle active est en cours de résolution (type déjà choisi). */
   currentQuestion: QuestionDTO | null;
-  /** true si la salle active attend un choix du joueur parmi currentRoom.choiceTypes. */
+  /** true si le joueur doit choisir un nœud parmi candidateCols sur currentRow. */
   awaitingChoice: boolean;
+  /** Tous les nœuds de l'acte en cours (position/tracé toujours visibles, type masqué à null
+   * hors de la portée de vision du joueur). */
+  mapNodes: BrainrunMapNodeDTO[];
+  /** Colonnes accessibles depuis la position actuelle sur run.currentRow ; non-null seulement
+   * quand awaitingChoice est vrai. */
+  candidateCols: number[] | null;
 };
 
 /** Réponse de GET /api/brainrun/meta : progression metagame persistante du joueur. */

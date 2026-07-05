@@ -1,4 +1,3 @@
-import type { BrainrunRoomType } from "../brainrun";
 import type { BrainrunConsumableId } from "../brainrunItems";
 import type { BrainrunTalentId } from "../brainrunTalents";
 
@@ -8,9 +7,10 @@ export type BrainrunResponseDTO = {
   userResponseId: number;
 };
 
+/** col = colonne du nœud choisi sur la rangée courante (run.currentRow), parmi candidateCols. */
 export type BrainrunChoiceDTO = {
   runId: string;
-  choice: BrainrunRoomType;
+  col: number;
 };
 
 /** pick = id de relique/consommable proposé, ou "SKIP" pour ne rien prendre. */

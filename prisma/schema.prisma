@@ -370,7 +370,8 @@ model BrainrunRun {
     user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
     status          String         @default("IN_PROGRESS") // IN_PROGRESS, WON, LOST, ABANDONED
     currentAct      Int            @default(1) // 1..3
-    currentSequence Int            @default(1) // 1..7, pointeur vers l'emplacement actif
+    currentRow      Int            @default(1) // 1..7, rangée où se trouve/choisit le joueur dans l'acte
+    currentCol      Int? // colonne du nœud actif dans currentRow ; null tant que le joueur n'a pas choisi de nœud sur cette rangée
     healthPoint     Int
     maxHealthPoint  Int
     gold            Int            @default(0)
@@ -397,11 +398,12 @@ model BrainrunRoom {
     runId               String
     run                 BrainrunRun @relation(fields: [runId], references: [id], onDelete: Cascade)
     act                 Int // 1..3
-    sequence            Int // 1..7 dans l'acte
-    type                String? // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — null tant que le choix n'est pas fait
+    row                 Int // 1..7 dans l'acte
+    col                 Int // position du nœud dans sa rangée (0-based)
+    nextCols            Int[]       @default([]) // colonnes de la rangée row+1 accessibles depuis ce nœud ; vide pour le Boss (row 7)
+    type                String // STANDARD, ELITE, BOSS, REST, SHOP, EVENT — assigné dès la génération de l'acte
     status              String      @default("PENDING") // PENDING, ACTIVE, CLEARED, FAILED, SKIPPED
     enemyId             String? // id du catalogue BRAINRUN_ENEMIES (shared/brainrunEnemies.ts), uniquement pour type=STANDARD/ELITE
-    choiceTypes         String[]    @default([]) // types proposés au point de choix ayant mené à cette salle
     questionIds         Int[]       @default([])
     responses           Json?
     goldEarned          Int         @default(0)
@@ -418,7 +420,7 @@ model BrainrunRoom {
     createDate          DateTime    @default(now())
     updateDate          DateTime    @default(now())
 
-    @@unique([runId, act, sequence])
+    @@unique([runId, act, row, col])
     @@index([runId])
 }
 

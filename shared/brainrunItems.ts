@@ -181,7 +181,7 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
   FORESIGHT: {
     id: "FORESIGHT",
     name: "Prévoyance",
-    description: "Lors d'un choix de salle, révèle les propositions du point de choix suivant.",
+    description: "Révèle le type des salles jusqu'à 2 rangées plus loin sur la carte de l'acte.",
     icon: "i-heroicons-eye",
     rarity: "COMMON",
   },
@@ -195,8 +195,7 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
   EVENT_MAGNET: {
     id: "EVENT_MAGNET",
     name: "Aimant à Événements",
-    description:
-      "Augmente la probabilité qu'un Événement s'ajoute en 3e choix lors d'une sélection de salle.",
+    description: "Chance qu'un futur combat sur la carte se transforme en Événement.",
     icon: "i-heroicons-sparkles",
     rarity: "RARE",
   },

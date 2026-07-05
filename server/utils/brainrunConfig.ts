@@ -4,7 +4,6 @@ import {
   BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_CHOICE_POINTS_PER_ACT,
   BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_TOTAL_ACTS,
 } from "#shared/brainrun";
@@ -14,7 +13,6 @@ export {
   BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_CHOICE_POINTS_PER_ACT,
   BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_TOTAL_ACTS,
 };
@@ -58,11 +56,23 @@ export const BRAINRUN_DIFFICULTY_BY_ACT: Record<
   3: { STANDARD: [3, 4], ELITE: [4, 4], BOSS: [5, 5] },
 };
 
-/** Quotas minimums que l'algorithme de génération des points de choix d'un acte doit respecter. */
-export const BRAINRUN_MIN_PURE_COMBAT_RATIO = 0.5; // au moins 50% des points = uniquement [STANDARD, ELITE]
-export const BRAINRUN_MIN_SHOP_OFFERS = 1;
-export const BRAINRUN_MIN_REST_OFFERS = 1;
+/** Forme de la carte à embranchements d'un acte : nombre de nœuds par rangée (index 0 = rangée 1),
+ * la dernière rangée est toujours le Boss (1 seul nœud, tous les nœuds de l'avant-dernière rangée
+ * y convergent). cf. server/utils/brainrunLogic.ts (generateActEdges/generateActGraph). */
+export const BRAINRUN_ACT_ROW_WIDTHS = [2, 3, 3, 3, 3, 2, 1];
+
+/** Quotas minimums que l'algorithme d'assignation des types de nœuds d'un acte doit respecter. */
+export const BRAINRUN_MIN_PURE_COMBAT_RATIO = 0.5; // au moins 50% des nœuds hors Boss = combat (STANDARD/ELITE)
+// Remontés à 2 (au lieu d'1) par rapport à l'ancien système linéaire : avec l'embranchement, un
+// trajet donné pourrait sinon totalement rater ces salles si elles n'existent qu'en un exemplaire.
+export const BRAINRUN_MIN_SHOP_OFFERS = 2;
+export const BRAINRUN_MIN_REST_OFFERS = 2;
 export const BRAINRUN_MIN_EVENT_OFFERS = 2;
+
+/** Portée de vision de base sur la carte (en rangées, toujours au moins la rangée immédiatement
+ * accessible) et bonus accordé par la relique Prévoyance (rangées supplémentaires). */
+export const BRAINRUN_MAP_BASE_VISION_ROWS = 1;
+export const BRAINRUN_FORESIGHT_BONUS_VISION_ROWS = 2;
 
 /** Types de salle qui, une fois choisis, se résolvent instantanément (pas de question). */
 export const BRAINRUN_INSTANT_ROOM_TYPES: BrainrunRoomType[] = ["REST", "SHOP", "EVENT"];

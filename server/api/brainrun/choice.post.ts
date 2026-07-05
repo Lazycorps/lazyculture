@@ -5,5 +5,5 @@ import { getAuthenticatedUser } from "~~/server/utils/auth";
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
   const body = await readBody<BrainrunChoiceDTO>(event);
-  return brainrunService.chooseOption(body.runId, body.choice, userConnected.id);
+  return brainrunService.chooseNode(body.runId, body.col, userConnected.id);
 });

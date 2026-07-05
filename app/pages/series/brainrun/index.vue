@@ -67,7 +67,7 @@
               <span
                 class="text-xs font-bold font-display text-gray-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5"
               >
-                {{ run?.currentSequence ?? 1 }} / {{ roomsPerAct }}
+                {{ run?.currentRow ?? 1 }} / {{ roomsPerAct }}
               </span>
             </div>
 
@@ -269,35 +269,22 @@
                 @choose="(index: number) => brainrun.resolveEvent(index)"
               />
 
-              <!-- Écran de choix -->
-              <div v-else-if="awaitingChoice" class="space-y-3">
+              <!-- Carte de l'acte : le joueur choisit vers quel nœud avancer. Les nœuds masqués
+                   (type inconnu) sont révélés en les atteignant, ou à l'avance grâce à la
+                   relique Prévoyance. -->
+              <div v-else-if="awaitingChoice">
                 <p
-                  class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-4"
+                  class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-1"
                 >
-                  Choisissez la prochaine salle
+                  Choisissez votre chemin
                 </p>
-                <UButton
-                  v-for="option in currentChoiceTypes"
-                  :key="option"
-                  size="lg"
-                  block
-                  variant="soft"
+                <BrainrunMap
+                  :map-nodes="mapNodes"
+                  :current-row="run?.currentRow ?? 1"
+                  :candidate-cols="candidateCols"
                   :loading="loading"
-                  class="font-black font-display uppercase tracking-wide py-3.5 justify-start"
-                  @click="selectChoice(option)"
-                >
-                  <UIcon :name="roomTypeIcon(option)" class="mr-2 text-lg" />
-                  {{ roomTypeLabel(option) }}
-                </UButton>
-
-                <!-- Relique Prévoyance : aperçu du point de choix suivant (même quel que soit
-                     l'option choisie ci-dessus, la génération de l'acte est fixée à l'avance). -->
-                <p
-                  v-if="nextChoiceTypes && nextChoiceTypes.length > 0"
-                  class="text-center text-[11px] text-gray-500 pt-1"
-                >
-                  Ensuite : {{ nextChoiceTypes.map(roomTypeLabel).join(" ou ") }}
-                </p>
+                  @select-node="selectNode"
+                />
               </div>
 
               <!-- Question en cours -->
@@ -469,7 +456,6 @@ import {
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_ROOMS_PER_ACT,
   brainrunPotentialBossDamage,
-  type BrainrunRoomType,
 } from "#shared/brainrun";
 import {
   BRAINRUN_CONSUMABLES,
@@ -507,12 +493,10 @@ const run = brainrun.run;
 const currentQuestion = brainrun.currentQuestion;
 const currentRoom = brainrun.currentRoom;
 const awaitingChoice = brainrun.awaitingChoice;
+const mapNodes = brainrun.mapNodes;
+const candidateCols = brainrun.candidateCols;
 const loading = brainrun.loading;
 const isRunActive = brainrun.isRunActive;
-const currentChoiceTypes = computed(() => currentRoom.value?.choiceTypes ?? []);
-// Relique Prévoyance : aperçu du point de choix suivant, déjà connu côté serveur (génération
-// de l'acte figée à l'avance) mais seulement transmis si la relique est possédée.
-const nextChoiceTypes = computed(() => currentRoom.value?.nextChoiceTypes ?? null);
 // Relique Purge Thématique : bloque l'écran courant tant que le thème à bannir n'est pas choisi.
 const pendingThemeBan = computed(() => run.value?.pendingThemeBanChoice ?? false);
 
@@ -606,8 +590,8 @@ function backToLobby() {
   meta.fetchMeta();
 }
 
-async function selectChoice(option: BrainrunRoomType) {
-  await brainrun.chooseOption(option);
+async function selectNode(col: number) {
+  await brainrun.chooseNode(col);
 }
 
 /** "Continuer" du récap : bascule vers l'écran de bonus si la salle Elite/Boss en propose un
@@ -648,39 +632,7 @@ function themeLabel(theme: string): string {
   return theme.replace(/[-_]/g, " ");
 }
 
-function roomTypeLabel(type: BrainrunRoomType): string {
-  switch (type) {
-    case "STANDARD":
-      return "Combat";
-    case "ELITE":
-      return "Elite";
-    case "BOSS":
-      return "Boss";
-    case "REST":
-      return "Repos (+1 PV)";
-    case "SHOP":
-      return "Boutique";
-    case "EVENT":
-      return "Événement";
-  }
-}
-
-function roomTypeIcon(type: BrainrunRoomType): string {
-  switch (type) {
-    case "STANDARD":
-      return "i-heroicons-bolt";
-    case "ELITE":
-      return "i-heroicons-fire";
-    case "BOSS":
-      return "i-heroicons-shield-exclamation";
-    case "REST":
-      return "i-heroicons-heart";
-    case "SHOP":
-      return "i-heroicons-shopping-bag";
-    case "EVENT":
-      return "i-heroicons-question-mark-circle";
-  }
-}
+const { roomTypeLabel, roomTypeIcon } = useBrainrunRoomTypeDisplay();
 </script>
 
 <style scoped>

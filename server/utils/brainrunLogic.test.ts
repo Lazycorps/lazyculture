@@ -3,23 +3,26 @@ import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
   applyRelicsToHpLoss,
+  assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
+  computeVisibleCols,
   consumeShieldIfArmed,
-  generateActChoicePoints,
+  generateActEdges,
+  generateActGraph,
   generateBonusOffers,
   generateShopOffers,
   generateShopReplacementOffer,
   getActiveRelicEffects,
   getActiveTalentEffects,
+  getCandidateCols,
   goldToKnowledgePoints,
   instantRoomHealthDelta,
-  isAwaitingChoice,
   isBossAnswerTimedOut,
-  maybeAddEventOption,
-  nextRoomAfterClear,
+  maybeConvertNodeToEvent,
+  nextRowAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
   pickRandomStashConsumables,
@@ -27,11 +30,15 @@ import {
   shouldEndRunOnDamage,
 } from "./brainrunLogic";
 import {
+  BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_CHOICE_POINTS_PER_ACT,
+  BRAINRUN_MIN_EVENT_OFFERS,
+  BRAINRUN_MIN_PURE_COMBAT_RATIO,
+  BRAINRUN_MIN_REST_OFFERS,
+  BRAINRUN_MIN_SHOP_OFFERS,
 } from "./brainrunConfig";
 import {
   BRAINRUN_BONUS_OFFER_COUNT,
@@ -59,13 +66,6 @@ describe("shouldEndRunOnDamage", () => {
     expect(shouldEndRunOnDamage(0)).toBe(true);
     expect(shouldEndRunOnDamage(-1)).toBe(true);
     expect(shouldEndRunOnDamage(1)).toBe(false);
-  });
-});
-
-describe("isAwaitingChoice", () => {
-  it("is true only when the room type hasn't been picked yet", () => {
-    expect(isAwaitingChoice({ type: null })).toBe(true);
-    expect(isAwaitingChoice({ type: "STANDARD" })).toBe(false);
   });
 });
 
@@ -107,19 +107,19 @@ describe("brainrunBossDamage", () => {
   });
 });
 
-describe("nextRoomAfterClear", () => {
-  it("moves to the next sequence within the same act", () => {
-    expect(nextRoomAfterClear(1, 1)).toEqual({ kind: "AWAIT_CHOICE", act: 1, sequence: 2 });
-    expect(nextRoomAfterClear(2, 6)).toEqual({ kind: "AWAIT_CHOICE", act: 2, sequence: 7 });
+describe("nextRowAfterClear", () => {
+  it("moves to the next row within the same act", () => {
+    expect(nextRowAfterClear(1, 1)).toEqual({ kind: "AWAIT_CHOICE", act: 1, row: 2 });
+    expect(nextRowAfterClear(2, 6)).toEqual({ kind: "AWAIT_CHOICE", act: 2, row: 7 });
   });
 
-  it("moves to the next act after the boss room, unless it was the last act", () => {
-    expect(nextRoomAfterClear(1, 7)).toEqual({ kind: "AWAIT_CHOICE", act: 2, sequence: 1 });
-    expect(nextRoomAfterClear(2, 7)).toEqual({ kind: "AWAIT_CHOICE", act: 3, sequence: 1 });
+  it("moves to the next act after the boss row, unless it was the last act", () => {
+    expect(nextRowAfterClear(1, 7)).toEqual({ kind: "AWAIT_CHOICE", act: 2, row: 1 });
+    expect(nextRowAfterClear(2, 7)).toEqual({ kind: "AWAIT_CHOICE", act: 3, row: 1 });
   });
 
-  it("declares the run won after act 3's boss room", () => {
-    expect(nextRoomAfterClear(3, 7)).toEqual({ kind: "RUN_WON" });
+  it("declares the run won after act 3's boss row", () => {
+    expect(nextRowAfterClear(3, 7)).toEqual({ kind: "RUN_WON" });
   });
 });
 
@@ -140,115 +140,200 @@ describe("calculBrainrunUserXP", () => {
   });
 });
 
-describe("generateActChoicePoints", () => {
-  function isPure(choiceTypes: string[]) {
-    return (
-      choiceTypes.length === 2 && choiceTypes.includes("STANDARD") && choiceTypes.includes("ELITE")
-    );
-  }
-
-  it("always produces exactly one choice point per sequence slot", () => {
+describe("generateActEdges", () => {
+  it("produces exactly the node counts declared by BRAINRUN_ACT_ROW_WIDTHS", () => {
     for (let i = 0; i < 50; i++) {
-      const points = generateActChoicePoints();
-      expect(points).toHaveLength(BRAINRUN_CHOICE_POINTS_PER_ACT);
-      const sequences = points.map((p) => p.sequence).sort((a, b) => a - b);
-      expect(sequences).toEqual([1, 2, 3, 4, 5, 6]);
+      const edges = generateActEdges();
+      BRAINRUN_ACT_ROW_WIDTHS.forEach((width, idx) => {
+        const row = idx + 1;
+        expect(edges.filter((e) => e.row === row)).toHaveLength(width);
+      });
+    }
+  });
+
+  it("never leaves a non-terminal node without an outgoing edge", () => {
+    const lastRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+    for (let i = 0; i < 50; i++) {
+      const edges = generateActEdges();
+      edges
+        .filter((e) => e.row < lastRow)
+        .forEach((e) => expect(e.nextCols.length).toBeGreaterThanOrEqual(1));
+    }
+  });
+
+  it("never leaves a node without an incoming edge (no orphans after rows 2+)", () => {
+    for (let i = 0; i < 50; i++) {
+      const edges = generateActEdges();
+      for (let row = 2; row <= BRAINRUN_ACT_ROW_WIDTHS.length; row++) {
+        const width = BRAINRUN_ACT_ROW_WIDTHS[row - 1]!;
+        const incoming = Array.from({ length: width }, () => 0);
+        edges
+          .filter((e) => e.row === row - 1)
+          .forEach((e) => e.nextCols.forEach((c) => incoming[c]!++));
+        incoming.forEach((count) => expect(count).toBeGreaterThanOrEqual(1));
+      }
+    }
+  });
+
+  it("converges every node of the penultimate row onto the single Boss node", () => {
+    const edges = generateActEdges();
+    const lastRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+    const bossNode = edges.find((e) => e.row === lastRow)!;
+    expect(bossNode.col).toBe(0);
+    expect(bossNode.nextCols).toEqual([]);
+    edges.filter((e) => e.row === lastRow - 1).forEach((e) => expect(e.nextCols).toEqual([0]));
+  });
+
+  it("is deterministic given a fixed random source", () => {
+    const fixedRandom = () => 0.42;
+    expect(generateActEdges(fixedRandom)).toEqual(generateActEdges(fixedRandom));
+  });
+});
+
+describe("assignNodeTypes", () => {
+  const nonBossNodeCount = BRAINRUN_ACT_ROW_WIDTHS.slice(0, -1).reduce((sum, w) => sum + w, 0);
+
+  it("assigns exactly one type per non-Boss node", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(assignNodeTypes()).toHaveLength(nonBossNodeCount);
     }
   });
 
   it("respects the minimum quotas on every generated act, across many random draws", () => {
     for (let i = 0; i < 200; i++) {
-      const points = generateActChoicePoints();
-      const pureCount = points.filter((p) => isPure(p.choiceTypes)).length;
-      const shopCount = points.filter((p) => p.choiceTypes.includes("SHOP")).length;
-      const restCount = points.filter((p) => p.choiceTypes.includes("REST")).length;
-      const eventCount = points.filter((p) => p.choiceTypes.includes("EVENT")).length;
+      const assignments = assignNodeTypes();
+      const combatCount = assignments.filter(
+        (a) => a.type === "STANDARD" || a.type === "ELITE",
+      ).length;
+      const shopCount = assignments.filter((a) => a.type === "SHOP").length;
+      const restCount = assignments.filter((a) => a.type === "REST").length;
+      const eventCount = assignments.filter((a) => a.type === "EVENT").length;
 
-      expect(pureCount).toBeGreaterThanOrEqual(3);
-      expect(shopCount).toBeGreaterThanOrEqual(1);
-      expect(restCount).toBeGreaterThanOrEqual(1);
-      expect(eventCount).toBeGreaterThanOrEqual(2);
-
-      // Chaque point de choix mixte doit garder un vrai choix de combat (Standard ou Elite).
-      points
-        .filter((p) => !isPure(p.choiceTypes))
-        .forEach((p) => {
-          const combatOptions = p.choiceTypes.filter((t) => t === "STANDARD" || t === "ELITE");
-          expect(combatOptions).toHaveLength(1);
-        });
+      expect(combatCount).toBeGreaterThanOrEqual(
+        Math.ceil(nonBossNodeCount * BRAINRUN_MIN_PURE_COMBAT_RATIO),
+      );
+      expect(shopCount).toBeGreaterThanOrEqual(BRAINRUN_MIN_SHOP_OFFERS);
+      expect(restCount).toBeGreaterThanOrEqual(BRAINRUN_MIN_REST_OFFERS);
+      expect(eventCount).toBeGreaterThanOrEqual(BRAINRUN_MIN_EVENT_OFFERS);
     }
   });
 
   it("is deterministic given a fixed random source", () => {
     const fixedRandom = () => 0.42;
-    const a = generateActChoicePoints(fixedRandom);
-    const b = generateActChoicePoints(fixedRandom);
-    expect(a).toEqual(b);
+    expect(assignNodeTypes(fixedRandom)).toEqual(assignNodeTypes(fixedRandom));
   });
 
-  it("adds a 3rd Event option on points that guaranteed it, when eventBonusChance is 1", () => {
-    const points = generateActChoicePoints(Math.random, false, 1);
-    points.forEach((p) => {
-      if (p.choiceTypes.length === 1) return; // salle Boss fixe, jamais concernée
-      expect(p.choiceTypes).toContain("EVENT");
-    });
-  });
-
-  it("never adds an Event option when eventBonusChance is 0 (default)", () => {
-    for (let i = 0; i < 50; i++) {
-      const points = generateActChoicePoints();
-      const eventCount = points.filter((p) => p.choiceTypes.includes("EVENT")).length;
-      // Le minimum garanti (2 points, cf. quotas) reste inchangé sans le bonus de la relique.
-      expect(eventCount).toBeGreaterThanOrEqual(2);
-      points.forEach((p) => expect(p.choiceTypes.length).toBeLessThanOrEqual(2));
-    }
-  });
-
-  it("forces the first sequence slot to be pure combat when forceFirstPure is set", () => {
-    function isPure(choiceTypes: string[]) {
-      return (
-        choiceTypes.length === 2 &&
-        choiceTypes.includes("STANDARD") &&
-        choiceTypes.includes("ELITE")
-      );
-    }
+  it("forces one Standard and one Elite on row 1 when forceFirstPure is set", () => {
     for (let i = 0; i < 100; i++) {
-      const points = generateActChoicePoints(Math.random, true);
-      const first = points.find((p) => p.sequence === 1)!;
-      expect(isPure(first.choiceTypes)).toBe(true);
-      // La contrainte ne doit pas casser l'invariant "un point de choix par séquence".
-      const sequences = points.map((p) => p.sequence).sort((a, b) => a - b);
-      expect(sequences).toEqual([1, 2, 3, 4, 5, 6]);
+      const assignments = assignNodeTypes(Math.random, true);
+      const row1Types = assignments
+        .filter((a) => a.row === 1)
+        .map((a) => a.type)
+        .sort();
+      expect(row1Types).toEqual(["ELITE", "STANDARD"]);
     }
+  });
+
+  it("converts the forced row-1 combat nodes into Events when eventBonusChance is 1", () => {
+    // eventBonusChance s'applique après l'assignation forcée : avec une chance de 1, même les
+    // nœuds combat forcés de la rangée 1 basculent en Événement.
+    const assignments = assignNodeTypes(Math.random, true, 1);
+    const row1Types = assignments.filter((a) => a.row === 1).map((a) => a.type);
+    expect(row1Types).toEqual(["EVENT", "EVENT"]);
+  });
+
+  it("converts every combat node to Event when eventBonusChance is 1, but never touches SHOP/REST", () => {
+    const assignments = assignNodeTypes(Math.random, false, 1);
+    assignments.forEach((a) => expect(["EVENT", "SHOP", "REST"]).toContain(a.type));
+    expect(assignments.filter((a) => a.type === "SHOP")).toHaveLength(BRAINRUN_MIN_SHOP_OFFERS);
+    expect(assignments.filter((a) => a.type === "REST")).toHaveLength(BRAINRUN_MIN_REST_OFFERS);
   });
 });
 
-describe("maybeAddEventOption", () => {
-  it("adds EVENT as a 3rd option when the roll succeeds", () => {
-    expect(maybeAddEventOption(["STANDARD", "ELITE"], 1, () => 0)).toEqual([
-      "STANDARD",
-      "ELITE",
-      "EVENT",
-    ]);
+describe("generateActGraph", () => {
+  it("combines edges and types into one node per slot, with the Boss on the last row", () => {
+    const nodes = generateActGraph();
+    const lastRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+    expect(nodes.find((n) => n.row === lastRow)!.type).toBe("BOSS");
+    nodes.filter((n) => n.row !== lastRow).forEach((n) => expect(n.type).not.toBe("BOSS"));
+  });
+});
+
+describe("maybeConvertNodeToEvent", () => {
+  it("converts a Standard/Elite node to Event when the roll succeeds", () => {
+    expect(maybeConvertNodeToEvent("STANDARD", 1, () => 0)).toBe("EVENT");
+    expect(maybeConvertNodeToEvent("ELITE", 1, () => 0)).toBe("EVENT");
   });
 
-  it("never adds EVENT when the chance is 0", () => {
-    expect(maybeAddEventOption(["STANDARD", "ELITE"], 0, () => 0)).toEqual(["STANDARD", "ELITE"]);
+  it("never converts when the chance is 0", () => {
+    expect(maybeConvertNodeToEvent("STANDARD", 0, () => 0)).toBe("STANDARD");
   });
 
-  it("never duplicates EVENT on a point that already has it", () => {
-    expect(maybeAddEventOption(["STANDARD", "EVENT"], 1, () => 0)).toEqual(["STANDARD", "EVENT"]);
+  it("never touches an already-special node or the Boss", () => {
+    expect(maybeConvertNodeToEvent("SHOP", 1, () => 0)).toBe("SHOP");
+    expect(maybeConvertNodeToEvent("REST", 1, () => 0)).toBe("REST");
+    expect(maybeConvertNodeToEvent("EVENT", 1, () => 0)).toBe("EVENT");
+    expect(maybeConvertNodeToEvent("BOSS", 1, () => 0)).toBe("BOSS");
   });
 
-  it("never touches the fixed Boss slot", () => {
-    expect(maybeAddEventOption(["BOSS"], 1, () => 0)).toEqual(["BOSS"]);
+  it("leaves the node untouched when the roll fails", () => {
+    expect(maybeConvertNodeToEvent("STANDARD", 0.3, () => 0.99)).toBe("STANDARD");
+  });
+});
+
+describe("getCandidateCols", () => {
+  it("returns every row-1 column when there is no cleared node yet", () => {
+    const rooms = [
+      { row: 1, col: 0, status: "PENDING", nextCols: [] },
+      { row: 1, col: 1, status: "PENDING", nextCols: [] },
+    ];
+    expect(getCandidateCols(rooms, 1)).toEqual([0, 1]);
   });
 
-  it("leaves the point untouched when the roll fails", () => {
-    expect(maybeAddEventOption(["STANDARD", "ELITE"], 0.3, () => 0.99)).toEqual([
-      "STANDARD",
-      "ELITE",
-    ]);
+  it("returns the nextCols of the cleared node in the previous row", () => {
+    const rooms = [
+      { row: 1, col: 0, status: "CLEARED", nextCols: [1, 2] },
+      { row: 1, col: 1, status: "PENDING", nextCols: [0] },
+      { row: 2, col: 1, status: "PENDING", nextCols: [] },
+      { row: 2, col: 2, status: "PENDING", nextCols: [] },
+    ];
+    expect(getCandidateCols(rooms, 2)).toEqual([1, 2]);
+  });
+
+  it("returns an empty array when no node was cleared in the previous row (shouldn't happen in practice)", () => {
+    const rooms = [{ row: 1, col: 0, status: "PENDING", nextCols: [] }];
+    expect(getCandidateCols(rooms, 2)).toEqual([]);
+  });
+});
+
+describe("computeVisibleCols", () => {
+  const nodes = [
+    { row: 1, col: 0, nextCols: [0, 1] },
+    { row: 2, col: 0, nextCols: [0] },
+    { row: 2, col: 1, nextCols: [1] },
+    { row: 3, col: 0, nextCols: [] },
+    { row: 3, col: 1, nextCols: [] },
+  ];
+
+  it("always includes the starting columns, even with no extra vision", () => {
+    expect(computeVisibleCols(nodes, [0], 1, 0)).toEqual(new Set(["1:0"]));
+  });
+
+  it("extends the vision by extraRows, following actual edges only", () => {
+    expect(computeVisibleCols(nodes, [0], 1, 1)).toEqual(new Set(["1:0", "2:0", "2:1"]));
+  });
+
+  it("follows edges transitively across multiple rows", () => {
+    expect(computeVisibleCols(nodes, [0], 1, 2)).toEqual(
+      new Set(["1:0", "2:0", "2:1", "3:0", "3:1"]),
+    );
+  });
+
+  it("stops expanding once the frontier runs out of outgoing edges", () => {
+    // Rangée 3 n'a aucune arête sortante (fin d'acte) : demander une rangée de plus ne doit rien ajouter.
+    expect(computeVisibleCols(nodes, [0], 1, 5)).toEqual(
+      new Set(["1:0", "2:0", "2:1", "3:0", "3:1"]),
+    );
   });
 });
 
@@ -264,7 +349,7 @@ describe("getActiveRelicEffects", () => {
       shopPriceMultiplier: 1,
       autoRestockShop: false,
       eventBonusChance: 0,
-      showsNextRoomPreview: false,
+      mapVisionRows: 0,
       goldOnBonusSkip: 0,
       autoHintChance: 0,
     });
@@ -281,7 +366,7 @@ describe("getActiveRelicEffects", () => {
     expect(effects.shopPriceMultiplier).toBeCloseTo(0.8);
     expect(effects.autoRestockShop).toBe(true);
     expect(effects.eventBonusChance).toBeCloseTo(0.3);
-    expect(effects.showsNextRoomPreview).toBe(true);
+    expect(effects.mapVisionRows).toBe(2);
     expect(effects.goldOnBonusSkip).toBe(15);
     expect(effects.autoHintChance).toBeCloseTo(0.05);
   });
