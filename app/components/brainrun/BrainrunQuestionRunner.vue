@@ -53,7 +53,7 @@
         </button>
         <div
           v-if="longPress.activeId.value === consumable.id"
-          class="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
+          class="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
         >
           <p class="text-[11px] font-black font-display text-white tracking-wide">
             {{ consumable.name }}
