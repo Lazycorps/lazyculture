@@ -259,7 +259,10 @@ export class BrainrunService {
                 bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
                 bossMaxHealthPoint: BRAINRUN_BOSS_MAX_HP,
                 bossPhase: 0,
-                questionStartedAt: new Date(),
+                // Chrono non démarré ici : laissé à null comme entre deux questions (cf.
+                // prepareNextBossQuestion), pour laisser le temps à la transition d'entrée en
+                // combat (BrainrunCombatIntro) de s'afficher côté client sans entamer le temps
+                // de réponse de la 1re question.
               }
             : {}),
         },

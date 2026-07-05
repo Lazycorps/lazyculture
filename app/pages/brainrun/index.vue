@@ -366,6 +366,15 @@
                 />
               </div>
 
+              <!-- Transition d'entrée en combat (Standard/Elite/Boss) : présente l'adversaire,
+                   bloquante, avant que la question ne devienne interactive. -->
+              <BrainrunCombatIntro
+                v-else-if="combatIntroType"
+                :type="combatIntroType"
+                :name="combatIntroName"
+                @done="handleCombatIntroDone"
+              />
+
               <!-- Question en cours -->
               <BrainrunQuestionRunner
                 v-else-if="currentQuestion || holdOnFeedback"
@@ -611,6 +620,35 @@ const currentEnemyName = computed(
 const currentBossName = computed(
   () => getBrainrunBossById(currentRoom.value?.bossId)?.name ?? null,
 );
+
+// Transition d'entrée en combat (BrainrunCombatIntro) : affichée une fois par salle, tant que
+// celle-ci vient de s'activer (aucune réponse encore soumise) et que son intro n'a pas déjà
+// été fermée. Dérivé de l'état serveur plutôt que d'un flag "déjà vue" séparé : responses.length
+// repasse naturellement à >0 dès la 1re réponse, donc jamais rejouée après un rechargement en
+// cours de combat.
+const introDismissedRoomId = ref<number | null>(null);
+const combatIntroType = computed(() => {
+  const room = currentRoom.value;
+  if (!room || room.status !== "ACTIVE") return null;
+  if (room.type !== "STANDARD" && room.type !== "ELITE" && room.type !== "BOSS") return null;
+  if (room.responses.length > 0) return null;
+  if (introDismissedRoomId.value === room.id) return null;
+  return room.type;
+});
+const combatIntroName = computed(() => currentEnemyName.value ?? currentBossName.value ?? "");
+
+async function handleCombatIntroDone() {
+  const room = currentRoom.value;
+  if (!room) return;
+  introDismissedRoomId.value = room.id;
+  // Le chrono du combat de boss ne démarre qu'ici (cf. BrainrunService.chooseNode qui ne fixe
+  // plus questionStartedAt à l'activation de la salle) : sans ça, l'intro grignoterait le temps
+  // de réponse imparti à la 1re question.
+  if (room.type === "BOSS" && !room.questionDeadline) {
+    await brainrun.readyNextBossQuestion();
+  }
+}
+
 const bossHealthPoint = computed(() => currentRoom.value?.bossHealthPoint ?? 0);
 const bossMaxHealthPoint = computed(() => currentRoom.value?.bossMaxHealthPoint ?? 1);
 const bossHealthPercent = computed(() =>
