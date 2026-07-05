@@ -1,7 +1,7 @@
 <template>
   <UModal v-model:open="open" :ui="{ content: 'max-w-md' }">
     <template #content>
-      <UCard :ui="{ body: 'p-4 sm:p-6' }">
+      <UCard :ui="{ body: 'p-4 sm:p-6 max-h-[70vh] overflow-y-auto' }">
         <template #header>
           <div class="flex items-center justify-between">
             <h3 class="text-lg font-black font-display text-white tracking-wide">
