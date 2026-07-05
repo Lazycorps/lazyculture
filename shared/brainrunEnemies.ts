@@ -41,7 +41,10 @@ export const BRAINRUN_ENEMIES: BrainrunEnemyDef[] = [
     name: "Le Gamer du Dimanche",
     act: 1,
     tier: "CLASSIC",
-    themes: ["video-games", "nintendo", "culture_generale"],
+    // celeste ajouté en 4e thème (au-delà des 2-3 habituels) plutôt qu'en remplacement : il n'a
+    // que 10 questions, toutes difficulté 1-3 (aucune 4-5), donc calibré uniquement pour l'Acte 1 ;
+    // le diluer parmi 4 thèmes limite sa fréquence de tirage vu son faible volume.
+    themes: ["video-games", "nintendo", "culture_generale", "celeste"],
   },
   {
     id: "act1_explorateur_cour_ecole",
