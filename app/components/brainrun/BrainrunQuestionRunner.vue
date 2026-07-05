@@ -310,13 +310,6 @@ watch(
 const activeBossMalus = computed(() =>
   malusCancelled.value ? undefined : getBrainrunBossById(brainrun.currentRoom.value?.bossId)?.malus,
 );
-const questionPropositions = computed(() => localQuestion.value?.data.propositions ?? []);
-const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap } =
-  useBrainrunBossMalus({
-    malus: activeBossMalus,
-    propositions: questionPropositions,
-    remainingMs,
-  });
 
 // Signale à la page parente (barre de PV du boss) qu'une résurrection du Phoenix est en cours,
 // pour une courte animation avant que la question suivante ne s'affiche (cf. nextQuestion()).
@@ -365,6 +358,15 @@ const isCorrect = computed(() => {
 const revealed = computed(
   () => timedOutFlag.value || greenResponse.value !== null || redResponse.value !== null,
 );
+
+const questionPropositions = computed(() => localQuestion.value?.data.propositions ?? []);
+const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap } =
+  useBrainrunBossMalus({
+    malus: activeBossMalus,
+    propositions: questionPropositions,
+    remainingMs,
+    revealed,
+  });
 
 function selectOption(id: number) {
   if (responded.value) return;

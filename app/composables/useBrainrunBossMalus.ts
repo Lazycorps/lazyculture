@@ -21,8 +21,10 @@ export function useBrainrunBossMalus(options: {
   malus: Ref<BrainrunBossMalusId | undefined>;
   propositions: Ref<Proposition[]>;
   remainingMs: Ref<number>;
+  /** Réponse révélée (correct/incorrect déjà connu) : démasque la réponse de Gilbert. */
+  revealed?: Ref<boolean>;
 }) {
-  const { malus, propositions, remainingMs } = options;
+  const { malus, propositions, remainingMs, revealed } = options;
 
   const swapOrder = ref<Proposition[]>([...propositions.value]);
   const hiddenId = ref<number | null>(null);
@@ -96,7 +98,7 @@ export function useBrainrunBossMalus(options: {
   const displayPropositions = computed<Proposition[]>(() => {
     const base = malus.value === "swap_answers" ? swapOrder.value : propositions.value;
     return base.map((p) => {
-      if (malus.value === "hidden_answer" && p.id === hiddenId.value) {
+      if (malus.value === "hidden_answer" && p.id === hiddenId.value && !revealed?.value) {
         return { ...p, value: "???" };
       }
       if (malus.value === "scrambling_letters" && scrambledValues.value[p.id]) {
