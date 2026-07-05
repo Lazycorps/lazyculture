@@ -46,7 +46,7 @@
       <TransitionGroup tag="div" name="option-swap" class="flex flex-col gap-1.5 py-0.5 w-full">
         <button
           v-for="proposition in propositions"
-          :key="proposition.id"
+          :key="`${questionId}-${proposition.id}`"
           :disabled="disabled || eliminatedIds.includes(proposition.id)"
           class="w-full text-left px-4 py-2 md:py-2.5 rounded-xl font-bold text-md tracking-wide font-display border transition-all duration-150 relative select-none"
           :class="[getOptionClass(proposition.id), hintClass(proposition.id)]"
