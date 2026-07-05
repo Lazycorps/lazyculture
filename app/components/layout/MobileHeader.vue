@@ -20,17 +20,19 @@
             to="/user/profil"
             class="flex items-center space-x-2 text-xs active:scale-95 transition-all"
           >
-            <UserAvatar
-              :src="userProfile?.equippedAvatar?.imageUrl"
-              :frame="userProfile?.equippedFrame?.styleKey"
-              size="3xs"
-            />
             <span class="flex items-center text-amber-400 font-extrabold font-display">
               <UIcon name="i-heroicons-academic-cap-solid" class="mr-1 text-sm" />
               Niv. {{ userProfile?.level || 1 }}
             </span>
             <div class="w-px h-3 bg-white/20"></div>
-            <span class="text-white font-bold truncate max-w-[80px]">{{
+            <!-- Avatar personnalisé seul, sinon pseudo -->
+            <UserAvatar
+              v-if="userProfile?.equippedAvatar?.imageUrl"
+              :src="userProfile.equippedAvatar.imageUrl"
+              :frame="userProfile?.equippedFrame?.styleKey"
+              size="2xs"
+            />
+            <span v-else class="text-white font-bold truncate max-w-[80px]">{{
               userProfile?.name || "Joueur"
             }}</span>
           </NuxtLink>
