@@ -384,6 +384,7 @@ model BrainrunRun {
     pendingThemeBanChoice Boolean  @default(false) // true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque acknowledgeRoom
     xpEarned        Int?
     knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)
+    coinsEarned     Int            @default(0) // Pièces (monnaie globale UserWallet) créditées cette run, uniquement aux Boss d'acte vaincus (cf. grantBrainrunActCoins)
     createDate      DateTime       @default(now())
     updateDate      DateTime       @default(now())
     endDate         DateTime?

@@ -402,11 +402,13 @@
 
               <div class="grid grid-cols-3 gap-3 w-full max-w-sm pt-2">
                 <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
-                  <p class="text-xl font-black font-display text-amber-400">{{ run.gold }}</p>
+                  <p class="text-xl font-black font-display text-amber-400">
+                    +{{ run.coinsEarned }}
+                  </p>
                   <p
                     class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
                   >
-                    Or récolté
+                    Pièces gagnées
                   </p>
                 </div>
                 <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">

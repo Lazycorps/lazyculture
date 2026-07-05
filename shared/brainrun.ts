@@ -125,6 +125,9 @@ export type BrainrunRunDTO = {
   xpEarned: number | null;
   /** Points de Savoir gagnés à la fin de cette run (or converti), null tant qu'elle est en cours. */
   knowledgePointsEarned: number | null;
+  /** Pièces (monnaie globale UserWallet) créditées pendant cette run, uniquement aux Boss
+   * d'acte vaincus (cf. server/utils/brainrunMetaHelper.ts grantBrainrunActCoins). */
+  coinsEarned: number;
   createDate: Date;
   endDate: Date | null;
   /** Reliques passives possédées pour le reste de la run. */

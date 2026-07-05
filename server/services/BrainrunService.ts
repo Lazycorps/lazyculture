@@ -1226,11 +1226,15 @@ export class BrainrunService {
       return;
     }
 
+    let coinsGranted = 0;
     if (outcome.act !== act) {
       // act = l'acte dont le Boss vient d'être nettoyé : palier de pièces correspondant
       // (server/utils/brainrunConfig.ts BRAINRUN_COINS_PER_ACT), plafonné par jour.
       const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
-      await grantBrainrunActCoins(currentRun.userId, BRAINRUN_COINS_PER_ACT[act - 1]!);
+      coinsGranted = await grantBrainrunActCoins(
+        currentRun.userId,
+        BRAINRUN_COINS_PER_ACT[act - 1]!,
+      );
 
       const nextActSeeded = await prisma.brainrunRoom.findFirst({
         where: { runId, act: outcome.act },
@@ -1250,6 +1254,7 @@ export class BrainrunService {
         // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours (chaque acte a son
         // propre roster) : on le réinitialise dès qu'on change d'acte.
         ...(outcome.act !== act ? { usedEnemyIds: [] } : {}),
+        ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
       },
     });
   }
@@ -1265,19 +1270,24 @@ export class BrainrunService {
       .map((r) => ({ type: r.type as BrainrunRoomType }));
     const xpEarned = calculBrainrunUserXP(clearedRooms, status === "WON");
     const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
+    // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
+    // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
+    // complété).
+    const coinsGranted =
+      status === "WON" ? await grantBrainrunActCoins(run.userId, BRAINRUN_COINS_PER_ACT[2]!) : 0;
 
     await prisma.brainrunRun.update({
       where: { id: runId },
-      data: { status, endDate: new Date(), xpEarned, knowledgePointsEarned },
+      data: {
+        status,
+        endDate: new Date(),
+        xpEarned,
+        knowledgePointsEarned,
+        ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
+      },
     });
     await updateUserProgress(run.userId, xpEarned);
     await grantKnowledgePoints(run.userId, knowledgePointsEarned);
-    if (status === "WON") {
-      // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
-      // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
-      // complété).
-      await grantBrainrunActCoins(run.userId, BRAINRUN_COINS_PER_ACT[2]!);
-    }
 
     const totalGames = await prisma.brainrunRun.count({
       where: { userId: run.userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
@@ -1438,6 +1448,7 @@ export class BrainrunService {
       gold: run.gold,
       xpEarned: run.xpEarned,
       knowledgePointsEarned: run.knowledgePointsEarned,
+      coinsEarned: run.coinsEarned,
       createDate: run.createDate,
       endDate: run.endDate,
       relics: run.relics as BrainrunRunDTO["relics"],
