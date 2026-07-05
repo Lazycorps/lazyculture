@@ -1,25 +1,33 @@
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden pointer-events-auto"
-  >
-    <div class="absolute inset-0" :class="backgroundClass" />
-    <div class="relative text-center px-6 space-y-4" :class="animClass" :style="animStyle">
-      <div class="mx-auto rounded-full flex items-center justify-center border" :class="badgeClass">
-        <UIcon :name="icon" :class="iconSizeClass" />
-      </div>
-      <div class="space-y-1">
-        <p
-          class="text-[11px] font-black uppercase tracking-[0.3em] font-display"
-          :class="labelClass"
+  <!-- Téléporté sur <body> : la page contient des ancêtres avec backdrop-filter (UCard
+       "backdrop-blur-xl"), qui créent un containing block pour les descendants "fixed" —
+       sans ça, cet overlay se recentrerait sur cette carte plutôt que sur tout le viewport. -->
+  <Teleport to="body">
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden pointer-events-auto"
+    >
+      <div class="absolute inset-0" :class="backgroundClass" />
+      <div class="relative text-center px-6 space-y-4" :class="animClass" :style="animStyle">
+        <div
+          class="mx-auto rounded-full flex items-center justify-center border"
+          :class="badgeClass"
         >
-          {{ kindLabel }}
-        </p>
-        <h2 class="font-black font-display text-white tracking-wide" :class="nameSizeClass">
-          {{ name }}
-        </h2>
+          <UIcon :name="icon" :class="iconSizeClass" />
+        </div>
+        <div class="space-y-1">
+          <p
+            class="text-[11px] font-black uppercase tracking-[0.3em] font-display"
+            :class="labelClass"
+          >
+            {{ kindLabel }}
+          </p>
+          <h2 class="font-black font-display text-white tracking-wide" :class="nameSizeClass">
+            {{ name }}
+          </h2>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">

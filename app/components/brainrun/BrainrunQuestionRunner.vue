@@ -8,6 +8,15 @@
     @pointerup="resumeSwap"
     @pointercancel="resumeSwap"
   >
+    <!-- Progression dans la salle (Standard/Elite uniquement : questionIds a un total fixe,
+         contrairement au Boss qui en génère à la volée tant qu'il n'est pas à 0 PV). -->
+    <p
+      v-if="!isBossRoom && questionTotal > 0"
+      class="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider font-display mb-2"
+    >
+      Question {{ questionIndex }}/{{ questionTotal }}
+    </p>
+
     <QuestionDisplay
       v-if="localQuestion"
       ref="questionDisplay"
@@ -305,6 +314,17 @@ watch(
     }
   },
 );
+
+// Position de localQuestion dans currentRoom.questionIds (figé à la création de la salle pour
+// Standard/Elite, cf. BrainrunService.chooseNode) plutôt que responses.length + 1 : ce dernier
+// avance déjà côté serveur pendant qu'on affiche encore le feedback de la question précédente
+// (même raison que le snapshot localQuestion ci-dessus), ce qui décalerait le compteur d'un cran.
+const questionTotal = computed(() => brainrun.currentRoom.value?.questionIds.length ?? 0);
+const questionIndex = computed(() => {
+  const ids = brainrun.currentRoom.value?.questionIds ?? [];
+  const idx = localQuestion.value ? ids.indexOf(localQuestion.value.id) : -1;
+  return idx === -1 ? questionTotal.value : idx + 1;
+});
 
 // Malus du boss actif (shared/brainrunBosses.ts) : transforme uniquement l'affichage des
 // propositions (texte/ordre/présence), jamais la logique de soumission de réponse. Antidote
