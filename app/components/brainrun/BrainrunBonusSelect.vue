@@ -16,14 +16,22 @@
       >
         <div
           class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-xl"
-          :class="rarityBadgeClass(offer)"
+          :class="[kindBadgeClass(offer), rarityRingClass(offer)]"
         >
           <UIcon :name="offerIcon(offer)" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="font-black font-display text-sm text-white tracking-wide truncate">
-            {{ offerName(offer) }}
-          </p>
+          <div class="flex items-center gap-1.5">
+            <p class="font-black font-display text-sm text-white tracking-wide truncate">
+              {{ offerName(offer) }}
+            </p>
+            <span
+              class="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+              :class="kindBadgeClass(offer)"
+            >
+              {{ offerKindLabel(offer) }}
+            </span>
+          </div>
           <p class="text-[11px] text-gray-400 leading-snug">{{ offerDescription(offer) }}</p>
         </div>
       </button>
@@ -42,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { BRAINRUN_CONSUMABLES, BRAINRUN_RELICS, type BrainrunOffer } from "#shared/brainrunItems";
+import type { BrainrunOffer } from "#shared/brainrunItems";
 
 defineProps<{
   offers: BrainrunOffer[];
@@ -54,41 +62,6 @@ defineEmits<{
   skip: [];
 }>();
 
-function offerName(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC") return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].name;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].name;
-  return "Or";
-}
-
-function offerDescription(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC")
-    return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].description;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].description;
-  return `+${offer.amount ?? 0} or`;
-}
-
-function offerIcon(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC") return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].icon;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].icon;
-  return "i-heroicons-currency-dollar";
-}
-
-function rarityBadgeClass(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC" && offer.rarity === "RARE") {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  if (
-    offer.kind === "CONSUMABLE" &&
-    BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].rarity === "RARE"
-  ) {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  if (offer.kind === "GOLD") {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  return "bg-violet-500/10 border border-violet-500/30 text-violet-400";
-}
+const { offerName, offerDescription, offerIcon, offerKindLabel, kindBadgeClass, rarityRingClass } =
+  useBrainrunOfferDisplay();
 </script>

@@ -20,14 +20,22 @@
       >
         <div
           class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-xl"
-          :class="rarityBadgeClass(offer)"
+          :class="[kindBadgeClass(offer), rarityRingClass(offer)]"
         >
           <UIcon :name="offerIcon(offer)" />
         </div>
         <div class="min-w-0 flex-1">
-          <p class="font-black font-display text-sm text-white tracking-wide truncate">
-            {{ offerName(offer) }}
-          </p>
+          <div class="flex items-center gap-1.5">
+            <p class="font-black font-display text-sm text-white tracking-wide truncate">
+              {{ offerName(offer) }}
+            </p>
+            <span
+              class="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+              :class="kindBadgeClass(offer)"
+            >
+              {{ offerKindLabel(offer) }}
+            </span>
+          </div>
           <p class="text-[11px] text-gray-400 leading-snug">{{ offerDescription(offer) }}</p>
         </div>
         <UButton
@@ -56,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { BRAINRUN_CONSUMABLES, BRAINRUN_RELICS, type BrainrunOffer } from "#shared/brainrunItems";
+import type { BrainrunOffer } from "#shared/brainrunItems";
 
 const props = defineProps<{
   offers: BrainrunOffer[];
@@ -69,45 +77,29 @@ defineEmits<{
   leave: [];
 }>();
 
+const {
+  offerName: genericOfferName,
+  offerDescription: genericOfferDescription,
+  offerIcon,
+  offerKindLabel,
+  kindBadgeClass,
+  rarityRingClass,
+} = useBrainrunOfferDisplay();
+
 function isAffordable(offer: BrainrunOffer): boolean {
   return (offer.price ?? 0) <= props.gold;
 }
 
+// Offre GOLD de secours (aucune relique/consommable disponible) : texte spécifique à la
+// Librairie, cf. generateShopReplacementOffer.
 function offerName(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC") return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].name;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].name;
-  return `Cache d'or (+${offer.amount ?? 0})`;
+  if (offer.kind === "GOLD") return `Cache d'or (+${offer.amount ?? 0})`;
+  return genericOfferName(offer);
 }
 
 function offerDescription(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC")
-    return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].description;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].description;
-  return "Aucune relique disponible pour l'instant : un peu d'or à la place.";
-}
-
-function offerIcon(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC") return BRAINRUN_RELICS[offer.id as keyof typeof BRAINRUN_RELICS].icon;
-  if (offer.kind === "CONSUMABLE")
-    return BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].icon;
-  return "i-heroicons-currency-dollar";
-}
-
-function rarityBadgeClass(offer: BrainrunOffer): string {
-  if (offer.kind === "RELIC" && offer.rarity === "RARE") {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  if (
-    offer.kind === "CONSUMABLE" &&
-    BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].rarity === "RARE"
-  ) {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  if (offer.kind === "GOLD") {
-    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
-  }
-  return "bg-violet-500/10 border border-violet-500/30 text-violet-400";
+  if (offer.kind === "GOLD")
+    return "Aucune relique disponible pour l'instant : un peu d'or à la place.";
+  return genericOfferDescription(offer);
 }
 </script>
