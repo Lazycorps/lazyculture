@@ -27,42 +27,42 @@ export const BRAINRUN_ENEMIES: BrainrunEnemyDef[] = [
     name: "Le Fan de Ciné",
     act: 1,
     tier: "CLASSIC",
-    themes: ["cinema", "series_cultes"],
+    themes: ["cinema", "series_cultes", "culture_generale"],
   },
   {
     id: "act1_supporter_ultra",
     name: "Le Supporter Ultra",
     act: 1,
     tier: "CLASSIC",
-    themes: ["football", "sport"],
+    themes: ["football", "sport", "culture_generale"],
   },
   {
     id: "act1_gamer_du_dimanche",
     name: "Le Gamer du Dimanche",
     act: 1,
     tier: "CLASSIC",
-    themes: ["video-games", "nintendo"],
+    themes: ["video-games", "nintendo", "culture_generale"],
   },
   {
     id: "act1_explorateur_cour_ecole",
     name: "L'Explorateur de Cour d'École",
     act: 1,
     tier: "CLASSIC",
-    themes: ["geo", "animaux_du_monde"],
+    themes: ["geo", "animaux_du_monde", "culture_generale"],
   },
   {
     id: "act1_rat_de_bibliotheque",
     name: "Le Rat de Bibliothèque",
     act: 1,
     tier: "CLASSIC",
-    themes: ["mythologie", "histoire"],
+    themes: ["mythologie", "histoire", "culture_generale"],
   },
   {
     id: "act1_cosplayeur_debutant",
     name: "Le Cosplayeur Débutant",
     act: 1,
     tier: "CLASSIC",
-    themes: ["anime-manga", "harry_potter"],
+    themes: ["anime-manga", "harry_potter", "culture_generale"],
   },
   {
     id: "act1_belge_bavard",
@@ -76,14 +76,14 @@ export const BRAINRUN_ENEMIES: BrainrunEnemyDef[] = [
     name: "Le Bricoleur du Dimanche",
     act: 1,
     tier: "CLASSIC",
-    themes: ["inventions", "voiture"],
+    themes: ["inventions", "voiture", "culture_generale"],
   },
   {
     id: "act1_astronome_amateur",
     name: "L'Astronome Amateur",
     act: 1,
     tier: "CLASSIC",
-    themes: ["espace", "dinosaures"],
+    themes: ["espace", "dinosaures", "culture_generale"],
   },
 
   // --- Acte 1 — Élites ---
@@ -92,21 +92,21 @@ export const BRAINRUN_ENEMIES: BrainrunEnemyDef[] = [
     name: "Le Maître du Multiplexe",
     act: 1,
     tier: "ELITE",
-    themes: ["cinema", "series_cultes", "disney", "anime-manga"],
+    themes: ["cinema", "series_cultes", "disney", "anime-manga", "culture_generale"],
   },
   {
     id: "act1_capitaine_des_tribunes",
     name: "Le Capitaine des Tribunes",
     act: 1,
     tier: "ELITE",
-    themes: ["football", "sport", "voiture", "video-games"],
+    themes: ["football", "sport", "voiture", "video-games", "culture_generale"],
   },
   {
     id: "act1_gardien_des_legendes",
     name: "Le Gardien des Légendes",
     act: 1,
     tier: "ELITE",
-    themes: ["lord_of_the_ring", "star_wars", "harry_potter", "mythologie"],
+    themes: ["lord_of_the_ring", "star_wars", "harry_potter", "mythologie", "culture_generale"],
   },
   {
     id: "act1_encyclopediste_fou",
@@ -120,7 +120,9 @@ export const BRAINRUN_ENEMIES: BrainrunEnemyDef[] = [
     name: "Le Chasseur de Trésors Perdus",
     act: 1,
     tier: "ELITE",
-    themes: ["jurassic_park", "dinosaures", "monuments_du_monde", "espace", "animaux_du_monde"],
+    // monuments_du_monde retiré (le plus dispensable des 5) pour laisser la place à
+    // culture_generale, ajouté sur tous les ennemis de l'Acte 1 pour diluer la redondance.
+    themes: ["jurassic_park", "dinosaures", "espace", "animaux_du_monde", "culture_generale"],
   },
 
   // --- Acte 2 — Classiques ---

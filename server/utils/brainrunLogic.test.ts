@@ -32,7 +32,6 @@ import {
 import {
   BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_BOSS_BASE_DAMAGE,
-  BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_MIN_EVENT_OFFERS,
@@ -89,20 +88,25 @@ describe("isBossAnswerTimedOut", () => {
 describe("brainrunBossDamage", () => {
   it("deals no damage on an incorrect answer, regardless of elapsed time", () => {
     expect(brainrunBossDamage(0, false)).toBe(0);
-    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS - 1, false)).toBe(0);
+    expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS / 2, false)).toBe(0);
   });
 
   it("deals no damage once the question has timed out, even if marked correct", () => {
     expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS, true)).toBe(0);
   });
 
-  it("deals base damage on a correct answer at normal speed", () => {
-    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS, true)).toBe(BRAINRUN_BOSS_BASE_DAMAGE);
+  it("deals maximum damage on an immediate correct answer", () => {
+    expect(brainrunBossDamage(0, true)).toBe(
+      BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
+    );
   });
 
-  it("deals multiplied damage on a fast correct answer", () => {
-    expect(brainrunBossDamage(BRAINRUN_BOSS_FAST_ANSWER_MS - 1, true)).toBe(
-      BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
+  it("decays linearly, point by point, down to 0 as elapsed time grows", () => {
+    const maxDamage = BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER;
+    expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS / 2, true)).toBe(maxDamage / 2);
+    expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS - 1, true)).toBeGreaterThan(0);
+    expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS - 1, true)).toBeLessThan(
+      maxDamage / 2,
     );
   });
 });
@@ -187,6 +191,23 @@ describe("generateActEdges", () => {
   it("is deterministic given a fixed random source", () => {
     const fixedRandom = () => 0.42;
     expect(generateActEdges(fixedRandom)).toEqual(generateActEdges(fixedRandom));
+  });
+
+  it("branches to 2 nodes at least 80% of the time (mono-routes stay rare)", () => {
+    // La rangée avant-Boss converge toujours seule vers le Boss (cf. test précédent) : elle ne
+    // représente pas un vrai choix de trajet, donc exclue de ce ratio.
+    const branchableRow = BRAINRUN_ACT_ROW_WIDTHS.length - 1;
+    let branchable = 0;
+    let dualTarget = 0;
+    for (let i = 0; i < 200; i++) {
+      generateActEdges()
+        .filter((e) => e.row < branchableRow)
+        .forEach((e) => {
+          branchable++;
+          if (e.nextCols.length >= 2) dualTarget++;
+        });
+    }
+    expect(dualTarget / branchable).toBeGreaterThanOrEqual(0.7);
   });
 });
 

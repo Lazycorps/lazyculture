@@ -19,6 +19,7 @@ import {
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_ACT_ROW_WIDTHS,
+  BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
@@ -532,7 +533,7 @@ function pickInitialTargets(
   const neighbors = [center - 1, center, center + 1].filter((c) => c >= 0 && c < toWidth);
   const extraCandidates = [...new Set(neighbors)].filter((c) => c !== center);
   const targets = [center];
-  if (extraCandidates.length > 0 && random() < 0.5) {
+  if (extraCandidates.length > 0 && random() < BRAINRUN_BRANCH_CHANCE) {
     targets.push(extraCandidates[Math.floor(random() * extraCandidates.length)]!);
   }
   return [...new Set(targets)];

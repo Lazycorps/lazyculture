@@ -13,14 +13,16 @@ import type { BrainrunTalentId } from "./brainrunTalents";
  * (server/utils/brainrunConfig.ts), le client n'a besoin que du décompte de rangées pour la progression. */
 export const BRAINRUN_TOTAL_ACTS = 3;
 export const BRAINRUN_ROOMS_PER_ACT = 7;
-/** Temps imparti par question du combat de boss (contre-la-montre) ; le client en a besoin pour afficher le chrono. */
-export const BRAINRUN_BOSS_QUESTION_TIME_MS = 10_000;
-/** Sous ce délai de réponse (correcte), les dégâts infligés au boss sont doublés ; le client en a besoin pour afficher l'aperçu de dégâts. */
-export const BRAINRUN_BOSS_FAST_ANSWER_MS = 2_000;
-/** Dégâts infligés au boss pour une réponse correcte dans les temps (hors bonus de vitesse). */
+/** Temps imparti par question du combat de boss (contre-la-montre) ; le client en a besoin pour
+ * afficher le chrono. Rallongé de 5s (par rapport aux 10s d'origine) pour compenser la décroissance
+ * continue (point par point) des dégâts potentiels, qui laisse moins de marge qu'un palier fixe. */
+export const BRAINRUN_BOSS_QUESTION_TIME_MS = 15_000;
+/** Dégâts de base infligés au boss pour une réponse correcte ; sert aussi de référence au
+ * calibrage de ses PV (cf. BRAINRUN_BOSS_MAX_HP dans server/utils/brainrunConfig.ts). */
 export const BRAINRUN_BOSS_BASE_DAMAGE = 20;
-/** Multiplicateur de dégâts appliqué en cas de réponse correcte rapide (< BRAINRUN_BOSS_FAST_ANSWER_MS). */
-export const BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER = 2;
+/** Multiplicateur appliqué au dégât de base pour obtenir le dégât maximal (50), infligé pour une
+ * réponse instantanée (cf. brainrunPotentialBossDamage). */
+export const BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER = 2.5;
 /** Délai (ms) avant affichage de la révélation de la relique Sixième Sens, une fois la question
  * apparue ; le tirage lui-même est déjà décidé côté serveur (cf. consumableReveal.autoHintId),
  * ce délai ne pilote que l'affichage client. */
@@ -28,15 +30,17 @@ export const BRAINRUN_SIXTH_SENSE_DELAY_MS = 8_000;
 
 /**
  * Dégâts qui seraient infligés au boss si la réponse actuelle était correcte, en fonction du
- * temps déjà écoulé sur la question — décroît de BRAINRUN_BOSS_BASE_DAMAGE * multiplicateur à 0.
- * Utilisé côté client pour l'aperçu affiché pendant le combat, et côté serveur comme base du
- * calcul réel des dégâts (cf. brainrunBossDamage dans server/utils/brainrunLogic.ts).
+ * temps déjà écoulé sur la question — décroît linéairement, point par point, de
+ * BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER (réponse immédiate) à 0 (temps
+ * écoulé), plutôt que par paliers. Utilisé côté client pour l'aperçu affiché pendant le combat, et
+ * côté serveur comme calcul réel des dégâts (cf. brainrunBossDamage dans
+ * server/utils/brainrunLogic.ts).
  */
 export function brainrunPotentialBossDamage(elapsedMs: number, bonusTimeMs: number = 0): number {
-  if (elapsedMs >= BRAINRUN_BOSS_QUESTION_TIME_MS + bonusTimeMs) return 0;
-  return elapsedMs < BRAINRUN_BOSS_FAST_ANSWER_MS
-    ? BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER
-    : BRAINRUN_BOSS_BASE_DAMAGE;
+  const totalMs = BRAINRUN_BOSS_QUESTION_TIME_MS + bonusTimeMs;
+  if (elapsedMs >= totalMs) return 0;
+  const maxDamage = BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER;
+  return Math.max(0, Math.round(maxDamage * (1 - elapsedMs / totalMs)));
 }
 
 export type BrainrunRoomType = "STANDARD" | "ELITE" | "BOSS" | "REST" | "SHOP" | "EVENT";

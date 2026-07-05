@@ -672,11 +672,14 @@ const consumableSlots = computed(() =>
   Array.from({ length: CONSUMABLE_SLOT_COUNT }, (_, i) => ownedConsumables.value[i] ?? null),
 );
 
+// Masquée sur toute la durée d'une run active (map, question, repos, boutique, récap...),
+// pas seulement pendant l'affichage d'une question : sinon la barre réapparaît entre deux
+// salles et peut masquer le bouton "Continuer" du récap ou d'autres actions en bas d'écran
+// (même logique que les autres modes de jeu, cf. isGameActive dans series/ascent.vue).
 watch(
-  () =>
-    view.value === "run" && isRunActive.value && !awaitingChoice.value && !!currentQuestion.value,
-  (inQuestion) => {
-    showBottomNav.value = !inQuestion;
+  () => view.value === "run" && (isRunActive.value || holdOnFeedback.value),
+  (inRun) => {
+    showBottomNav.value = !inRun;
   },
   { immediate: true },
 );

@@ -1,7 +1,6 @@
 import type { BrainrunRoomType } from "#shared/brainrun";
 import {
   BRAINRUN_BOSS_BASE_DAMAGE,
-  BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_ROOMS_PER_ACT,
@@ -10,7 +9,6 @@ import {
 
 export {
   BRAINRUN_BOSS_BASE_DAMAGE,
-  BRAINRUN_BOSS_FAST_ANSWER_MS,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   BRAINRUN_ROOMS_PER_ACT,
@@ -46,20 +44,27 @@ export const BRAINRUN_QUESTIONS_PER_ROOM: Record<"STANDARD" | "ELITE", number> =
   ELITE: 5,
 };
 
-/** Plage de difficulté (inclusive, échelle Question.difficulty 1-5) par acte et type de salle de combat. */
+/** Plage de difficulté (inclusive, échelle Question.difficulty 1-5) par acte et type de salle de
+ * combat — même plage élargie pour STANDARD/ELITE/BOSS au sein d'un acte (plus de redondance de
+ * questions d'une run à l'autre qu'avec l'ancienne plage resserrée par type). */
 export const BRAINRUN_DIFFICULTY_BY_ACT: Record<
   number,
   Record<"STANDARD" | "ELITE" | "BOSS", [number, number]>
 > = {
-  1: { STANDARD: [1, 1], ELITE: [2, 2], BOSS: [2, 2] },
-  2: { STANDARD: [2, 3], ELITE: [3, 3], BOSS: [3, 3] },
-  3: { STANDARD: [3, 4], ELITE: [4, 4], BOSS: [5, 5] },
+  1: { STANDARD: [1, 3], ELITE: [1, 3], BOSS: [1, 3] },
+  2: { STANDARD: [2, 4], ELITE: [2, 4], BOSS: [2, 4] },
+  3: { STANDARD: [3, 5], ELITE: [3, 5], BOSS: [3, 5] },
 };
 
 /** Forme de la carte à embranchements d'un acte : nombre de nœuds par rangée (index 0 = rangée 1),
  * la dernière rangée est toujours le Boss (1 seul nœud, tous les nœuds de l'avant-dernière rangée
  * y convergent). cf. server/utils/brainrunLogic.ts (generateActEdges/generateActGraph). */
 export const BRAINRUN_ACT_ROW_WIDTHS = [2, 3, 3, 3, 3, 2, 1];
+
+/** Probabilité qu'un nœud (hors avant-dernière rangée, qui converge toujours seule vers le Boss)
+ * ait une 2e arête sortante en plus de sa cible centrale : les mono-routes (un seul choix) doivent
+ * rester rares. cf. pickInitialTargets dans server/utils/brainrunLogic.ts. */
+export const BRAINRUN_BRANCH_CHANCE = 0.8;
 
 /** Quotas minimums que l'algorithme d'assignation des types de nœuds d'un acte doit respecter. */
 export const BRAINRUN_MIN_PURE_COMBAT_RATIO = 0.5; // au moins 50% des nœuds hors Boss = combat (STANDARD/ELITE)
