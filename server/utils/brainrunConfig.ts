@@ -56,6 +56,17 @@ export const BRAINRUN_DIFFICULTY_BY_ACT: Record<
   3: { STANDARD: [3, 5], ELITE: [3, 5], BOSS: [3, 5] },
 };
 
+/** Plage de difficulté propre au thème culture_generale, par acte — resserrée par rapport à
+ * BRAINRUN_DIFFICULTY_BY_ACT (même bornée à ses deux extrémités) pour accentuer la progression
+ * ressentie sur ce thème quasi systématique (présent dans la plupart des ennemis/boss, cf.
+ * shared/brainrunEnemies.ts / brainrunBosses.ts) : facile en Acte 1, corsé en Acte 3.
+ * Appliquée via QuestionService.getRandomIdsByDifficulty (themeDifficultyOverrides). */
+export const BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT: Record<number, [number, number]> = {
+  1: [1, 2],
+  2: [2, 3],
+  3: [4, 5],
+};
+
 /** Forme de la carte à embranchements d'un acte : nombre de nœuds par rangée (index 0 = rangée 1),
  * la dernière rangée est toujours le Boss (1 seul nœud, tous les nœuds de l'avant-dernière rangée
  * y convergent). cf. server/utils/brainrunLogic.ts (generateActEdges/generateActGraph). */

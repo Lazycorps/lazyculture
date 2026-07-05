@@ -104,6 +104,11 @@ export class QuestionService {
    * même pattern que getRandomQuestionsIds) est toujours appliqué : en cas de pool insuffisant,
    * l'élargissement se fait uniquement en remontant `maxDifficulty` jusqu'à 5, jamais en abandonnant
    * le filtre thème.
+   *
+   * `themeDifficultyOverrides` fixe une plage propre à certains thèmes (ex. culture_generale, cf.
+   * BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT), à la place de [minDifficulty, maxDifficulty]
+   * pour ce thème précis — y compris pendant l'élargissement ci-dessus, qui ne s'applique donc
+   * qu'aux autres thèmes de la liste.
    */
   async getRandomIdsByDifficulty(
     minDifficulty: number,
@@ -112,16 +117,27 @@ export class QuestionService {
     excludeIds: number[],
     userId?: string,
     themes?: string[],
+    themeDifficultyOverrides?: Record<string, [number, number]>,
   ): Promise<number[]> {
-    const themeFilter =
+    const buildThemeFilter = (maxDiff: number) =>
       themes && themes.length > 0
-        ? { OR: themes.map((slug) => ({ data: { path: ["theme"], array_contains: slug } })) }
-        : {};
+        ? {
+            OR: themes.map((slug) => {
+              const [themeMin, themeMax] = themeDifficultyOverrides?.[slug] ?? [
+                minDifficulty,
+                maxDiff,
+              ];
+              return {
+                difficulty: { gte: themeMin, lte: themeMax },
+                data: { path: ["theme"], array_contains: slug },
+              };
+            }),
+          }
+        : { difficulty: { gte: minDifficulty, lte: maxDiff } };
     const whereForMaxDifficulty = (maxDiff: number) => ({
       deleted: false,
-      difficulty: { gte: minDifficulty, lte: maxDiff },
       id: { notIn: excludeIds },
-      ...themeFilter,
+      ...buildThemeFilter(maxDiff),
     });
 
     let candidates = await prisma.question.findMany({

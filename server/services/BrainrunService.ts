@@ -47,6 +47,7 @@ import {
   BRAINRUN_ABSOLUTE_MAX_HP,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
+  BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
   BRAINRUN_DIFFICULTY_BY_ACT,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_GOLD_BY_ROOM_TYPE,
@@ -242,6 +243,7 @@ export class BrainrunService {
         run.usedQuestionIds,
         userId,
         combatThemes,
+        { culture_generale: BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[run.currentAct]! },
       );
       const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
 
