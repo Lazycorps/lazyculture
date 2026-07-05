@@ -1,5 +1,13 @@
 <template>
-  <div class="text-center py-6 px-4 space-y-6">
+  <div class="relative text-center py-6 px-4 space-y-6">
+    <UButton
+      color="neutral"
+      variant="ghost"
+      icon="i-heroicons-question-mark-circle"
+      class="absolute top-2 right-2"
+      aria-label="Aide"
+      @click="showHelp = true"
+    />
     <div
       class="w-16 h-16 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-3xl text-violet-400 mx-auto"
     >
@@ -60,6 +68,8 @@
         Arbre de talents
       </UButton>
     </div>
+
+    <BrainrunHelpModal v-model:open="showHelp" />
   </div>
 </template>
 
@@ -78,4 +88,5 @@ defineEmits<{
 }>();
 
 const hasRunInProgress = computed(() => props.run?.status === "IN_PROGRESS");
+const showHelp = ref(false);
 </script>
