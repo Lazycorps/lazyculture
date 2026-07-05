@@ -395,7 +395,8 @@ export class BrainrunService {
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: {
-        healthPoint: Math.max(newHealthPoint, 0),
+        // Un Boss vaincu régénère intégralement les PV, pour repartir à plein sur l'acte suivant.
+        healthPoint: bossDefeated ? run.maxHealthPoint : Math.max(newHealthPoint, 0),
         ...(shieldConsumed ? { shieldArmed: false } : {}),
         ...(extraLifeUsed ? { relics: run.relics.filter((r) => r !== "SECOND_CHANCE") } : {}),
         ...(reviveTokenUsed
