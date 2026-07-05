@@ -80,6 +80,12 @@ function rarityBadgeClass(offer: BrainrunOffer): string {
   if (offer.kind === "RELIC" && offer.rarity === "RARE") {
     return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
   }
+  if (
+    offer.kind === "CONSUMABLE" &&
+    BRAINRUN_CONSUMABLES[offer.id as keyof typeof BRAINRUN_CONSUMABLES].rarity === "RARE"
+  ) {
+    return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
+  }
   if (offer.kind === "GOLD") {
     return "bg-amber-500/10 border border-amber-500/30 text-amber-400";
   }

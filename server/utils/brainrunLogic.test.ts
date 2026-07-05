@@ -20,6 +20,7 @@ import {
   nextRoomAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
+  pickRandomStashConsumables,
   resolveEventOption,
   shouldEndRunOnDamage,
 } from "./brainrunLogic";
@@ -523,9 +524,41 @@ describe("pickPhoneAFriendHint", () => {
 });
 
 describe("BRAINRUN_CONSUMABLES catalog", () => {
-  it("defines exactly the 3 documented jokers", () => {
+  it("defines exactly the 10 documented consumables", () => {
     expect(Object.keys(BRAINRUN_CONSUMABLES).sort()).toEqual(
-      ["FIFTY_FIFTY", "PHONE_A_FRIEND", "SHIELD"].sort(),
+      [
+        "FIFTY_FIFTY",
+        "PHONE_A_FRIEND",
+        "SHIELD",
+        "BOSS_CHRONO_BOOST",
+        "BOSS_DAMAGE_BOOST",
+        "MALUS_CANCEL",
+        "REDRAW_QUESTION",
+        "HEAL_POTION",
+        "RANDOM_STASH",
+        "REVIVE_TOKEN",
+      ].sort(),
+    );
+  });
+
+  it("never sells REVIVE_TOKEN in the shop", () => {
+    expect(BRAINRUN_CONSUMABLES.REVIVE_TOKEN.shopPrice).toBeUndefined();
+  });
+});
+
+describe("pickRandomStashConsumables", () => {
+  it("always draws the requested count, only from the COMMON pool", () => {
+    for (let i = 0; i < 50; i++) {
+      const picked = pickRandomStashConsumables(Math.random, 3);
+      expect(picked).toHaveLength(3);
+      picked.forEach((id) => expect(BRAINRUN_CONSUMABLES[id].rarity).toBe("COMMON"));
+    }
+  });
+
+  it("is deterministic given a fixed random source", () => {
+    const fixedRandom = () => 0.42;
+    expect(pickRandomStashConsumables(fixedRandom, 3)).toEqual(
+      pickRandomStashConsumables(fixedRandom, 3),
     );
   });
 });

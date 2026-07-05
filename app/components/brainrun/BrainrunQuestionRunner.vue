@@ -164,24 +164,40 @@ let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
 
 const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
 
-// 50/50 / Appel à un ami : effet calculé et persisté côté serveur pour la question en cours
-// (le client a déjà data.response/propositions, mais l'inventaire et le tirage aléatoire sont
-// gérés par le serveur, cf. BrainrunService.useConsumable).
+// 50/50 / Appel à un ami / Sablier Fêlé / Coup de Grâce / Antidote : effet calculé et persisté
+// côté serveur pour la question en cours (le client a déjà data.response/propositions, mais
+// l'inventaire et le tirage aléatoire sont gérés par le serveur, cf. BrainrunService.useConsumable).
 const eliminatedIds = computed(
   () => brainrun.currentRoom.value?.consumableReveal?.eliminatedIds ?? [],
 );
 const hintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.hintId ?? null);
+const chronoBoostUsed = computed(
+  () => (brainrun.currentRoom.value?.consumableReveal?.chronoBonusMs ?? 0) > 0,
+);
+const damageBoostUsed = computed(
+  () => (brainrun.currentRoom.value?.consumableReveal?.damageBonus ?? 0) > 0,
+);
+const malusCancelled = computed(
+  () => brainrun.currentRoom.value?.consumableReveal?.malusCancelled ?? false,
+);
 const consumableLoading = ref(false);
 const availableConsumables = computed(() => {
   const consumables = brainrun.run.value?.consumables ?? {};
   const shieldArmed = brainrun.run.value?.shieldArmed ?? false;
+  const run = brainrun.run.value;
   return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[])
     .filter((id) => {
       if ((consumables[id] ?? 0) <= 0) return false;
+      // Dernier Souffle ne se déclenche qu'automatiquement, jamais depuis cette barre.
+      if (id === "REVIVE_TOKEN") return false;
       if (id === "SHIELD") return !shieldArmed;
       if (id === "FIFTY_FIFTY") return eliminatedIds.value.length === 0;
       if (id === "PHONE_A_FRIEND") return hintId.value === null;
-      return true;
+      if (id === "HEAL_POTION") return !!run && run.healthPoint < run.maxHealthPoint;
+      if (id === "BOSS_CHRONO_BOOST") return isBossRoom.value && !chronoBoostUsed.value;
+      if (id === "BOSS_DAMAGE_BOOST") return isBossRoom.value && !damageBoostUsed.value;
+      if (id === "MALUS_CANCEL") return isBossRoom.value && !malusCancelled.value;
+      return true; // Nouvelle Pioche, Cargaison Surprise : toujours utilisables tant qu'on en possède
     })
     .map((id) => ({ ...BRAINRUN_CONSUMABLES[id], count: consumables[id]! }));
 });
@@ -238,9 +254,10 @@ watch(
 );
 
 // Malus du boss actif (shared/brainrunBosses.ts) : transforme uniquement l'affichage des
-// propositions (texte/ordre/présence), jamais la logique de soumission de réponse.
-const activeBossMalus = computed(
-  () => getBrainrunBossById(brainrun.currentRoom.value?.bossId)?.malus,
+// propositions (texte/ordre/présence), jamais la logique de soumission de réponse. Antidote
+// (consommable) l'annule pour la question en cours.
+const activeBossMalus = computed(() =>
+  malusCancelled.value ? undefined : getBrainrunBossById(brainrun.currentRoom.value?.bossId)?.malus,
 );
 const questionPropositions = computed(() => localQuestion.value?.data.propositions ?? []);
 const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap } =

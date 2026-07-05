@@ -10,7 +10,17 @@ export type BrainrunRelicId =
   | "ADRENALINE"
   | "PROVIDENT_PURSE";
 
-export type BrainrunConsumableId = "FIFTY_FIFTY" | "PHONE_A_FRIEND" | "SHIELD";
+export type BrainrunConsumableId =
+  | "FIFTY_FIFTY"
+  | "PHONE_A_FRIEND"
+  | "SHIELD"
+  | "BOSS_CHRONO_BOOST"
+  | "BOSS_DAMAGE_BOOST"
+  | "MALUS_CANCEL"
+  | "REDRAW_QUESTION"
+  | "HEAL_POTION"
+  | "RANDOM_STASH"
+  | "REVIVE_TOKEN";
 
 export type BrainrunRarity = "COMMON" | "RARE";
 
@@ -27,6 +37,22 @@ export type BrainrunConsumableDef = {
   name: string;
   description: string;
   icon: string;
+  rarity: BrainrunRarity;
+  /** Prix en Boutique ; absent si l'objet n'y est jamais vendu (uniquement gagnable en jeu, cf. REVIVE_TOKEN). */
+  shopPrice?: number;
+};
+
+/** Effet ponctuel appliqué à la question en cours d'une salle (persisté sur BrainrunRoom.consumableReveal,
+ * réinitialisé dès la question suivante) : 50/50, Appel à un ami, et les nouveaux consommables de combat de boss. */
+export type BrainrunConsumableReveal = {
+  eliminatedIds?: number[];
+  hintId?: number;
+  /** Sablier Fêlé : bonus de temps (ms) sur la question de boss en cours. */
+  chronoBonusMs?: number;
+  /** Coup de Grâce : dégâts bonus si la réponse de boss en cours est correcte. */
+  damageBonus?: number;
+  /** Antidote : annule l'affichage du malus du boss sur la question en cours. */
+  malusCancelled?: boolean;
 };
 
 export type BrainrunEventReward = {
@@ -123,18 +149,81 @@ export const BRAINRUN_CONSUMABLES: Record<BrainrunConsumableId, BrainrunConsumab
     name: "50/50",
     description: "Élimine la moitié des mauvaises propositions (arrondi à l'inférieur).",
     icon: "i-heroicons-scissors",
+    rarity: "COMMON",
+    shopPrice: 20,
   },
   PHONE_A_FRIEND: {
     id: "PHONE_A_FRIEND",
     name: "Appel à un ami",
     description: "Suggère une réponse — risque d'erreur croissant avec la difficulté.",
     icon: "i-heroicons-phone",
+    rarity: "COMMON",
+    shopPrice: 20,
   },
   SHIELD: {
     id: "SHIELD",
     name: "Bouclier",
     description: "Annule la prochaine perte de PV, au combat comme lors d'un Événement.",
     icon: "i-heroicons-shield-check",
+    rarity: "COMMON",
+    shopPrice: 20,
+  },
+  BOSS_CHRONO_BOOST: {
+    id: "BOSS_CHRONO_BOOST",
+    name: "Sablier Fêlé",
+    description: "+5 secondes sur le chrono de la question de boss en cours.",
+    icon: "i-heroicons-clock",
+    rarity: "COMMON",
+    shopPrice: 15,
+  },
+  BOSS_DAMAGE_BOOST: {
+    id: "BOSS_DAMAGE_BOOST",
+    name: "Coup de Grâce",
+    description: "+10 dégâts au boss si la réponse en cours est correcte.",
+    icon: "i-heroicons-fire",
+    rarity: "COMMON",
+    shopPrice: 20,
+  },
+  MALUS_CANCEL: {
+    id: "MALUS_CANCEL",
+    name: "Antidote",
+    description: "Annule le malus du boss sur la question en cours.",
+    icon: "i-heroicons-beaker",
+    rarity: "COMMON",
+    shopPrice: 10,
+  },
+  REDRAW_QUESTION: {
+    id: "REDRAW_QUESTION",
+    name: "Nouvelle Pioche",
+    description: "Remplace la question en cours par une nouvelle, de même difficulté.",
+    icon: "i-heroicons-arrow-path",
+    rarity: "RARE",
+    shopPrice: 35,
+  },
+  HEAL_POTION: {
+    id: "HEAL_POTION",
+    name: "Potion de Soin",
+    description: "Régénère 1 point de vie.",
+    icon: "i-heroicons-heart",
+    rarity: "RARE",
+    shopPrice: 35,
+  },
+  RANDOM_STASH: {
+    id: "RANDOM_STASH",
+    name: "Cargaison Surprise",
+    description: "Tire 3 consommables courants au hasard.",
+    icon: "i-heroicons-gift",
+    rarity: "RARE",
+    shopPrice: 30,
+  },
+  REVIVE_TOKEN: {
+    id: "REVIVE_TOKEN",
+    name: "Dernier Souffle",
+    description:
+      "Vous ressuscite automatiquement à 1 PV la première fois où vous devriez mourir. Se consomme après usage.",
+    icon: "i-heroicons-sparkles",
+    rarity: "RARE",
+    // Pas de shopPrice : jamais en vente en Boutique, uniquement en bonus post-combat/Événement.
   },
 };
 
@@ -216,7 +305,8 @@ export const BRAINRUN_EVENTS: Record<string, BrainrunEventDef> = {
   },
 };
 
-export const BRAINRUN_RELIC_RARITY_WEIGHT: Record<BrainrunRarity, number> = {
+/** Poids de tirage par rareté, partagé par les reliques et les consommables (RARE ~4x moins fréquent que COMMON). */
+export const BRAINRUN_RARITY_WEIGHT: Record<BrainrunRarity, number> = {
   COMMON: 3,
   RARE: 1,
 };
@@ -226,14 +316,19 @@ export const BRAINRUN_RELIC_SHOP_PRICE: Record<BrainrunRarity, number> = {
   RARE: 90,
 };
 
-export const BRAINRUN_CONSUMABLE_SHOP_PRICE = 20;
-
 /** Offre de secours (or) quand le pool de reliques/consommables proposables est épuisé. */
 export const BRAINRUN_GOLD_FALLBACK_OFFER_AMOUNT = 15;
 
 export const BRAINRUN_BONUS_OFFER_COUNT = 3;
 export const BRAINRUN_SHOP_RELIC_OFFER_COUNT = 2;
 export const BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT = 2;
+
+/** Nombre de consommables tirés par "Cargaison Surprise" (toujours dans le pool Commun). */
+export const BRAINRUN_RANDOM_STASH_COUNT = 3;
+/** Bonus de temps (ms) accordé par "Sablier Fêlé" sur la question de boss en cours. */
+export const BRAINRUN_CHRONO_BOOST_MS = 5000;
+/** Dégâts bonus accordés par "Coup de Grâce" si la réponse de boss en cours est correcte. */
+export const BRAINRUN_DAMAGE_BOOST_AMOUNT = 10;
 
 /** Chance qu'"Appel à un ami" suggère une réponse fausse, en fonction de la difficulté (1-5) de
  * la question : 0% à la difficulté la plus faible, ~20% à la plus élevée, linéaire entre les deux. */

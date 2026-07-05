@@ -27,6 +27,7 @@ import {
   nextRoomAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
+  pickRandomStashConsumables,
   resolveEventOption,
   type BrainrunRelicEffects,
 } from "~~/server/utils/brainrunLogic";
@@ -46,11 +47,14 @@ import {
 } from "~~/server/utils/brainrunConfig";
 import { QuestionDataDTO } from "#shared/question";
 import {
+  BRAINRUN_CHRONO_BOOST_MS,
+  BRAINRUN_DAMAGE_BOOST_AMOUNT,
   BRAINRUN_EVENTS,
   type BrainrunConsumableId,
+  type BrainrunConsumableReveal,
   type BrainrunOffer,
 } from "#shared/brainrunItems";
-import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
+import { getBrainrunEnemiesByActAndTier, getBrainrunEnemyById } from "#shared/brainrunEnemies";
 import { getBrainrunBossesByAct, getBrainrunBossById } from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
@@ -64,7 +68,7 @@ import type {
 
 type CombatRoomType = "STANDARD" | "ELITE" | "BOSS";
 type ConsumableCounts = Record<string, number>;
-type ConsumableReveal = { eliminatedIds?: number[]; hintId?: number };
+type ConsumableReveal = BrainrunConsumableReveal;
 
 export class BrainrunService {
   /**
@@ -267,25 +271,32 @@ export class BrainrunService {
     const isBossRoom = activeRoom.type === "BOSS";
     const effects = getActiveRelicEffects(run.relics);
     const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const reveal = ((activeRoom.consumableReveal as ConsumableReveal | null) ??
+      {}) as ConsumableReveal;
     const elapsedMs = activeRoom.questionStartedAt
       ? Date.now() - activeRoom.questionStartedAt.getTime()
       : 0;
-    // Contre-la-montre : passé le délai imparti (+ bonus éventuel de la relique Chronomètre
-    // Brisé), la réponse est forcée en échec, quelle que soit la proposition envoyée par le client.
-    const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs, effects.bossTimeBonusMs);
+    // Bonus de temps total : relique Chronomètre Brisé (permanent) + Sablier Fêlé (consommable,
+    // une seule question).
+    const bonusTimeMs = effects.bossTimeBonusMs + (reveal.chronoBonusMs ?? 0);
+    // Contre-la-montre : passé le délai imparti, la réponse est forcée en échec, quelle que
+    // soit la proposition envoyée par le client.
+    const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
     const rawHpLoss = success ? 0 : brainrunHpLossForDifficulty(question.difficulty);
     const relicAdjustedHpLoss = applyRelicsToHpLoss(rawHpLoss, effects);
     const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, relicAdjustedHpLoss);
     const bossDamage = isBossRoom
       ? (() => {
-          // Bonus de talent ("Frappe assurée") additionné au bonus de relique (Adrénaline),
-          // jamais appliqué sur un coup raté (comme applyRelicsToBossDamage).
+          // Bonus de talent ("Frappe assurée") + relique (Adrénaline) + Coup de Grâce (consommable,
+          // une seule question), jamais appliqués sur un coup raté (comme applyRelicsToBossDamage).
           const relicDamage = applyRelicsToBossDamage(
-            brainrunBossDamage(elapsedMs, success, effects.bossTimeBonusMs),
+            brainrunBossDamage(elapsedMs, success, bonusTimeMs),
             effects,
           );
-          return relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
+          const withTalent =
+            relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
+          return withTalent > 0 ? withTalent + (reveal.damageBonus ?? 0) : 0;
         })()
       : 0;
     const questionData = question.data as any;
@@ -308,6 +319,15 @@ export class BrainrunService {
     // Seconde Chance : consommée une fois, annule la mort et remonte à 1 PV.
     const extraLifeUsed = died && effects.hasExtraLife;
     if (extraLifeUsed) {
+      newHealthPoint = 1;
+      died = false;
+      newResponses[newResponses.length - 1]!.extraLifeUsed = true;
+    }
+    // Dernier Souffle (consommable) : même effet que Seconde Chance, en secours si la relique
+    // n'a pas (ou plus) sauvé le joueur.
+    const consumables = (run.consumables as ConsumableCounts) ?? {};
+    const reviveTokenUsed = died && !extraLifeUsed && (consumables.REVIVE_TOKEN ?? 0) > 0;
+    if (reviveTokenUsed) {
       newHealthPoint = 1;
       died = false;
       newResponses[newResponses.length - 1]!.extraLifeUsed = true;
@@ -340,6 +360,9 @@ export class BrainrunService {
         healthPoint: Math.max(newHealthPoint, 0),
         ...(shieldConsumed ? { shieldArmed: false } : {}),
         ...(extraLifeUsed ? { relics: run.relics.filter((r) => r !== "SECOND_CHANCE") } : {}),
+        ...(reviveTokenUsed
+          ? { consumables: { ...consumables, REVIVE_TOKEN: consumables.REVIVE_TOKEN! - 1 } }
+          : {}),
       },
     });
 
@@ -576,8 +599,16 @@ export class BrainrunService {
     const hpCost = Math.max(0, -resolved.hpDelta);
     const hpReward = Math.max(0, resolved.hpDelta);
     const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, hpCost);
-    const newHealthPoint = Math.min(run.maxHealthPoint, run.healthPoint - hpLoss + hpReward);
-    const died = newHealthPoint <= 0;
+    let newHealthPoint = Math.min(run.maxHealthPoint, run.healthPoint - hpLoss + hpReward);
+    let died = newHealthPoint <= 0;
+    // Dernier Souffle (consommable) : même filet de sécurité qu'en combat (cf. submitAnswer),
+    // pour un coût en PV fatal d'Événement.
+    const consumables = (run.consumables as ConsumableCounts) ?? {};
+    const reviveTokenUsed = died && (consumables.REVIVE_TOKEN ?? 0) > 0;
+    if (reviveTokenUsed) {
+      newHealthPoint = 1;
+      died = false;
+    }
 
     let updatedRelics = run.relics;
     if (resolved.relicLost) {
@@ -594,6 +625,9 @@ export class BrainrunService {
         gold: Math.max(0, run.gold + resolved.goldDelta),
         ...(shieldConsumed ? { shieldArmed: false } : {}),
         ...(resolved.relicLost || resolved.relicGranted ? { relics: updatedRelics } : {}),
+        ...(reviveTokenUsed
+          ? { consumables: { ...consumables, REVIVE_TOKEN: consumables.REVIVE_TOKEN! - 1 } }
+          : {}),
       },
     });
     for (const grant of resolved.consumablesGranted) {
@@ -616,10 +650,11 @@ export class BrainrunService {
   }
 
   /**
-   * Utilise un consommable : décrémente l'inventaire. Le Bouclier arme `shieldArmed` (non
-   * stackable). 50/50 et Appel à un ami calculent et persistent leur effet sur la question en
-   * cours (`consumableReveal`), lu tel quel côté client puisqu'il a déjà `data.response`/
-   * `data.propositions` — un seul usage par question et par type.
+   * Utilise un consommable : décrémente l'inventaire. Bouclier/Potion de Soin/Cargaison Surprise
+   * s'appliquent sans question en cours (comme Bouclier). Dernier Souffle ne se déclenche
+   * qu'automatiquement (cf. submitAnswer/resolveEvent) — usage manuel refusé. Les autres
+   * calculent et persistent leur effet sur la question en cours (`consumableReveal`), lu tel
+   * quel côté client — un seul usage par question et par type.
    */
   async useConsumable(
     runId: string,
@@ -631,6 +666,13 @@ export class BrainrunService {
     const consumables = (run.consumables as ConsumableCounts) ?? {};
     if (!consumables[type] || consumables[type]! <= 0) {
       throw createError({ statusCode: 400, statusMessage: "Consommable indisponible." });
+    }
+
+    if (type === "REVIVE_TOKEN") {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Ce consommable s'active automatiquement.",
+      });
     }
 
     if (type === "SHIELD") {
@@ -647,6 +689,32 @@ export class BrainrunService {
       return this.getStateById(run.id);
     }
 
+    if (type === "HEAL_POTION") {
+      if (run.healthPoint >= run.maxHealthPoint) {
+        throw createError({ statusCode: 409, statusMessage: "Points de vie déjà au maximum." });
+      }
+      await prisma.brainrunRun.update({
+        where: { id: run.id },
+        data: {
+          healthPoint: Math.min(run.maxHealthPoint, run.healthPoint + 1),
+          consumables: { ...consumables, HEAL_POTION: consumables.HEAL_POTION! - 1 },
+        },
+      });
+      return this.getStateById(run.id);
+    }
+
+    if (type === "RANDOM_STASH") {
+      const updated: ConsumableCounts = {
+        ...consumables,
+        RANDOM_STASH: consumables.RANDOM_STASH! - 1,
+      };
+      for (const grantedId of pickRandomStashConsumables()) {
+        updated[grantedId] = (updated[grantedId] ?? 0) + 1;
+      }
+      await prisma.brainrunRun.update({ where: { id: run.id }, data: { consumables: updated } });
+      return this.getStateById(run.id);
+    }
+
     if (activeRoom.type === null || activeRoom.status !== "ACTIVE") {
       throw createError({ statusCode: 409, statusMessage: "Aucune question en cours." });
     }
@@ -654,6 +722,44 @@ export class BrainrunService {
     const questionId = activeRoom.questionIds[responses.length];
     if (questionId === undefined) {
       throw createError({ statusCode: 409, statusMessage: "Aucune question en cours." });
+    }
+
+    const isBossOnlyType =
+      type === "BOSS_CHRONO_BOOST" || type === "BOSS_DAMAGE_BOOST" || type === "MALUS_CANCEL";
+    if (isBossOnlyType && activeRoom.type !== "BOSS") {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Consommable réservé aux combats de boss.",
+      });
+    }
+
+    if (type === "REDRAW_QUESTION") {
+      const newQuestionId = await this.getReplacementQuestionId(
+        run,
+        activeRoom,
+        questionId,
+        userId,
+      );
+      const updatedQuestionIds = [...activeRoom.questionIds];
+      updatedQuestionIds[responses.length] = newQuestionId;
+      await prisma.brainrunRoom.update({
+        where: { id: activeRoom.id },
+        data: {
+          questionIds: updatedQuestionIds,
+          // Nouvelle question : les éventuels effets 50/50/indice/chrono/dégâts de l'ancienne
+          // question ne doivent pas se reporter dessus.
+          consumableReveal: Prisma.JsonNull,
+          ...(activeRoom.type === "BOSS" ? { questionStartedAt: new Date() } : {}),
+        },
+      });
+      await prisma.brainrunRun.update({
+        where: { id: run.id },
+        data: {
+          usedQuestionIds: [...run.usedQuestionIds, questionId],
+          consumables: { ...consumables, REDRAW_QUESTION: consumables.REDRAW_QUESTION! - 1 },
+        },
+      });
+      return this.getStateById(run.id);
     }
 
     const question = await prisma.question.findFirstOrThrow({ where: { id: questionId } });
@@ -670,7 +776,7 @@ export class BrainrunService {
         });
       }
       reveal.eliminatedIds = pickFiftyFiftyEliminations(propositionIds, questionData.response);
-    } else {
+    } else if (type === "PHONE_A_FRIEND") {
       if (reveal.hintId !== undefined) {
         throw createError({
           statusCode: 409,
@@ -682,6 +788,22 @@ export class BrainrunService {
         questionData.response,
         question.difficulty,
       );
+    } else if (type === "BOSS_CHRONO_BOOST") {
+      if (reveal.chronoBonusMs) {
+        throw createError({ statusCode: 409, statusMessage: "Déjà utilisé sur cette question." });
+      }
+      reveal.chronoBonusMs = BRAINRUN_CHRONO_BOOST_MS;
+    } else if (type === "BOSS_DAMAGE_BOOST") {
+      if (reveal.damageBonus) {
+        throw createError({ statusCode: 409, statusMessage: "Déjà utilisé sur cette question." });
+      }
+      reveal.damageBonus = BRAINRUN_DAMAGE_BOOST_AMOUNT;
+    } else {
+      // MALUS_CANCEL
+      if (reveal.malusCancelled) {
+        throw createError({ statusCode: 409, statusMessage: "Déjà utilisé sur cette question." });
+      }
+      reveal.malusCancelled = true;
     }
 
     await prisma.brainrunRoom.update({
@@ -693,6 +815,56 @@ export class BrainrunService {
       data: { consumables: { ...consumables, [type]: consumables[type]! - 1 } },
     });
     return this.getStateById(run.id);
+  }
+
+  /**
+   * Tire une question de remplacement pour "Nouvelle Pioche" : même palier de difficulté et
+   * mêmes thèmes que la salle en cours (ennemi/boss), en excluant les questions déjà tirées
+   * dans la run. Si le pool filtré est épuisé, retombe sur n'importe quelle question du palier
+   * plutôt que d'échouer (même stratégie que getNextBossQuestionId).
+   */
+  private async getReplacementQuestionId(
+    run: { currentAct: number; usedQuestionIds: number[] },
+    activeRoom: {
+      type: string | null;
+      enemyId: string | null;
+      bossId: string | null;
+      questionIds: number[];
+    },
+    currentQuestionId: number,
+    userId: string,
+  ): Promise<number> {
+    const combatType = activeRoom.type as CombatRoomType;
+    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[run.currentAct]![combatType]!;
+    const themes =
+      combatType === "BOSS"
+        ? getBrainrunBossById(activeRoom.bossId)?.themes
+        : getBrainrunEnemyById(activeRoom.enemyId)?.themes;
+    const excludeIds = [...run.usedQuestionIds, ...activeRoom.questionIds];
+    const [id] = await questionService.getRandomIdsByDifficulty(
+      minDifficulty,
+      maxDifficulty,
+      1,
+      excludeIds,
+      userId,
+      themes,
+    );
+    if (id !== undefined) return id;
+
+    const [fallbackId] = await questionService.getRandomIdsByDifficulty(
+      minDifficulty,
+      maxDifficulty,
+      1,
+      [currentQuestionId],
+      userId,
+    );
+    if (fallbackId === undefined) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Aucune question disponible pour le tirage.",
+      });
+    }
+    return fallbackId;
   }
 
   /** Applique le gain d'une offre (bonus post-combat ou achat en Boutique) au run. */
@@ -995,9 +1167,14 @@ export class BrainrunService {
   }
 
   private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {
+    const reveal = (room.consumableReveal as ConsumableReveal | null) ?? {};
     const questionDeadline =
       room.type === "BOSS" && room.status === "ACTIVE" && room.questionStartedAt
-        ? new Date(room.questionStartedAt.getTime() + bossQuestionTimeMsWithRelics(effects))
+        ? new Date(
+            room.questionStartedAt.getTime() +
+              bossQuestionTimeMsWithRelics(effects) +
+              (reveal.chronoBonusMs ?? 0),
+          )
         : null;
 
     return {

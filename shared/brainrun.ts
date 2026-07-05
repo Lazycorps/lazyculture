@@ -1,5 +1,5 @@
 import type { QuestionDTO } from "./question";
-import type { BrainrunOffer, BrainrunRelicId } from "./brainrunItems";
+import type { BrainrunConsumableReveal, BrainrunOffer, BrainrunRelicId } from "./brainrunItems";
 import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression). */
@@ -81,8 +81,9 @@ export type BrainrunRoomDTO = {
   offersResolved: boolean;
   /** Clé dans le catalogue BRAINRUN_EVENTS (uniquement salle EVENT active). */
   eventId: string | null;
-  /** Effet 50/50 ("eliminatedIds") ou Appel à un ami ("hintId") sur la question en cours. */
-  consumableReveal: { eliminatedIds?: number[]; hintId?: number } | null;
+  /** Effets ponctuels des consommables sur la question en cours (50/50, Appel à un ami, Sablier
+   * Fêlé, Coup de Grâce, Antidote) ; cf. shared/brainrunItems.ts. */
+  consumableReveal: BrainrunConsumableReveal | null;
 };
 
 export type BrainrunRunDTO = {

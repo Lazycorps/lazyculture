@@ -3,10 +3,10 @@ import { brainrunPotentialBossDamage, BRAINRUN_BOSS_QUESTION_TIME_MS } from "#sh
 import {
   BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CONSUMABLES,
-  BRAINRUN_CONSUMABLE_SHOP_PRICE,
   BRAINRUN_GOLD_FALLBACK_OFFER_AMOUNT,
+  BRAINRUN_RANDOM_STASH_COUNT,
+  BRAINRUN_RARITY_WEIGHT,
   BRAINRUN_RELICS,
-  BRAINRUN_RELIC_RARITY_WEIGHT,
   BRAINRUN_RELIC_SHOP_PRICE,
   BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT,
   BRAINRUN_SHOP_RELIC_OFFER_COUNT,
@@ -220,7 +220,7 @@ function pickUnownedRelics(
       weightedRandomPick(
         remaining,
         (id) =>
-          BRAINRUN_RELIC_RARITY_WEIGHT[BRAINRUN_RELICS[id].rarity] +
+          BRAINRUN_RARITY_WEIGHT[BRAINRUN_RELICS[id].rarity] +
           (BRAINRUN_RELICS[id].rarity === "RARE" ? rareWeightBonus : 0),
         random,
       ),
@@ -253,7 +253,11 @@ export function generateBonusOffers(
 
   const consumableIds = Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[];
   while (offers.length < BRAINRUN_BONUS_OFFER_COUNT && consumableIds.length > 0) {
-    const id = consumableIds[Math.floor(random() * consumableIds.length)] as BrainrunConsumableId;
+    const id = weightedRandomPick(
+      consumableIds,
+      (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
+      random,
+    );
     offers.push({ kind: "CONSUMABLE", id });
   }
   while (offers.length < BRAINRUN_BONUS_OFFER_COUNT) {
@@ -294,12 +298,38 @@ export function generateShopOffers(
     });
   }
 
-  const consumableIds = Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[];
+  // REVIVE_TOKEN (Dernier Souffle) n'a pas de shopPrice : jamais en vente, uniquement gagnable
+  // en bonus post-combat/Événement, pour ne pas trivialiser une run mal engagée avec de l'or.
+  const sellableConsumableIds = (
+    Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[]
+  ).filter((id) => BRAINRUN_CONSUMABLES[id].shopPrice !== undefined);
   for (let i = 0; i < BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT; i++) {
-    const id = consumableIds[Math.floor(random() * consumableIds.length)] as BrainrunConsumableId;
-    offers.push({ kind: "CONSUMABLE", id, price: BRAINRUN_CONSUMABLE_SHOP_PRICE });
+    const id = weightedRandomPick(
+      sellableConsumableIds,
+      (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
+      random,
+    );
+    offers.push({ kind: "CONSUMABLE", id, price: BRAINRUN_CONSUMABLES[id].shopPrice! });
   }
   return offers;
+}
+
+/**
+ * "Cargaison Surprise" : tire BRAINRUN_RANDOM_STASH_COUNT consommables au hasard dans le pool
+ * Commun uniquement (jamais Dernier Souffle) ; répétitions possibles, ce n'est pas un choix
+ * mais un remplissage direct de l'inventaire.
+ */
+export function pickRandomStashConsumables(
+  random: () => number = Math.random,
+  count: number = BRAINRUN_RANDOM_STASH_COUNT,
+): BrainrunConsumableId[] {
+  const pool = (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[]).filter(
+    (id) => BRAINRUN_CONSUMABLES[id].rarity === "COMMON",
+  );
+  return Array.from(
+    { length: count },
+    () => pool[Math.floor(random() * pool.length)] as BrainrunConsumableId,
+  );
 }
 
 /**
@@ -325,7 +355,11 @@ export function resolveEventOption(
   const consumablesGranted = (option.reward?.consumables ?? []).map((grant) => ({
     id:
       grant.id === "RANDOM"
-        ? (consumableIds[Math.floor(random() * consumableIds.length)] as BrainrunConsumableId)
+        ? weightedRandomPick(
+            consumableIds,
+            (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
+            random,
+          )
         : grant.id,
     amount: grant.amount,
   }));
