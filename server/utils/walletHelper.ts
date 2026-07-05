@@ -23,25 +23,23 @@ export function dailyStreakBonus(streak: number): number {
  * "déjà versé aujourd'hui" est persisté sur le portefeuille.
  */
 async function applyDailyActivityBonus(userId: string): Promise<void> {
-  const today = toLocalDateStr(new Date());
-  const wallet = await prisma.userWallet.findUnique({
-    where: { userId },
-    select: { lastBonusDay: true },
-  });
-  if (!wallet || wallet.lastBonusDay === today) return;
-
-  const streak = Math.max(1, await computeActivityStreak(userId));
-  const bonus = dailyStreakBonus(streak);
-
-  // Guard sur lastBonusDay : deux gains simultanés ne versent le bonus qu'une fois
-  await prisma.userWallet.updateMany({
-    where: { userId, lastBonusDay: { not: today } },
-    data: {
-      lastBonusDay: today,
-      coins: { increment: bonus },
-      totalEarned: { increment: bonus },
-    },
-  });
+  // const today = toLocalDateStr(new Date());
+  // const wallet = await prisma.userWallet.findUnique({
+  //   where: { userId },
+  //   select: { lastBonusDay: true },
+  // });
+  // if (!wallet || wallet.lastBonusDay === today) return;
+  // const streak = Math.max(1, await computeActivityStreak(userId));
+  // const bonus = dailyStreakBonus(streak);
+  // // Guard sur lastBonusDay : deux gains simultanés ne versent le bonus qu'une fois
+  // await prisma.userWallet.updateMany({
+  //   where: { userId, lastBonusDay: { not: today } },
+  //   data: {
+  //     lastBonusDay: today,
+  //     coins: { increment: bonus },
+  //     totalEarned: { increment: bonus },
+  //   },
+  // });
 }
 
 /**
