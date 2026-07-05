@@ -20,16 +20,21 @@
       </p>
     </div>
 
-    <div
-      class="flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-2xl py-3 px-4 max-w-xs mx-auto"
-    >
-      <UIcon name="i-heroicons-sparkles" class="text-violet-400 text-lg" />
-      <span class="text-lg font-black font-display text-white">{{
-        metaProgress?.knowledgePoints ?? 0
-      }}</span>
-      <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-display">
-        Points de Savoir
-      </span>
+    <div class="grid grid-cols-2 gap-2.5 w-full max-w-sm mx-auto">
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-lg font-black font-display text-white">{{ metaProgress?.totalRuns ?? 0 }}</p>
+        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5">
+          Runs effectuées
+        </p>
+      </div>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-lg font-black font-display text-white">
+          {{ bestRunLabel }}
+        </p>
+        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5">
+          Étage max atteint
+        </p>
+      </div>
     </div>
 
     <div class="space-y-2.5 w-full max-w-sm mx-auto pt-1">
@@ -65,7 +70,7 @@
         icon="i-heroicons-academic-cap"
         class="font-black font-display uppercase tracking-wide py-3"
       >
-        Arbre de talents
+        Arbre de talents ({{ metaProgress?.knowledgePoints ?? 0 }}PS)
       </UButton>
       <UButton
         size="lg"
@@ -89,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { BRAINRUN_ROOMS_PER_ACT } from "#shared/brainrun";
 import type { BrainrunMetaProgressDTO, BrainrunRunDTO } from "#shared/brainrun";
 
 const props = defineProps<{
@@ -105,4 +111,10 @@ defineEmits<{
 const hasRunInProgress = computed(() => props.run?.status === "IN_PROGRESS");
 const showHelp = ref(false);
 const showGlossary = ref(false);
+
+const bestRunLabel = computed(() => {
+  const bestRun = props.metaProgress?.bestRun;
+  if (!bestRun) return "—";
+  return `A${bestRun.act} · ${bestRun.row}/${BRAINRUN_ROOMS_PER_ACT}`;
+});
 </script>

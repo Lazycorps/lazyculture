@@ -1211,21 +1211,46 @@ export class BrainrunService {
 
   async getMetaProgressDTO(userId: string): Promise<BrainrunMetaProgressDTO> {
     const progress = await getMetaProgress(userId);
+    const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
       discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
       discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
+      ...runStats,
     };
   }
 
   async unlockTalent(userId: string, talentId: BrainrunTalentId): Promise<BrainrunMetaProgressDTO> {
     const progress = await unlockTalentPersist(userId, talentId);
+    const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
       discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
       discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
+      ...runStats,
+    };
+  }
+
+  /** Nombre de runs terminées et acte/salle de la plus avancée, toutes runs (WON/LOST/ABANDONED)
+   * confondues — la run en cours (IN_PROGRESS) n'est comptée qu'une fois résolue. */
+  private async getRunStats(
+    userId: string,
+  ): Promise<Pick<BrainrunMetaProgressDTO, "totalRuns" | "bestRun">> {
+    const [totalRuns, bestRun] = await Promise.all([
+      prisma.brainrunRun.count({
+        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+      }),
+      prisma.brainrunRun.findFirst({
+        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+        orderBy: [{ currentAct: "desc" }, { currentRow: "desc" }],
+        select: { currentAct: true, currentRow: true },
+      }),
+    ]);
+    return {
+      totalRuns,
+      bestRun: bestRun ? { act: bestRun.currentAct, row: bestRun.currentRow } : null,
     };
   }
 

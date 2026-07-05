@@ -174,4 +174,8 @@ export type BrainrunMetaProgressDTO = {
   /** Reliques/consommables déjà obtenus au moins une fois, toutes runs confondues (glossaire). */
   discoveredRelics: BrainrunRelicId[];
   discoveredConsumables: BrainrunConsumableId[];
+  /** Nombre de runs terminées (WON/LOST/ABANDONED), hors run en cours. */
+  totalRuns: number;
+  /** Acte/salle de la run terminée la plus avancée ; null tant qu'aucune run n'est terminée. */
+  bestRun: { act: number; row: number } | null;
 };
