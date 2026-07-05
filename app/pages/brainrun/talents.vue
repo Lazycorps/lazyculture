@@ -16,7 +16,7 @@
       <template v-else>
         <div class="flex items-center justify-between mb-4">
           <UButton
-            to="/series/brainrun"
+            to="/brainrun"
             variant="ghost"
             size="sm"
             icon="i-heroicons-arrow-left"

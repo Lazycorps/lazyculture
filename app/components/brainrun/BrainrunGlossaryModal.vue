@@ -17,7 +17,7 @@
 
         <!-- Reliques et consommables : tap pour ouvrir/fermer la description, un tap ailleurs
              la referme (aucun des deux n'a d'action au clic ici, contrairement au bouton d'usage
-             de BrainrunQuestionRunner, cf. app/pages/series/brainrun/index.vue). -->
+             de BrainrunQuestionRunner, cf. app/pages/brainrun/index.vue). -->
         <div
           class="space-y-6"
           @click="

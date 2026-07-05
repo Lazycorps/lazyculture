@@ -58,7 +58,7 @@
         Nouvelle run
       </UButton>
       <UButton
-        to="/series/brainrun/talents"
+        to="/brainrun/talents"
         size="lg"
         variant="ghost"
         block

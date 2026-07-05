@@ -213,7 +213,7 @@ const availableConsumables = computed(() => {
   const shieldArmed = brainrun.run.value?.shieldArmed ?? false;
   const run = brainrun.run.value;
   // Ordre d'acquisition (pas l'ordre du catalogue), cf. ownedConsumables dans
-  // app/pages/series/brainrun/index.vue.
+  // app/pages/brainrun/index.vue.
   return (Object.keys(consumables) as BrainrunConsumableId[])
     .filter((id) => {
       if ((consumables[id] ?? 0) <= 0) return false;

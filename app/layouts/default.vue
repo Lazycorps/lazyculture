@@ -73,10 +73,9 @@ const xpProgress = computed(() => userStore.xpProgress);
 
 const navItems = computed(() => [
   { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
-  { label: "Aventures", path: "/adventure", icon: "i-heroicons-map" },
+  { label: "Solo", path: "/solo", icon: "i-heroicons-user" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   // { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
-  // { label: "Brainrun", path: "/series/brainrun", icon: "i-heroicons-bolt" },
   { label: "Multijoueur", path: "/multiplayer", icon: "i-heroicons-users" },
   { label: "Classement", path: "/ranking", icon: "i-heroicons-chart-bar" },
 ]);
