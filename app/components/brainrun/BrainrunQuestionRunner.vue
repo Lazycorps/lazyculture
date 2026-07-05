@@ -212,7 +212,9 @@ const availableConsumables = computed(() => {
   const consumables = brainrun.run.value?.consumables ?? {};
   const shieldArmed = brainrun.run.value?.shieldArmed ?? false;
   const run = brainrun.run.value;
-  return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[])
+  // Ordre d'acquisition (pas l'ordre du catalogue), cf. ownedConsumables dans
+  // app/pages/series/brainrun/index.vue.
+  return (Object.keys(consumables) as BrainrunConsumableId[])
     .filter((id) => {
       if ((consumables[id] ?? 0) <= 0) return false;
       // Dernier Souffle ne se déclenche qu'automatiquement, jamais depuis cette barre.

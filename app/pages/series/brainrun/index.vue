@@ -554,7 +554,9 @@ const openedConsumableId = ref<BrainrunConsumableId | null>(null);
 // reliques ; les boutons d'usage pendant une question restent dans BrainrunQuestionRunner.
 const ownedConsumables = computed(() => {
   const consumables = run.value?.consumables ?? {};
-  return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[])
+  // Ordre d'acquisition (pas l'ordre du catalogue) : grantConsumable (BrainrunService)
+  // n'affecte une clé qu'à sa première obtention, ce qui préserve cet ordre dans l'objet.
+  return (Object.keys(consumables) as BrainrunConsumableId[])
     .filter((id) => (consumables[id] ?? 0) > 0)
     .map((id) => ({ ...BRAINRUN_CONSUMABLES[id], count: consumables[id]! }))
     .slice(0, 3);
