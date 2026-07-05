@@ -7,7 +7,6 @@ import {
 } from "~~/server/services/QuestionService";
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
-import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
@@ -38,6 +37,7 @@ import {
 } from "~~/server/utils/brainrunLogic";
 import {
   getMetaProgress,
+  grantBrainrunActCoins,
   grantKnowledgePoints,
   recordConsumableDiscovery,
   recordRelicDiscovery,
@@ -46,6 +46,7 @@ import {
 import {
   BRAINRUN_ABSOLUTE_MAX_HP,
   BRAINRUN_BOSS_MAX_HP,
+  BRAINRUN_COINS_PER_ACT,
   BRAINRUN_DIFFICULTY_BY_ACT,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_GOLD_BY_ROOM_TYPE,
@@ -1226,11 +1227,15 @@ export class BrainrunService {
     }
 
     if (outcome.act !== act) {
+      // act = l'acte dont le Boss vient d'être nettoyé : palier de pièces correspondant
+      // (server/utils/brainrunConfig.ts BRAINRUN_COINS_PER_ACT), plafonné par jour.
+      const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
+      await grantBrainrunActCoins(currentRun.userId, BRAINRUN_COINS_PER_ACT[act - 1]!);
+
       const nextActSeeded = await prisma.brainrunRoom.findFirst({
         where: { runId, act: outcome.act },
       });
       if (!nextActSeeded) {
-        const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
         const effects = getActiveRelicEffects(currentRun.relics);
         await this.seedActGraph(runId, outcome.act, effects.eventBonusChance);
       }
@@ -1267,7 +1272,12 @@ export class BrainrunService {
     });
     await updateUserProgress(run.userId, xpEarned);
     await grantKnowledgePoints(run.userId, knowledgePointsEarned);
-    await grantCoins(run.userId, coinsFromXp(xpEarned));
+    if (status === "WON") {
+      // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
+      // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
+      // complété).
+      await grantBrainrunActCoins(run.userId, BRAINRUN_COINS_PER_ACT[2]!);
+    }
 
     const totalGames = await prisma.brainrunRun.count({
       where: { userId: run.userId, status: { in: ["WON", "LOST", "ABANDONED"] } },

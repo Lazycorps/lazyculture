@@ -84,6 +84,15 @@ export const BRAINRUN_COMBAT_ROOM_TYPES: BrainrunRoomType[] = ["STANDARD", "ELIT
 const BRAINRUN_BOSS_BASE_HIT_COUNT = 5;
 export const BRAINRUN_BOSS_MAX_HP = BRAINRUN_BOSS_BASE_HIT_COUNT * BRAINRUN_BOSS_BASE_DAMAGE;
 
+/** Pièces (monnaie transverse UserWallet) gagnées à chaque Boss d'acte vaincu, indexé par
+ * acte-1 : acte 1 = 5, acte 2 = +10 (15 cumulé), acte 3/victoire = +25 (40 cumulé sur une run
+ * complète). Remplace, pour Brainrun uniquement, la conversion XP→pièces générique appliquée aux
+ * autres modes (server/utils/walletHelper.ts) — plafonné par BRAINRUN_DAILY_COIN_CAP. */
+export const BRAINRUN_COINS_PER_ACT = [5, 10, 25];
+/** Plafond de pièces gagnables par jour via les paliers d'acte Brainrun, réinitialisé au même
+ * changement de jour (heure locale serveur) que le Daily quiz. */
+export const BRAINRUN_DAILY_COIN_CAP = 100;
+
 /** Or gagné en cliquant "Passer" sur le bonus post-combat (relique Lot de Consolation). */
 export const BRAINRUN_CONSOLATION_GOLD = 15;
 /** Probabilité, par point de choix restant, qu'un Événement s'ajoute en 3e option (relique Aimant à Événements). */

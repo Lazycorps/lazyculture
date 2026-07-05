@@ -425,14 +425,16 @@ model BrainrunRoom {
 }
 
 model BrainrunMetaProgress {
-    userId                String   @id
-    user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    knowledgePoints       Int      @default(0)
-    unlockedTalents       String[] @default([]) // ids du catalogue BRAINRUN_TALENTS (shared/brainrunTalents.ts)
-    discoveredRelics      String[] @default([]) // ids de reliques obtenues au moins une fois, toutes runs confondues (glossaire, shared/brainrunItems.ts)
-    discoveredConsumables String[] @default([]) // idem pour les consommables
-    createDate            DateTime @default(now())
-    updateDate            DateTime @default(now())
+    userId                String    @id
+    user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    knowledgePoints       Int       @default(0)
+    unlockedTalents       String[]  @default([]) // ids du catalogue BRAINRUN_TALENTS (shared/brainrunTalents.ts)
+    discoveredRelics      String[]  @default([]) // ids de reliques obtenues au moins une fois, toutes runs confondues (glossaire, shared/brainrunItems.ts)
+    discoveredConsumables String[]  @default([]) // idem pour les consommables
+    coinsEarnedToday      Int       @default(0) // pièces gagnées via les paliers d'acte Brainrun le jour de coinsEarnedDate (plafond BRAINRUN_DAILY_COIN_CAP)
+    coinsEarnedDate       DateTime? @db.Date // jour (heure locale serveur, même convention que le Daily) du dernier gain compté dans coinsEarnedToday ; null avant le premier gain
+    createDate            DateTime  @default(now())
+    updateDate            DateTime  @default(now())
 }
 
 model PushSubscription {

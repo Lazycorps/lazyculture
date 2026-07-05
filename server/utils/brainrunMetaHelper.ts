@@ -1,5 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
+import { BRAINRUN_DAILY_COIN_CAP } from "~~/server/utils/brainrunConfig";
+import { grantCoins } from "~~/server/utils/walletHelper";
 
 export type BrainrunMetaProgressResult = {
   knowledgePoints: number;
@@ -62,6 +64,31 @@ export async function grantKnowledgePoints(
     update: { knowledgePoints: { increment: amount } },
     create: { userId, knowledgePoints: amount, unlockedTalents: [] },
   });
+}
+
+/**
+ * Crédite le porte-monnaie global du joueur (server/utils/walletHelper.ts) pour un palier d'acte
+ * Brainrun, plafonné à BRAINRUN_DAILY_COIN_CAP pièces par jour (heure locale serveur, même
+ * convention que le Daily quiz) tous paliers Brainrun confondus. Lecture-puis-écriture non
+ * atomique (même filet de sécurité assumé que le reste de l'état Brainrun) : un double-clic peut
+ * au pire faire dépasser le plafond de quelques pièces, sans conséquence grave. Retourne le
+ * montant effectivement crédité (peut être inférieur à `amount` une fois le plafond atteint).
+ */
+export async function grantBrainrunActCoins(userId: string, amount: number): Promise<number> {
+  if (amount <= 0) return 0;
+  const today = new Date().toJSON().slice(0, 10);
+  const progress = await prisma.brainrunMetaProgress.findUnique({ where: { userId } });
+  const earnedToday =
+    progress?.coinsEarnedDate?.toJSON().slice(0, 10) === today ? progress.coinsEarnedToday : 0;
+  const grantable = Math.max(0, Math.min(amount, BRAINRUN_DAILY_COIN_CAP - earnedToday));
+
+  await prisma.brainrunMetaProgress.upsert({
+    where: { userId },
+    update: { coinsEarnedToday: earnedToday + grantable, coinsEarnedDate: new Date(today) },
+    create: { userId, coinsEarnedToday: grantable, coinsEarnedDate: new Date(today) },
+  });
+  await grantCoins(userId, grantable);
+  return grantable;
 }
 
 /**
