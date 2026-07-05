@@ -8,7 +8,19 @@ export type BrainrunRelicId =
   | "SPECIALIZATION"
   | "SECOND_CHANCE"
   | "ADRENALINE"
-  | "PROVIDENT_PURSE";
+  | "PROVIDENT_PURSE"
+  | "THEME_PURGE"
+  | "SIXTH_SENSE"
+  | "EXTRA_HEART"
+  | "FORESIGHT"
+  | "CONSOLATION_PRIZE"
+  | "EVENT_MAGNET"
+  | "HAGGLER"
+  | "RESTOCK";
+
+/** Reliques pouvant être obtenues/proposées même une fois déjà possédées (exception à la règle
+ * d'unicité des reliques) : chaque exemplaire supplémentaire cumule son effet. */
+export const BRAINRUN_STACKABLE_RELIC_IDS: BrainrunRelicId[] = ["EXTRA_HEART"];
 
 export type BrainrunConsumableId =
   | "FIFTY_FIFTY"
@@ -53,6 +65,9 @@ export type BrainrunConsumableReveal = {
   damageBonus?: number;
   /** Antidote : annule l'affichage du malus du boss sur la question en cours. */
   malusCancelled?: boolean;
+  /** Sixième Sens : id de la bonne réponse, tiré à l'apparition de la question ; le client ne
+   * l'affiche qu'après BRAINRUN_SIXTH_SENSE_DELAY_MS (contrairement à hintId, toujours correct). */
+  autoHintId?: number;
 };
 
 export type BrainrunEventReward = {
@@ -140,6 +155,65 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
     description: "+5 or fixe à chaque salle de combat nettoyée.",
     icon: "i-heroicons-banknotes",
     rarity: "COMMON",
+  },
+  THEME_PURGE: {
+    id: "THEME_PURGE",
+    name: "Purge Thématique",
+    description:
+      "À l'obtention, bannissez un thème pour le reste de la run : les ennemis et boss l'ayant dans leur pool ne peuvent plus être tirés.",
+    icon: "i-heroicons-no-symbol",
+    rarity: "RARE",
+  },
+  SIXTH_SENSE: {
+    id: "SIXTH_SENSE",
+    name: "Sixième Sens",
+    description: "5% de chance par question de révéler la bonne réponse après 8 secondes.",
+    icon: "i-heroicons-light-bulb",
+    rarity: "COMMON",
+  },
+  EXTRA_HEART: {
+    id: "EXTRA_HEART",
+    name: "Cœur Supplémentaire",
+    description: "+1 Pv max, rempli immédiatement. Peut être obtenue plusieurs fois par run.",
+    icon: "i-heroicons-heart",
+    rarity: "RARE",
+  },
+  FORESIGHT: {
+    id: "FORESIGHT",
+    name: "Prévoyance",
+    description: "Lors d'un choix de salle, révèle les propositions du point de choix suivant.",
+    icon: "i-heroicons-eye",
+    rarity: "COMMON",
+  },
+  CONSOLATION_PRIZE: {
+    id: "CONSOLATION_PRIZE",
+    name: "Lot de Consolation",
+    description: "Gagnez de l'or lorsque vous ignorez une récompense.",
+    icon: "i-heroicons-gift",
+    rarity: "COMMON",
+  },
+  EVENT_MAGNET: {
+    id: "EVENT_MAGNET",
+    name: "Aimant à Événements",
+    description:
+      "Augmente la probabilité qu'un Événement s'ajoute en 3e choix lors d'une sélection de salle.",
+    icon: "i-heroicons-sparkles",
+    rarity: "RARE",
+  },
+  HAGGLER: {
+    id: "HAGGLER",
+    name: "Marchandeur",
+    description: "Les prix des Boutiques sont réduits de 20%.",
+    icon: "i-heroicons-tag",
+    rarity: "COMMON",
+  },
+  RESTOCK: {
+    id: "RESTOCK",
+    name: "Fournisseur Fidèle",
+    description:
+      "Dès qu'un objet est acheté en Boutique, un nouvel objet du même type prend sa place.",
+    icon: "i-heroicons-arrow-path",
+    rarity: "RARE",
   },
 };
 

@@ -304,6 +304,8 @@ model BrainrunRun {
     relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
     consumables     Json           @default("{}") // Record<consumableId, count>
     shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
+    bannedThemes    String[]       @default([]) // thèmes bannis par la relique Purge Thématique, exclus des pools ennemi/boss
+    pendingThemeBanChoice Boolean  @default(false) // true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque acknowledgeRoom
     xpEarned        Int?
     knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)
     createDate      DateTime       @default(now())

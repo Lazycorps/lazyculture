@@ -128,6 +128,23 @@ export const useBrainrunSession = () => {
     }
   }
 
+  /** Résout le choix de thème banni après l'obtention de la relique Purge Thématique. */
+  async function resolveThemeBan(theme: string) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/theme-ban", {
+          method: "post",
+          body: { runId: run.value.id, theme },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function resolveEvent(optionIndex: number) {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -209,6 +226,7 @@ export const useBrainrunSession = () => {
     resolveBonus,
     buyShopItem,
     leaveShop,
+    resolveThemeBan,
     resolveEvent,
     useConsumable,
     acknowledgeRoom,

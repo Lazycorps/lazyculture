@@ -73,3 +73,14 @@ export const BRAINRUN_COMBAT_ROOM_TYPES: BrainrunRoomType[] = ["STANDARD", "ELIT
  * jamais limité en nombre de questions, ce chiffre est indicatif du rythme attendu. */
 const BRAINRUN_BOSS_BASE_HIT_COUNT = 5;
 export const BRAINRUN_BOSS_MAX_HP = BRAINRUN_BOSS_BASE_HIT_COUNT * BRAINRUN_BOSS_BASE_DAMAGE;
+
+/** Or gagné en cliquant "Passer" sur le bonus post-combat (relique Lot de Consolation). */
+export const BRAINRUN_CONSOLATION_GOLD = 15;
+/** Probabilité, par point de choix restant, qu'un Événement s'ajoute en 3e option (relique Aimant à Événements). */
+export const BRAINRUN_EVENT_MAGNET_CHANCE = 0.3;
+/** Probabilité, par question, que la bonne réponse soit révélée après coup (relique Sixième Sens). */
+export const BRAINRUN_SIXTH_SENSE_CHANCE = 0.05;
+/** Multiplicateur appliqué aux prix de Boutique (relique Marchandeur). */
+export const BRAINRUN_HAGGLER_MULTIPLIER = 0.8;
+/** Plafond absolu de Pv max atteignable (relique Cœur Supplémentaire, cumulable). */
+export const BRAINRUN_ABSOLUTE_MAX_HP = 8;

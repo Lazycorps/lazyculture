@@ -23,7 +23,7 @@
       :showReporting="true"
       :questionId="localQuestion.id"
       :eliminatedIds="eliminatedIds"
-      :hintId="hintId"
+      :hintId="revealedHintId"
       :answerBlurPx="answerBlurPx"
       :mirrorAnswers="mirrorAnswers"
       @selectOption="selectOption"
@@ -126,7 +126,7 @@
 
 <script setup lang="ts">
 import type { QuestionDTO } from "#shared/question";
-import { BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
+import { BRAINRUN_BOSS_QUESTION_TIME_MS, BRAINRUN_SIXTH_SENSE_DELAY_MS } from "#shared/brainrun";
 import { BRAINRUN_CONSUMABLES, type BrainrunConsumableId } from "#shared/brainrunItems";
 import { getBrainrunBossById } from "#shared/brainrunBosses";
 
@@ -173,6 +173,14 @@ const eliminatedIds = computed(
   () => brainrun.currentRoom.value?.consumableReveal?.eliminatedIds ?? [],
 );
 const hintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.hintId ?? null);
+// Relique Sixième Sens : le tirage (5% de chance) est déjà décidé côté serveur pour la question
+// en cours ; ce timer ne pilote que le délai d'affichage (8s) avant de révéler autoHintId.
+const autoHintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.autoHintId ?? null);
+const autoHintRevealed = ref(false);
+let autoHintTimeout: ReturnType<typeof setTimeout> | null = null;
+const revealedHintId = computed(() =>
+  hintId.value !== null ? hintId.value : autoHintRevealed.value ? autoHintId.value : null,
+);
 const chronoBoostUsed = computed(
   () => (brainrun.currentRoom.value?.consumableReveal?.chronoBonusMs ?? 0) > 0,
 );
@@ -240,6 +248,20 @@ function startBossTimerIfNeeded() {
   }, 200);
 }
 
+function stopAutoHintTimer() {
+  if (autoHintTimeout) clearTimeout(autoHintTimeout);
+  autoHintTimeout = null;
+}
+
+function startAutoHintTimerIfNeeded() {
+  stopAutoHintTimer();
+  autoHintRevealed.value = false;
+  if (!localQuestion.value || autoHintId.value === null) return;
+  autoHintTimeout = setTimeout(() => {
+    autoHintRevealed.value = true;
+  }, BRAINRUN_SIXTH_SENSE_DELAY_MS);
+}
+
 // Snapshot local de la question affichée : protège l'affichage du feedback (couleurs,
 // commentaire) du fait que useBrainrunSession().currentQuestion avance déjà vers la
 // question suivante dès la réponse au serveur (submitAnswer renvoie l'état complet
@@ -251,6 +273,7 @@ watch(
   (newQuestion) => {
     if (!responded.value) {
       localQuestion.value = newQuestion;
+      startAutoHintTimerIfNeeded();
     }
   },
 );
@@ -285,6 +308,7 @@ onMounted(() => {
     actionBarObserver.observe(actionBarRef.value);
   }
   startBossTimerIfNeeded();
+  startAutoHintTimerIfNeeded();
 });
 
 onBeforeUnmount(() => {
@@ -292,6 +316,7 @@ onBeforeUnmount(() => {
   holdOnFeedback.value = false;
   actionBarObserver?.disconnect();
   stopBossTimer();
+  stopAutoHintTimer();
 });
 
 async function scrollFeedbackIntoView() {

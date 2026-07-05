@@ -10,6 +10,7 @@ import {
   BRAINRUN_RELIC_SHOP_PRICE,
   BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT,
   BRAINRUN_SHOP_RELIC_OFFER_COUNT,
+  BRAINRUN_STACKABLE_RELIC_IDS,
   phoneAFriendWrongChance,
   type BrainrunConsumableId,
   type BrainrunEventOption,
@@ -18,12 +19,16 @@ import {
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_CHOICE_POINTS_PER_ACT,
+  BRAINRUN_CONSOLATION_GOLD,
+  BRAINRUN_EVENT_MAGNET_CHANCE,
+  BRAINRUN_HAGGLER_MULTIPLIER,
   BRAINRUN_KP_PER_GOLD,
   BRAINRUN_MIN_EVENT_OFFERS,
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
   BRAINRUN_ROOMS_PER_ACT,
+  BRAINRUN_SIXTH_SENSE_CHANCE,
   BRAINRUN_TOTAL_ACTS,
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
@@ -89,6 +94,18 @@ export type BrainrunRelicEffects = {
   bossTimeBonusMs: number;
   bossDamageBonusPerHit: number;
   hasExtraLife: boolean;
+  /** Marchandeur : multiplicateur appliqué aux prix de Boutique (0.8 si possédée). */
+  shopPriceMultiplier: number;
+  /** Fournisseur Fidèle : un objet acheté en Boutique est remplacé par un autre du même type. */
+  autoRestockShop: boolean;
+  /** Aimant à Événements : probabilité par point de choix restant qu'un Événement s'ajoute en 3e option. */
+  eventBonusChance: number;
+  /** Prévoyance : révèle les propositions du point de choix suivant. */
+  showsNextRoomPreview: boolean;
+  /** Lot de Consolation : or gagné en ignorant le bonus post-combat. */
+  goldOnBonusSkip: number;
+  /** Sixième Sens : probabilité par question de révéler la bonne réponse après un délai. */
+  autoHintChance: number;
 };
 
 const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
@@ -98,6 +115,12 @@ const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   bossTimeBonusMs: 0,
   bossDamageBonusPerHit: 0,
   hasExtraLife: false,
+  shopPriceMultiplier: 1,
+  autoRestockShop: false,
+  eventBonusChance: 0,
+  showsNextRoomPreview: false,
+  goldOnBonusSkip: 0,
+  autoHintChance: 0,
 };
 
 export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects {
@@ -115,6 +138,18 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
         return { ...effects, bossDamageBonusPerHit: effects.bossDamageBonusPerHit + 5 };
       case "SECOND_CHANCE":
         return { ...effects, hasExtraLife: true };
+      case "HAGGLER":
+        return { ...effects, shopPriceMultiplier: BRAINRUN_HAGGLER_MULTIPLIER };
+      case "RESTOCK":
+        return { ...effects, autoRestockShop: true };
+      case "EVENT_MAGNET":
+        return { ...effects, eventBonusChance: BRAINRUN_EVENT_MAGNET_CHANCE };
+      case "FORESIGHT":
+        return { ...effects, showsNextRoomPreview: true };
+      case "CONSOLATION_PRIZE":
+        return { ...effects, goldOnBonusSkip: effects.goldOnBonusSkip + BRAINRUN_CONSOLATION_GOLD };
+      case "SIXTH_SENSE":
+        return { ...effects, autoHintChance: BRAINRUN_SIXTH_SENSE_CHANCE };
       default:
         return effects;
     }
@@ -211,7 +246,7 @@ function pickUnownedRelics(
   rareWeightBonus: number = 0,
 ): BrainrunRelicId[] {
   const available = (Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[]).filter(
-    (id) => !ownedRelics.includes(id),
+    (id) => BRAINRUN_STACKABLE_RELIC_IDS.includes(id) || !ownedRelics.includes(id),
   );
   const picked: BrainrunRelicId[] = [];
   while (picked.length < count && picked.length < available.length) {
@@ -276,6 +311,7 @@ export function generateShopOffers(
   ownedRelics: string[],
   random: () => number = Math.random,
   rareWeightBonus: number = 0,
+  priceMultiplier: number = 1,
 ): BrainrunOffer[] {
   const relics = pickUnownedRelics(
     ownedRelics,
@@ -287,7 +323,7 @@ export function generateShopOffers(
     kind: "RELIC",
     id,
     rarity: BRAINRUN_RELICS[id].rarity,
-    price: BRAINRUN_RELIC_SHOP_PRICE[BRAINRUN_RELICS[id].rarity],
+    price: Math.round(BRAINRUN_RELIC_SHOP_PRICE[BRAINRUN_RELICS[id].rarity] * priceMultiplier),
   }));
   while (offers.length < BRAINRUN_SHOP_RELIC_OFFER_COUNT) {
     offers.push({
@@ -298,20 +334,57 @@ export function generateShopOffers(
     });
   }
 
-  // REVIVE_TOKEN (Dernier Souffle) n'a pas de shopPrice : jamais en vente, uniquement gagnable
-  // en bonus post-combat/Événement, pour ne pas trivialiser une run mal engagée avec de l'or.
-  const sellableConsumableIds = (
-    Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[]
-  ).filter((id) => BRAINRUN_CONSUMABLES[id].shopPrice !== undefined);
   for (let i = 0; i < BRAINRUN_SHOP_CONSUMABLE_OFFER_COUNT; i++) {
-    const id = weightedRandomPick(
-      sellableConsumableIds,
-      (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
-      random,
-    );
-    offers.push({ kind: "CONSUMABLE", id, price: BRAINRUN_CONSUMABLES[id].shopPrice! });
+    offers.push(generateShopConsumableOffer(random, priceMultiplier));
   }
   return offers;
+}
+
+// REVIVE_TOKEN (Dernier Souffle) n'a pas de shopPrice : jamais en vente, uniquement gagnable
+// en bonus post-combat/Événement, pour ne pas trivialiser une run mal engagée avec de l'or.
+function sellableConsumableIds(): BrainrunConsumableId[] {
+  return (Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[]).filter(
+    (id) => BRAINRUN_CONSUMABLES[id].shopPrice !== undefined,
+  );
+}
+
+function generateShopConsumableOffer(random: () => number, priceMultiplier: number): BrainrunOffer {
+  const id = weightedRandomPick(
+    sellableConsumableIds(),
+    (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
+    random,
+  );
+  return {
+    kind: "CONSUMABLE",
+    id,
+    price: Math.round(BRAINRUN_CONSUMABLES[id].shopPrice! * priceMultiplier),
+  };
+}
+
+/**
+ * Remplace une offre de Boutique achetée par une nouvelle du même type (relique Fournisseur
+ * Fidèle) : une relique non possédée si l'offre achetée était une relique (retombe sur de l'or si
+ * le pool de reliques non possédées est épuisé), un consommable sinon.
+ */
+export function generateShopReplacementOffer(
+  kind: BrainrunOffer["kind"],
+  ownedRelics: string[],
+  random: () => number = Math.random,
+  rareWeightBonus: number = 0,
+  priceMultiplier: number = 1,
+): BrainrunOffer {
+  if (kind !== "RELIC") return generateShopConsumableOffer(random, priceMultiplier);
+
+  const [id] = pickUnownedRelics(ownedRelics, 1, random, rareWeightBonus);
+  if (!id) {
+    return { kind: "GOLD", id: "GOLD", amount: BRAINRUN_GOLD_FALLBACK_OFFER_AMOUNT, price: 0 };
+  }
+  return {
+    kind: "RELIC",
+    id,
+    rarity: BRAINRUN_RELICS[id].rarity,
+    price: Math.round(BRAINRUN_RELIC_SHOP_PRICE[BRAINRUN_RELICS[id].rarity] * priceMultiplier),
+  };
 }
 
 /**
@@ -459,9 +532,26 @@ function isPureCombatChoice(choiceTypes: BrainrunRoomType[]): boolean {
  * `forceFirstPure` est vrai (premier acte de la run), le premier point (sequence 1) est
  * garanti purement combat — pas de Boutique/Repos/Événement dès la toute première salle.
  */
+/**
+ * Relique Aimant à Événements : ajoute "EVENT" en 3e option d'un point de choix (les options
+ * existantes ne sont jamais retirées), avec probabilité eventBonusChance. Sans effet si le point
+ * propose déjà un Événement ou est le point Boss fixe (une seule option, jamais négociable).
+ */
+export function maybeAddEventOption(
+  choiceTypes: BrainrunRoomType[],
+  eventBonusChance: number,
+  random: () => number = Math.random,
+): BrainrunRoomType[] {
+  if (eventBonusChance <= 0) return choiceTypes;
+  if (choiceTypes.includes("EVENT") || choiceTypes.includes("BOSS")) return choiceTypes;
+  if (random() >= eventBonusChance) return choiceTypes;
+  return [...choiceTypes, "EVENT"];
+}
+
 export function generateActChoicePoints(
   random: () => number = Math.random,
   forceFirstPure: boolean = false,
+  eventBonusChance: number = 0,
 ): BrainrunChoicePoint[] {
   const totalPoints = BRAINRUN_CHOICE_POINTS_PER_ACT;
   const minPure = Math.ceil(totalPoints * BRAINRUN_MIN_PURE_COMBAT_RATIO);
@@ -514,5 +604,8 @@ export function generateActChoicePoints(
     }
   }
 
-  return points;
+  return points.map((point) => ({
+    ...point,
+    choiceTypes: maybeAddEventOption(point.choiceTypes, eventBonusChance, random),
+  }));
 }

@@ -14,6 +14,10 @@ export const BRAINRUN_BOSS_FAST_ANSWER_MS = 2_000;
 export const BRAINRUN_BOSS_BASE_DAMAGE = 20;
 /** Multiplicateur de dégâts appliqué en cas de réponse correcte rapide (< BRAINRUN_BOSS_FAST_ANSWER_MS). */
 export const BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER = 2;
+/** Délai (ms) avant affichage de la révélation de la relique Sixième Sens, une fois la question
+ * apparue ; le tirage lui-même est déjà décidé côté serveur (cf. consumableReveal.autoHintId),
+ * ce délai ne pilote que l'affichage client. */
+export const BRAINRUN_SIXTH_SENSE_DELAY_MS = 8_000;
 
 /**
  * Dégâts qui seraient infligés au boss si la réponse actuelle était correcte, en fonction du
@@ -65,6 +69,9 @@ export type BrainrunRoomDTO = {
   /** Nombre de résurrections déjà consommées par le boss (uniquement pertinent pour "phoenix_revive"). */
   bossPhase: number;
   choiceTypes: BrainrunRoomType[];
+  /** Aperçu des propositions du point de choix suivant (relique Prévoyance) ; null si non
+   * possédée, salle non-en-attente-de-choix, ou pas de salle suivante connue. */
+  nextChoiceTypes: BrainrunRoomType[] | null;
   questionIds: number[];
   responses: BrainrunRoomResponse[];
   goldEarned: number;
@@ -106,6 +113,14 @@ export type BrainrunRunDTO = {
   consumables: Record<string, number>;
   /** true si un Bouclier est armé : la prochaine perte de PV sera annulée. */
   shieldArmed: boolean;
+  /** Thèmes bannis pour le reste de la run (relique Purge Thématique). */
+  bannedThemes: string[];
+  /** true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque
+   * acknowledgeRoom, comme offersRequireChoice pour le bonus post-combat. */
+  pendingThemeBanChoice: boolean;
+  /** Thèmes encore tirables (non bannis) parmi lesquels choisir ; non vide seulement quand
+   * pendingThemeBanChoice est true. */
+  availableThemesToBan: string[];
 };
 
 /** Réponse de GET /api/brainrun/current : reflète intégralement l'état courant, dérivé côté serveur. */

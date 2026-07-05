@@ -19,11 +19,13 @@ import {
   generateActChoicePoints,
   generateBonusOffers,
   generateShopOffers,
+  generateShopReplacementOffer,
   getActiveRelicEffects,
   getActiveTalentEffects,
   goldToKnowledgePoints,
   instantRoomHealthDelta,
   isBossAnswerTimedOut,
+  maybeAddEventOption,
   nextRoomAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
@@ -37,8 +39,10 @@ import {
   unlockTalent as unlockTalentPersist,
 } from "~~/server/utils/brainrunMetaHelper";
 import {
+  BRAINRUN_ABSOLUTE_MAX_HP,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_DIFFICULTY_BY_ACT,
+  BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_GOLD_BY_ROOM_TYPE,
   BRAINRUN_MAX_HP,
   BRAINRUN_QUESTIONS_PER_ROOM,
@@ -54,8 +58,16 @@ import {
   type BrainrunConsumableReveal,
   type BrainrunOffer,
 } from "#shared/brainrunItems";
-import { getBrainrunEnemiesByActAndTier, getBrainrunEnemyById } from "#shared/brainrunEnemies";
-import { getBrainrunBossesByAct, getBrainrunBossById } from "#shared/brainrunBosses";
+import {
+  BRAINRUN_ENEMIES,
+  getBrainrunEnemiesByActAndTier,
+  getBrainrunEnemyById,
+} from "#shared/brainrunEnemies";
+import {
+  BRAINRUN_BOSSES,
+  getBrainrunBossesByAct,
+  getBrainrunBossById,
+} from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
   BrainrunMetaProgressDTO,
@@ -139,6 +151,7 @@ export class BrainrunService {
     if (!activeRoom.choiceTypes.includes(choice)) {
       throw createError({ statusCode: 400, statusMessage: "Choix non proposé pour cette salle." });
     }
+    const effects = getActiveRelicEffects(run.relics);
 
     if (choice === "REST") {
       // Salle "cleared" mais l'avancée reste différée jusqu'à acknowledgeRoom(), pour laisser
@@ -164,7 +177,12 @@ export class BrainrunService {
         data: {
           type: choice,
           status: "ACTIVE",
-          offers: generateShopOffers(run.relics, Math.random, talentEffects.rareRelicWeightBonus),
+          offers: generateShopOffers(
+            run.relics,
+            Math.random,
+            talentEffects.rareRelicWeightBonus,
+            effects.shopPriceMultiplier,
+          ),
         },
       });
     } else if (choice === "EVENT") {
@@ -187,19 +205,29 @@ export class BrainrunService {
       // cet acte (réinitialisé au changement d'acte). Boss tire un boss nommé parmi les 2 candidats
       // de l'acte (une seule salle de boss par acte, pas besoin d'exclusion). Si le pool filtré est
       // vide (run très long), retombe sur le pool complet plutôt que de bloquer la partie.
+      // Purge Thématique : exclut les ennemis/boss dont un thème est banni ; retombe sur le pool
+      // non filtré si l'exclusion viderait entièrement le pool (run très long / peu de contenu
+      // restant), même filet de sécurité que le filtre usedEnemyIds juste après.
+      const notBanned = (themes: string[]) =>
+        run.bannedThemes.length === 0 || themes.every((t) => !run.bannedThemes.includes(t));
+
       let enemyId: string | null = null;
       let bossId: string | null = null;
       let combatThemes: string[] | undefined;
       if (combatType === "BOSS") {
         const bossPool = getBrainrunBossesByAct(run.currentAct);
-        const boss = bossPool[Math.floor(Math.random() * bossPool.length)]!;
+        const unbannedBossPool = bossPool.filter((b) => notBanned(b.themes));
+        const bossCandidates = unbannedBossPool.length > 0 ? unbannedBossPool : bossPool;
+        const boss = bossCandidates[Math.floor(Math.random() * bossCandidates.length)]!;
         bossId = boss.id;
         combatThemes = boss.themes;
       } else {
         const tier = combatType === "STANDARD" ? "CLASSIC" : "ELITE";
         const pool = getBrainrunEnemiesByActAndTier(run.currentAct, tier);
-        const available = pool.filter((e) => !run.usedEnemyIds.includes(e.id));
-        const candidates = available.length > 0 ? available : pool;
+        const unbannedPool = pool.filter((e) => notBanned(e.themes));
+        const available = unbannedPool.filter((e) => !run.usedEnemyIds.includes(e.id));
+        const candidates =
+          available.length > 0 ? available : unbannedPool.length > 0 ? unbannedPool : pool;
         const enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
         enemyId = enemy.id;
         combatThemes = enemy.themes;
@@ -213,6 +241,7 @@ export class BrainrunService {
         userId,
         combatThemes,
       );
+      const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
 
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
@@ -221,6 +250,7 @@ export class BrainrunService {
           status: "ACTIVE",
           questionIds,
           responses: [],
+          consumableReveal: autoHintReveal,
           ...(enemyId ? { enemyId } : {}),
           ...(combatType === "BOSS"
             ? {
@@ -430,14 +460,20 @@ export class BrainrunService {
         });
       }
 
+      // Réinitialisé pour la prochaine question : l'effet 50/50 / Appel à un ami ne s'applique
+      // qu'à la question sur laquelle il a été utilisé ; Sixième Sens est re-tiré pour la
+      // nouvelle question (cf. computeAutoHintReveal).
+      const nextConsumableReveal = await this.computeAutoHintReveal(
+        updatedQuestionIds[newResponses.length],
+        effects,
+      );
+
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
         data: {
           responses: newResponses,
           questionIds: updatedQuestionIds,
-          // Réinitialisé pour la prochaine question : l'effet 50/50 / Appel à un ami ne
-          // s'applique qu'à la question sur laquelle il a été utilisé.
-          consumableReveal: Prisma.JsonNull,
+          consumableReveal: nextConsumableReveal,
           // Le chrono de la question suivante ne démarre qu'à l'appel explicite de
           // prepareNextBossQuestion(), une fois que le joueur a fini de lire le feedback
           // de cette réponse — sinon le temps de lecture serait décompté à son insu.
@@ -466,6 +502,13 @@ export class BrainrunService {
       throw createError({
         statusCode: 409,
         statusMessage: "Choisissez un bonus avant de continuer.",
+      });
+    }
+    // Purge Thématique : bloque l'avancée tant que le joueur n'a pas choisi le thème à bannir.
+    if (run.pendingThemeBanChoice) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Choisissez un thème à bannir avant de continuer.",
       });
     }
 
@@ -500,6 +543,15 @@ export class BrainrunService {
         throw createError({ statusCode: 400, statusMessage: "Bonus non proposé." });
       }
       await this.grantOffer(run.id, offer);
+    } else {
+      // Lot de Consolation : de l'or pour compenser un bonus ignoré.
+      const effects = getActiveRelicEffects(run.relics);
+      if (effects.goldOnBonusSkip > 0) {
+        await prisma.brainrunRun.update({
+          where: { id: run.id },
+          data: { gold: { increment: effects.goldOnBonusSkip } },
+        });
+      }
     }
 
     await prisma.brainrunRoom.update({
@@ -540,10 +592,29 @@ export class BrainrunService {
     }
 
     await this.grantOffer(run.id, offer);
-    const remainingOffers = offers.filter((_, i) => i !== offerIndex);
+
+    // Fournisseur Fidèle : l'offre achetée est remplacée par une du même type plutôt que
+    // supprimée. Inclut la relique tout juste achetée dans le calcul des effets, pour qu'acheter
+    // Fournisseur Fidèle lui-même déclenche déjà le réassort sur cet achat.
+    const relicsAfterPurchase = offer.kind === "RELIC" ? [...run.relics, offer.id] : run.relics;
+    const effects = getActiveRelicEffects(relicsAfterPurchase);
+    let updatedOffers: BrainrunOffer[];
+    if (effects.autoRestockShop) {
+      const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+      const replacement = generateShopReplacementOffer(
+        offer.kind,
+        relicsAfterPurchase,
+        Math.random,
+        talentEffects.rareRelicWeightBonus,
+        effects.shopPriceMultiplier,
+      );
+      updatedOffers = offers.map((o, i) => (i === offerIndex ? replacement : o));
+    } else {
+      updatedOffers = offers.filter((_, i) => i !== offerIndex);
+    }
     await prisma.brainrunRoom.update({
       where: { id: activeRoom.id },
-      data: { offers: remainingOffers },
+      data: { offers: updatedOffers },
     });
     return this.getStateById(run.id);
   }
@@ -555,6 +626,12 @@ export class BrainrunService {
 
     if (activeRoom.type !== "SHOP" || activeRoom.status !== "ACTIVE") {
       throw createError({ statusCode: 409, statusMessage: "Aucune boutique active." });
+    }
+    if (run.pendingThemeBanChoice) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Choisissez un thème à bannir avant de continuer.",
+      });
     }
 
     await prisma.brainrunRoom.update({
@@ -614,8 +691,16 @@ export class BrainrunService {
     if (resolved.relicLost) {
       updatedRelics = updatedRelics.filter((r) => r !== resolved.relicLost);
     }
-    if (resolved.relicGranted) {
+    // Purge Thématique octroyée par un Événement : comme pour grantOffer, la relique n'est
+    // ajoutée qu'une fois le thème choisi (cf. resolveThemeBan) ; pas d'effet PV/relics ici.
+    const grantsThemePurge = resolved.relicGranted === "THEME_PURGE";
+    let newMaxHealthPoint: number | undefined;
+    if (resolved.relicGranted && !grantsThemePurge) {
       updatedRelics = [...updatedRelics, resolved.relicGranted];
+      if (resolved.relicGranted === "EXTRA_HEART") {
+        newMaxHealthPoint = Math.min(run.maxHealthPoint + 1, BRAINRUN_ABSOLUTE_MAX_HP);
+        newHealthPoint = Math.min(newHealthPoint + 1, newMaxHealthPoint);
+      }
     }
 
     await prisma.brainrunRun.update({
@@ -624,12 +709,19 @@ export class BrainrunService {
         healthPoint: Math.max(newHealthPoint, 0),
         gold: Math.max(0, run.gold + resolved.goldDelta),
         ...(shieldConsumed ? { shieldArmed: false } : {}),
-        ...(resolved.relicLost || resolved.relicGranted ? { relics: updatedRelics } : {}),
+        ...(resolved.relicLost || (resolved.relicGranted && !grantsThemePurge)
+          ? { relics: updatedRelics }
+          : {}),
+        ...(grantsThemePurge ? { pendingThemeBanChoice: true } : {}),
+        ...(newMaxHealthPoint !== undefined ? { maxHealthPoint: newMaxHealthPoint } : {}),
         ...(reviveTokenUsed
           ? { consumables: { ...consumables, REVIVE_TOKEN: consumables.REVIVE_TOKEN! - 1 } }
           : {}),
       },
     });
+    if (resolved.relicGranted === "EVENT_MAGNET") {
+      await this.applyEventBonusToRemainingRooms(run.id, run.currentAct, run.currentSequence);
+    }
     for (const grant of resolved.consumablesGranted) {
       await this.grantConsumable(run.id, grant.id, grant.amount);
     }
@@ -646,6 +738,36 @@ export class BrainrunService {
         data: { status: "CLEARED", goldEarned: Math.max(0, resolved.goldDelta) },
       });
     }
+    return this.getStateById(run.id);
+  }
+
+  /**
+   * Résout le choix de thème banni après l'obtention de Purge Thématique : ajoute enfin la
+   * relique à `relics` (jusqu'ici en attente, cf. grantOffer/resolveEvent) et le thème à
+   * `bannedThemes`. Refuse un thème déjà banni ou qui ne fait plus partie du pool restant.
+   */
+  async resolveThemeBan(runId: string, theme: string, userId: string): Promise<BrainrunStateDTO> {
+    const run = await this.getOwnedInProgressRun(runId, userId);
+
+    if (!run.pendingThemeBanChoice) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Aucun bannissement de thème à résoudre.",
+      });
+    }
+    const availableThemes = this.computeAvailableThemesToBan(run.bannedThemes);
+    if (!availableThemes.includes(theme)) {
+      throw createError({ statusCode: 400, statusMessage: "Thème invalide." });
+    }
+
+    await prisma.brainrunRun.update({
+      where: { id: run.id },
+      data: {
+        relics: { push: "THEME_PURGE" },
+        bannedThemes: [...run.bannedThemes, theme],
+        pendingThemeBanChoice: false,
+      },
+    });
     return this.getStateById(run.id);
   }
 
@@ -870,10 +992,35 @@ export class BrainrunService {
   /** Applique le gain d'une offre (bonus post-combat ou achat en Boutique) au run. */
   private async grantOffer(runId: string, offer: BrainrunOffer): Promise<void> {
     if (offer.kind === "RELIC") {
+      // Purge Thématique : ne rejoint `relics` qu'une fois le thème choisi (cf. resolveThemeBan) ;
+      // le joueur doit d'abord résoudre ce choix avant de pouvoir continuer la run.
+      if (offer.id === "THEME_PURGE") {
+        await prisma.brainrunRun.update({
+          where: { id: runId },
+          data: { pendingThemeBanChoice: true },
+        });
+        return;
+      }
+
       await prisma.brainrunRun.update({
         where: { id: runId },
         data: { relics: { push: offer.id } },
       });
+
+      if (offer.id === "EXTRA_HEART") {
+        const run = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
+        const newMax = Math.min(run.maxHealthPoint + 1, BRAINRUN_ABSOLUTE_MAX_HP);
+        await prisma.brainrunRun.update({
+          where: { id: runId },
+          data: {
+            maxHealthPoint: newMax,
+            healthPoint: Math.min(run.healthPoint + 1, newMax),
+          },
+        });
+      } else if (offer.id === "EVENT_MAGNET") {
+        const run = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
+        await this.applyEventBonusToRemainingRooms(runId, run.currentAct, run.currentSequence);
+      }
     } else if (offer.kind === "CONSUMABLE") {
       await this.grantConsumable(runId, offer.id as BrainrunConsumableId, 1);
     } else {
@@ -882,6 +1029,52 @@ export class BrainrunService {
         data: { gold: { increment: offer.amount ?? 0 } },
       });
     }
+  }
+
+  /**
+   * Relique Aimant à Événements : pour chaque salle non résolue de l'acte en cours qui vient
+   * après la salle active (pas encore rencontrée), tire une chance d'ajouter un Événement en
+   * 3e option. N'a jamais d'effet sur la salle Boss finale (choiceTypes fixe ["BOSS"]) ni sur
+   * un point qui propose déjà un Événement (cf. maybeAddEventOption).
+   */
+  private async applyEventBonusToRemainingRooms(
+    runId: string,
+    act: number,
+    currentSequence: number,
+  ): Promise<void> {
+    const remainingRooms = await prisma.brainrunRoom.findMany({
+      where: { runId, act, sequence: { gt: currentSequence }, type: null },
+    });
+    for (const room of remainingRooms) {
+      const updatedChoiceTypes = maybeAddEventOption(
+        room.choiceTypes as BrainrunRoomType[],
+        BRAINRUN_EVENT_MAGNET_CHANCE,
+        Math.random,
+      );
+      if (updatedChoiceTypes.length !== room.choiceTypes.length) {
+        await prisma.brainrunRoom.update({
+          where: { id: room.id },
+          data: { choiceTypes: updatedChoiceTypes },
+        });
+      }
+    }
+  }
+
+  /**
+   * Relique Sixième Sens : tire, pour la question donnée, une chance de révéler la bonne réponse
+   * (après un délai géré côté client, cf. BRAINRUN_SIXTH_SENSE_DELAY_MS). Retourne un reveal vide
+   * si la relique n'est pas possédée, si le tirage échoue, ou si la question n'existe pas.
+   */
+  private async computeAutoHintReveal(
+    questionId: number | undefined,
+    effects: BrainrunRelicEffects,
+  ): Promise<ConsumableReveal> {
+    if (questionId === undefined || effects.autoHintChance <= 0) return {};
+    if (Math.random() >= effects.autoHintChance) return {};
+    const question = await questionService.getById(questionId);
+    if (!question) return {};
+    const questionData = question.data as unknown as QuestionDataDTO;
+    return { autoHintId: questionData.response };
   }
 
   /** Lecture-puis-écriture (non atomique) sur le compteur JSON de consommables, comme le reste
@@ -971,10 +1164,11 @@ export class BrainrunService {
     return this.buildState(run);
   }
 
-  private async seedAct(runId: string, act: number): Promise<void> {
+  private async seedAct(runId: string, act: number, eventBonusChance: number = 0): Promise<void> {
     // La toute première salle de l'acte 1 doit d'office être un combat (pas de Boutique/
     // Repos/Événement dès le début de la run) ; les autres actes restent entièrement aléatoires.
-    const choicePoints = generateActChoicePoints(Math.random, act === 1);
+    // Aimant à Événements (déjà possédée) : s'applique aussi aux actes suivants générés ici.
+    const choicePoints = generateActChoicePoints(Math.random, act === 1, eventBonusChance);
     await prisma.brainrunRoom.createMany({
       data: choicePoints.map((point) => ({
         runId,
@@ -1006,7 +1200,9 @@ export class BrainrunService {
         where: { runId, act: outcome.act },
       });
       if (!nextActSeeded) {
-        await this.seedAct(runId, outcome.act);
+        const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
+        const effects = getActiveRelicEffects(currentRun.relics);
+        await this.seedAct(runId, outcome.act, effects.eventBonusChance);
       }
     }
 
@@ -1138,9 +1334,18 @@ export class BrainrunService {
       }
     }
 
+    const effects = getActiveRelicEffects(run.relics);
+    let nextChoiceTypes: BrainrunRoomType[] | null = null;
+    if (awaitingChoice && effects.showsNextRoomPreview) {
+      const nextRoom = run.rooms.find(
+        (r) => r.act === activeRoom.act && r.sequence === activeRoom.sequence + 1,
+      );
+      nextChoiceTypes = (nextRoom?.choiceTypes as BrainrunRoomType[] | undefined) ?? null;
+    }
+
     return {
       run: this.toRunDTO(run),
-      currentRoom: this.toRoomDTO(activeRoom, getActiveRelicEffects(run.relics)),
+      currentRoom: this.toRoomDTO(activeRoom, effects, nextChoiceTypes),
       currentQuestion,
       awaitingChoice,
     };
@@ -1163,10 +1368,28 @@ export class BrainrunService {
       relics: run.relics as BrainrunRunDTO["relics"],
       consumables: (run.consumables as ConsumableCounts) ?? {},
       shieldArmed: run.shieldArmed,
+      bannedThemes: run.bannedThemes,
+      pendingThemeBanChoice: run.pendingThemeBanChoice,
+      availableThemesToBan: run.pendingThemeBanChoice
+        ? this.computeAvailableThemesToBan(run.bannedThemes)
+        : [],
     };
   }
 
-  private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {
+  /** Thèmes non bannis encore présents dans les pools d'ennemis/boss (les 3 actes confondus). */
+  private computeAvailableThemesToBan(bannedThemes: string[]): string[] {
+    const allThemes = [
+      ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
+      ...BRAINRUN_BOSSES.flatMap((b) => b.themes),
+    ];
+    return [...new Set(allThemes)].filter((theme) => !bannedThemes.includes(theme));
+  }
+
+  private toRoomDTO(
+    room: BrainrunRoomRow,
+    effects: BrainrunRelicEffects,
+    nextChoiceTypes: BrainrunRoomType[] | null = null,
+  ): BrainrunRoomDTO {
     const reveal = (room.consumableReveal as ConsumableReveal | null) ?? {};
     const questionDeadline =
       room.type === "BOSS" && room.status === "ACTIVE" && room.questionStartedAt
@@ -1187,6 +1410,7 @@ export class BrainrunService {
       enemyId: room.enemyId,
       bossId: room.bossId,
       choiceTypes: room.choiceTypes as BrainrunRoomType[],
+      nextChoiceTypes,
       questionIds: room.questionIds,
       responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],
       goldEarned: room.goldEarned,

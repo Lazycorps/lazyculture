@@ -11,12 +11,14 @@ import {
   generateActChoicePoints,
   generateBonusOffers,
   generateShopOffers,
+  generateShopReplacementOffer,
   getActiveRelicEffects,
   getActiveTalentEffects,
   goldToKnowledgePoints,
   instantRoomHealthDelta,
   isAwaitingChoice,
   isBossAnswerTimedOut,
+  maybeAddEventOption,
   nextRoomAfterClear,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
@@ -184,6 +186,24 @@ describe("generateActChoicePoints", () => {
     expect(a).toEqual(b);
   });
 
+  it("adds a 3rd Event option on points that guaranteed it, when eventBonusChance is 1", () => {
+    const points = generateActChoicePoints(Math.random, false, 1);
+    points.forEach((p) => {
+      if (p.choiceTypes.length === 1) return; // salle Boss fixe, jamais concernée
+      expect(p.choiceTypes).toContain("EVENT");
+    });
+  });
+
+  it("never adds an Event option when eventBonusChance is 0 (default)", () => {
+    for (let i = 0; i < 50; i++) {
+      const points = generateActChoicePoints();
+      const eventCount = points.filter((p) => p.choiceTypes.includes("EVENT")).length;
+      // Le minimum garanti (2 points, cf. quotas) reste inchangé sans le bonus de la relique.
+      expect(eventCount).toBeGreaterThanOrEqual(2);
+      points.forEach((p) => expect(p.choiceTypes.length).toBeLessThanOrEqual(2));
+    }
+  });
+
   it("forces the first sequence slot to be pure combat when forceFirstPure is set", () => {
     function isPure(choiceTypes: string[]) {
       return (
@@ -203,6 +223,35 @@ describe("generateActChoicePoints", () => {
   });
 });
 
+describe("maybeAddEventOption", () => {
+  it("adds EVENT as a 3rd option when the roll succeeds", () => {
+    expect(maybeAddEventOption(["STANDARD", "ELITE"], 1, () => 0)).toEqual([
+      "STANDARD",
+      "ELITE",
+      "EVENT",
+    ]);
+  });
+
+  it("never adds EVENT when the chance is 0", () => {
+    expect(maybeAddEventOption(["STANDARD", "ELITE"], 0, () => 0)).toEqual(["STANDARD", "ELITE"]);
+  });
+
+  it("never duplicates EVENT on a point that already has it", () => {
+    expect(maybeAddEventOption(["STANDARD", "EVENT"], 1, () => 0)).toEqual(["STANDARD", "EVENT"]);
+  });
+
+  it("never touches the fixed Boss slot", () => {
+    expect(maybeAddEventOption(["BOSS"], 1, () => 0)).toEqual(["BOSS"]);
+  });
+
+  it("leaves the point untouched when the roll fails", () => {
+    expect(maybeAddEventOption(["STANDARD", "ELITE"], 0.3, () => 0.99)).toEqual([
+      "STANDARD",
+      "ELITE",
+    ]);
+  });
+});
+
 describe("getActiveRelicEffects", () => {
   it("returns neutral effects when no relic is owned", () => {
     expect(getActiveRelicEffects([])).toEqual({
@@ -212,6 +261,12 @@ describe("getActiveRelicEffects", () => {
       bossTimeBonusMs: 0,
       bossDamageBonusPerHit: 0,
       hasExtraLife: false,
+      shopPriceMultiplier: 1,
+      autoRestockShop: false,
+      eventBonusChance: 0,
+      showsNextRoomPreview: false,
+      goldOnBonusSkip: 0,
+      autoHintChance: 0,
     });
   });
 
@@ -223,6 +278,12 @@ describe("getActiveRelicEffects", () => {
     expect(effects.bossTimeBonusMs).toBe(3000);
     expect(effects.bossDamageBonusPerHit).toBe(5);
     expect(effects.hasExtraLife).toBe(true);
+    expect(effects.shopPriceMultiplier).toBeCloseTo(0.8);
+    expect(effects.autoRestockShop).toBe(true);
+    expect(effects.eventBonusChance).toBeCloseTo(0.3);
+    expect(effects.showsNextRoomPreview).toBe(true);
+    expect(effects.goldOnBonusSkip).toBe(15);
+    expect(effects.autoHintChance).toBeCloseTo(0.05);
   });
 
   it("ignores unknown ids", () => {
@@ -383,6 +444,23 @@ describe("generateShopOffers", () => {
     goldOffers.forEach((o) => expect(o.price).toBe(0));
   });
 
+  it("applies the price multiplier to both relic and consumable offers (relique Marchandeur)", () => {
+    const full = generateShopOffers([], Math.random, 0, 1);
+    const discounted = generateShopOffers([], Math.random, 0, 0.8);
+    full.forEach((o, i) => {
+      if (o.price === undefined || o.price === 0) return;
+      expect(discounted[i]!.price).toBe(Math.round(o.price * 0.8));
+    });
+  });
+
+  it("keeps offering a stackable relic (Cœur Supplémentaire) even once already owned", () => {
+    const owned = ["EXTRA_HEART"];
+    const sawExtraHeart = Array.from({ length: 50 }, () => generateShopOffers(owned)).some(
+      (offers) => offers.some((o) => o.kind === "RELIC" && o.id === "EXTRA_HEART"),
+    );
+    expect(sawExtraHeart).toBe(true);
+  });
+
   it("offers RARE relics more often when a rare-weight bonus is applied (talent Œil affûté)", () => {
     // PRNG déterministe (pas Math.random) : le test doit rester stable d'une exécution à l'autre.
     function seededRandom(seed: number): () => number {
@@ -408,6 +486,34 @@ describe("generateShopOffers", () => {
     }
 
     expect(rareRatio(2)).toBeGreaterThan(rareRatio(0));
+  });
+});
+
+describe("generateShopReplacementOffer", () => {
+  it("replaces a bought relic with another unowned relic (relique Fournisseur Fidèle)", () => {
+    const owned = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
+    const replacement = generateShopReplacementOffer("RELIC", owned);
+    const replacementWasAlreadyOwned =
+      replacement.kind === "RELIC" && (owned as string[]).includes(replacement.id);
+    expect(replacementWasAlreadyOwned).toBe(false);
+  });
+
+  it("falls back to a free gold offer once every relic is owned", () => {
+    const replacement = generateShopReplacementOffer("RELIC", ALL_RELIC_IDS);
+    expect(replacement.kind).toBe("GOLD");
+    expect(replacement.price).toBe(0);
+  });
+
+  it("replaces a bought consumable with another consumable", () => {
+    const replacement = generateShopReplacementOffer("CONSUMABLE", []);
+    expect(replacement.kind).toBe("CONSUMABLE");
+  });
+
+  it("applies the price multiplier to the replacement offer", () => {
+    const replacement = generateShopReplacementOffer("CONSUMABLE", [], Math.random, 0, 0.8);
+    const fullPrice =
+      BRAINRUN_CONSUMABLES[replacement.id as keyof typeof BRAINRUN_CONSUMABLES].shopPrice!;
+    expect(replacement.price).toBe(Math.round(fullPrice * 0.8));
   });
 });
 

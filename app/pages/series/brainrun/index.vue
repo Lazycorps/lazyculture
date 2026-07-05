@@ -70,12 +70,15 @@
                 <UIcon name="i-heroicons-currency-dollar" class="mr-0.5" />
                 {{ run?.gold ?? 0 }}
               </div>
-              <div class="flex items-center">
+              <!-- Grille 4 colonnes : tient sur une ligne jusqu'à 4 Pv max (cas courant), passe
+                   automatiquement sur une 2e ligne au-delà (jusqu'à 8, relique Cœur Supplémentaire) —
+                   pas de logique conditionnelle, la grille gère seule le retour à la ligne. -->
+              <div class="grid grid-cols-4 gap-0.5 ml-1">
                 <UIcon
                   v-for="hp in run?.maxHealthPoint ?? 3"
                   :key="hp"
                   name="i-heroicons-heart-solid"
-                  class="text-2xl transition-all duration-300 ml-1"
+                  class="text-lg transition-all duration-300"
                   :class="
                     hp > (run?.healthPoint ?? 0)
                       ? 'text-slate-700'
@@ -186,9 +189,34 @@
              salle est déjà CLEARED/FAILED — la transition n'a lieu qu'au clic sur "Continuer". -->
           <template v-if="isRunActive || holdOnFeedback">
             <div :class="isBossRoom ? 'pt-2 pb-4' : 'py-4'">
+              <!-- Relique Purge Thématique : bloque tout le reste tant que le thème à bannir
+                   n'est pas choisi (cf. run.pendingThemeBanChoice côté serveur). -->
+              <div v-if="pendingThemeBan" class="text-center py-6 px-2 space-y-5">
+                <div class="space-y-1">
+                  <h3 class="text-lg font-black font-display text-white tracking-wide">
+                    Purge Thématique
+                  </h3>
+                  <p class="text-xs text-gray-400">
+                    Choisissez un thème à bannir pour le reste de la run.
+                  </p>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    v-for="theme in run?.availableThemesToBan ?? []"
+                    :key="theme"
+                    type="button"
+                    :disabled="loading"
+                    class="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3 text-xs font-black font-display text-white tracking-wide capitalize disabled:opacity-50"
+                    @click="handleThemeBanPick(theme)"
+                  >
+                    {{ themeLabel(theme) }}
+                  </button>
+                </div>
+              </div>
+
               <!-- Boutique -->
               <BrainrunShop
-                v-if="currentRoom?.type === 'SHOP' && currentRoom.status === 'ACTIVE'"
+                v-else-if="currentRoom?.type === 'SHOP' && currentRoom.status === 'ACTIVE'"
                 :offers="currentRoom.offers ?? []"
                 :gold="run?.gold ?? 0"
                 :loading="loading"
@@ -225,6 +253,15 @@
                   <UIcon :name="roomTypeIcon(option)" class="mr-2 text-lg" />
                   {{ roomTypeLabel(option) }}
                 </UButton>
+
+                <!-- Relique Prévoyance : aperçu du point de choix suivant (même quel que soit
+                     l'option choisie ci-dessus, la génération de l'acte est fixée à l'avance). -->
+                <p
+                  v-if="nextChoiceTypes && nextChoiceTypes.length > 0"
+                  class="text-center text-[11px] text-gray-500 pt-1"
+                >
+                  Ensuite : {{ nextChoiceTypes.map(roomTypeLabel).join(" ou ") }}
+                </p>
               </div>
 
               <!-- Question en cours -->
@@ -437,6 +474,11 @@ const awaitingChoice = brainrun.awaitingChoice;
 const loading = brainrun.loading;
 const isRunActive = brainrun.isRunActive;
 const currentChoiceTypes = computed(() => currentRoom.value?.choiceTypes ?? []);
+// Relique Prévoyance : aperçu du point de choix suivant, déjà connu côté serveur (génération
+// de l'acte figée à l'avance) mais seulement transmis si la relique est possédée.
+const nextChoiceTypes = computed(() => currentRoom.value?.nextChoiceTypes ?? null);
+// Relique Purge Thématique : bloque l'écran courant tant que le thème à bannir n'est pas choisi.
+const pendingThemeBan = computed(() => run.value?.pendingThemeBanChoice ?? false);
 
 // Barre de PV du boss + dégâts potentiels (remplace le séparateur habituel pendant un combat
 // de boss) : le décompte est celui tenu par BrainrunQuestionRunner, partagé via useState.
@@ -539,6 +581,9 @@ async function handleRecapContinue() {
 async function handleBonusPick(id: string) {
   await brainrun.resolveBonus(id);
   showBonusStep.value = false;
+  // Purge Thématique : le choix du thème à bannir doit être résolu avant d'avancer la salle
+  // (acknowledgeRoom le refuserait tant que pendingThemeBanChoice est vrai).
+  if (run.value?.pendingThemeBanChoice) return;
   await brainrun.acknowledgeRoom();
 }
 
@@ -546,6 +591,19 @@ async function handleBonusSkip() {
   await brainrun.resolveBonus("SKIP");
   showBonusStep.value = false;
   await brainrun.acknowledgeRoom();
+}
+
+async function handleThemeBanPick(theme: string) {
+  await brainrun.resolveThemeBan(theme);
+  // La relique peut avoir été obtenue en pleine Boutique (salle encore ACTIVE, pas de salle à
+  // valider) : n'avancer que si une salle CLEARED attendait ce choix pour continuer.
+  if (currentRoom.value?.status === "CLEARED") {
+    await brainrun.acknowledgeRoom();
+  }
+}
+
+function themeLabel(theme: string): string {
+  return theme.replace(/[-_]/g, " ");
 }
 
 function roomTypeLabel(type: BrainrunRoomType): string {
