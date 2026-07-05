@@ -5,6 +5,7 @@ import type { AchievementDTO, UserAchievementDTO } from "#shared/DTO/achievement
 import type { QuestionSeriesResponseData } from "#shared/series";
 import { themeService } from "~~/server/services/ThemeService";
 import { followService } from "~~/server/services/FollowService";
+import { computeActivityStreak } from "~~/server/utils/activityStreakHelper";
 
 export class UserService {
   async getCurrentUser(userId: string, email: string | undefined) {
@@ -346,55 +347,7 @@ export class UserService {
     });
 
     // Calcul de la série de jours actifs consécutifs (streak)
-    const lastResponses = await prisma.questionResponse.findMany({
-      where: { userId: user.id },
-      select: { date: true },
-      orderBy: { date: "desc" },
-      take: 500,
-    });
-
-    const toLocalDateStr = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    };
-
-    const dates = lastResponses.map((r) => toLocalDateStr(r.date));
-    const uniqueDates = Array.from(new Set(dates));
-
-    let currentStreak = 0;
-    const today = new Date();
-    const todayStr = toLocalDateStr(today);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = toLocalDateStr(yesterday);
-
-    if (uniqueDates.includes(todayStr)) {
-      currentStreak = 1;
-      const checkDate = new Date();
-      while (true) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        const checkStr = toLocalDateStr(checkDate);
-        if (uniqueDates.includes(checkStr)) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-    } else if (uniqueDates.includes(yesterdayStr)) {
-      currentStreak = 1;
-      const checkDate = new Date(yesterday);
-      while (true) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        const checkStr = toLocalDateStr(checkDate);
-        if (uniqueDates.includes(checkStr)) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-    }
+    const currentStreak = await computeActivityStreak(user.id);
 
     // Données sociales (abonnés/abonnements) vis-à-vis du visiteur
     const { followersCount, followingCount } = await followService.getCounts(user.id);

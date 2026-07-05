@@ -293,3 +293,144 @@ body,
     --frame-angle: 360deg;
   }
 }
+
+/* Nouveaux Cadres Premium */
+
+.avatar-frame-cyber {
+  padding: 3px;
+  background: linear-gradient(135deg, #00f2fe, #ff007f, #00f2fe);
+  background-size: 200% 200%;
+  animation:
+    cyberShift 3s linear infinite,
+    cyberGlitch 2.5s steps(2) infinite;
+}
+
+@keyframes cyberShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes cyberGlitch {
+  0%,
+  100% {
+    box-shadow:
+      0 0 10px rgba(0, 242, 254, 0.6),
+      2px -2px 0px rgba(255, 0, 127, 0.7);
+  }
+  33% {
+    box-shadow:
+      -2px 2px 0px rgba(0, 242, 254, 0.7),
+      0 0 12px rgba(255, 0, 127, 0.6);
+  }
+  66% {
+    box-shadow:
+      0 0 15px rgba(0, 242, 254, 0.8),
+      -1px -1px 0px rgba(255, 0, 127, 0.9);
+  }
+}
+
+.avatar-frame-cosmic {
+  padding: 3px;
+  background: linear-gradient(135deg, #6366f1, #d946ef, #3b82f6, #6366f1);
+  background-size: 300% 300%;
+  animation:
+    cosmicFlow 5s ease infinite,
+    cosmicPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes cosmicFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes cosmicPulse {
+  0% {
+    box-shadow:
+      0 0 8px rgba(99, 102, 241, 0.6),
+      0 0 16px rgba(217, 70, 239, 0.4),
+      inset 0 0 4px rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 18px rgba(99, 102, 241, 0.9),
+      0 0 32px rgba(217, 70, 239, 0.7),
+      inset 0 0 8px rgba(255, 255, 255, 0.5);
+  }
+}
+
+.avatar-frame-diamond {
+  padding: 3px;
+  background: linear-gradient(
+    90deg,
+    #e2e8f0,
+    #e2e8f0 30%,
+    #fff 45%,
+    #fff 55%,
+    #e2e8f0 70%,
+    #e2e8f0
+  );
+  background-size: 200% auto;
+  animation: diamondShimmer 2.5s linear infinite;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 0.6),
+    0 0 24px rgba(203, 213, 225, 0.4),
+    inset 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+@keyframes diamondShimmer {
+  0% {
+    background-position: -100% 0%;
+  }
+  100% {
+    background-position: 100% 0%;
+  }
+}
+
+.avatar-frame-abyss {
+  padding: 3px;
+  background: linear-gradient(135deg, #09090b, #312e81, #09090b, #4c1d95, #09090b);
+  background-size: 300% 300%;
+  animation:
+    abyssFlow 5s ease infinite,
+    abyssGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes abyssFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes abyssGlow {
+  0% {
+    box-shadow:
+      0 0 10px rgba(76, 29, 149, 0.5),
+      0 0 5px rgba(0, 0, 0, 0.8);
+  }
+  100% {
+    box-shadow:
+      0 0 22px rgba(76, 29, 149, 0.9),
+      0 0 10px rgba(0, 0, 0, 1),
+      inset 0 0 8px rgba(0, 0, 0, 0.9);
+  }
+}

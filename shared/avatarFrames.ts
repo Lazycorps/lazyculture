@@ -8,6 +8,10 @@ export const AVATAR_FRAME_STYLES = {
   gold: { label: "Or", cssClass: "avatar-frame-gold" },
   fire: { label: "Flammes", cssClass: "avatar-frame-fire" },
   rainbow: { label: "Arc-en-ciel", cssClass: "avatar-frame-rainbow" },
+  cyber: { label: "Cyber Glitch", cssClass: "avatar-frame-cyber" },
+  cosmic: { label: "Nébuleuse Cosmique", cssClass: "avatar-frame-cosmic" },
+  diamond: { label: "Éclat de Diamant", cssClass: "avatar-frame-diamond" },
+  abyss: { label: "Portail de l'Abysse", cssClass: "avatar-frame-abyss" },
 } as const;
 
 export type AvatarFrameStyleKey = keyof typeof AVATAR_FRAME_STYLES;
