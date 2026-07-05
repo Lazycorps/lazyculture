@@ -62,11 +62,7 @@
                 class="flex items-center gap-3 flex-1 min-w-0"
                 @click="open = false"
               >
-                <UAvatar
-                  icon="i-heroicons-user"
-                  size="sm"
-                  class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
-                />
+                <UserAvatar :src="item.avatarUrl" :frame="item.frameStyleKey" size="sm" />
                 <div class="min-w-0">
                   <p class="text-sm font-bold text-white truncate font-display">{{ item.name }}</p>
                   <p class="text-[10px] text-gray-500 font-display uppercase tracking-wider">

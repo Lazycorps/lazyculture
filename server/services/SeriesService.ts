@@ -12,12 +12,15 @@ import type { QuestionSeriesAscensionResponseData } from "#shared/series/seriesA
 import { QuestionDataDTO } from "#shared/question";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
+import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 
 type DailySeriesRankingDTO = {
   userId: string;
   userName: string;
   score: number;
   elapsedTime: string;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
 };
 
 export class SeriesService {
@@ -167,7 +170,14 @@ export class SeriesService {
 
     const usersResponses = await prisma.questionSeriesResponse.findMany({
       where: { seriesId: lastSeries.id },
-      include: { user: true },
+      include: {
+        user: {
+          include: {
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
+          },
+        },
+      },
     });
 
     const ranking = usersResponses
@@ -194,6 +204,8 @@ export class SeriesService {
         elapsedTime: this.millisToMinutesAndSeconds(
           r.updateDate.getTime() - r.createDate.getTime(),
         ),
+        avatarUrl: r.user.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: r.user.equippedFrame?.styleKey ?? null,
       } as DailySeriesRankingDTO;
     });
   }
@@ -397,6 +409,8 @@ export class SeriesService {
       });
     }
 
+    await grantCoins(userId, coinsFromXp(userXpWin));
+
     return userXpWin;
   }
 
@@ -517,6 +531,8 @@ export class SeriesService {
         },
       });
     }
+
+    await grantCoins(userId, coinsFromXp(userXpWin));
 
     return userXpWin;
   }

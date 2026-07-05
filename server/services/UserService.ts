@@ -14,6 +14,9 @@ export class UserService {
         UserProgress: { include: { level: true } },
         BattleRoyaleRank: true,
         ShowdownRank: true,
+        equippedAvatar: true,
+        equippedFrame: true,
+        Wallet: true,
       },
     });
 
@@ -30,6 +33,9 @@ export class UserService {
           UserProgress: { include: { level: true } },
           BattleRoyaleRank: true,
           ShowdownRank: true,
+          equippedAvatar: true,
+          equippedFrame: true,
+          Wallet: true,
         },
       });
     }
@@ -118,6 +124,8 @@ export class UserService {
         },
         BattleRoyaleRank: true,
         ShowdownRank: true,
+        equippedAvatar: true,
+        equippedFrame: true,
       },
     });
 
@@ -410,6 +418,8 @@ export class UserService {
         name: user.name,
         slug: user.slug,
         createDate: user.createDate,
+        avatarUrl: user.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: user.equippedFrame?.styleKey ?? null,
         level: user.UserProgress?.levelId ?? 1,
         xp: user.UserProgress?.xp ?? 0,
         xpThreshold: user.UserProgress?.level?.xp_threshold ?? 0,

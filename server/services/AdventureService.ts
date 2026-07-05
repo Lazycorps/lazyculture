@@ -1,5 +1,6 @@
 import prisma from "~~/server/utils/prisma";
 import { responseService } from "~~/server/services/ResponseService";
+import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 
 export class AdventureService {
   /**
@@ -349,6 +350,7 @@ export class AdventureService {
           },
         });
       }
+      await grantCoins(userId, coinsFromXp(bonusXp));
 
       // 4. Update stage scores map
       let stageScores: Record<string, number> = {};

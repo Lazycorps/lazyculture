@@ -3,11 +3,14 @@ import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateShowdownUserRank } from "./showdownRankHelper";
 import { achievementService } from "~~/server/services/AchievementService";
+import { cosmeticService } from "~~/server/services/CosmeticService";
+import { coinsFromXp, grantCoins } from "./walletHelper";
 
 export interface ShowdownPlayerInMemory {
   userId: string;
   name: string;
-  avatar: string;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
   level: number;
   hp: number;
   xpEarned: number;
@@ -377,6 +380,11 @@ class ShowdownManager {
         },
       });
 
+      // 1.5 Récupérer les cosmétiques équipés des deux joueurs (figés pour la durée du match)
+      const equippedByUser = await cosmeticService.getEquippedForUsers([p1.userId, p2.userId]);
+      const p1Cosmetics = equippedByUser.get(p1.userId);
+      const p2Cosmetics = equippedByUser.get(p2.userId);
+
       // 2. Récupérer 10 thèmes uniques au hasard pour la phase de draft
       const allThemes = await prisma.questionTheme.findMany();
       // Mélanger et prendre 10
@@ -416,7 +424,8 @@ class ShowdownManager {
           {
             userId: p1.userId,
             name: p1.name,
-            avatar: "🎮",
+            avatarUrl: p1Cosmetics?.avatarUrl ?? null,
+            frameStyleKey: p1Cosmetics?.frameStyleKey ?? null,
             level: p1.level,
             hp: 100,
             xpEarned: 0,
@@ -431,7 +440,8 @@ class ShowdownManager {
           {
             userId: p2.userId,
             name: p2.name,
-            avatar: "🎮",
+            avatarUrl: p2Cosmetics?.avatarUrl ?? null,
+            frameStyleKey: p2Cosmetics?.frameStyleKey ?? null,
             level: p2.level,
             hp: 100,
             xpEarned: 0,
@@ -551,7 +561,8 @@ class ShowdownManager {
     return match.players.map((p) => ({
       userId: p.userId,
       name: p.name,
-      avatar: p.avatar,
+      avatarUrl: p.avatarUrl,
+      frameStyleKey: p.frameStyleKey,
       level: p.level,
       hp: p.hp,
       isOnline: p.isOnline,
@@ -587,7 +598,8 @@ class ShowdownManager {
         ? {
             userId: opponent.userId,
             name: opponent.name,
-            avatar: opponent.avatar,
+            avatarUrl: opponent.avatarUrl,
+            frameStyleKey: opponent.frameStyleKey,
             level: opponent.level,
             hp: opponent.hp,
             isOnline: opponent.isOnline,
@@ -1238,6 +1250,9 @@ class ShowdownManager {
           data: { xp: { increment: player.xpEarned } },
         })
         .catch(console.error);
+
+      // Créditer les pièces du match
+      await grantCoins(player.userId, coinsFromXp(player.xpEarned)).catch(console.error);
     }
 
     // 3. Mettre à jour le classement compétitif LP (Elo)

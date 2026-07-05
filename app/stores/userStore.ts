@@ -28,6 +28,18 @@ export interface DBUser {
     gamesPlayed: number;
     rankInfo: any;
   };
+  equippedAvatar?: {
+    id: number;
+    imageUrl: string;
+  } | null;
+  equippedFrame?: {
+    id: number;
+    styleKey: string;
+  } | null;
+  Wallet?: {
+    coins: number;
+    totalEarned: number;
+  } | null;
 }
 
 export const useUserStore = defineStore("user", {
@@ -44,6 +56,9 @@ export const useUserStore = defineStore("user", {
     xp: (state) => state.user?.UserProgress?.xp || 0,
     xpThreshold: (state) => state.user?.UserProgress?.level?.xp_threshold || 0,
     nextLevelTreshold: (state) => state.user?.nextLevelTreshold || 100,
+    avatarUrl: (state) => state.user?.equippedAvatar?.imageUrl || null,
+    frameStyleKey: (state) => state.user?.equippedFrame?.styleKey || null,
+    coins: (state) => state.user?.Wallet?.coins || 0,
     xpProgress: (state) => {
       if (!state.user) return 0;
       const current = state.user.UserProgress?.xp ?? 0;

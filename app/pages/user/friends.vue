@@ -88,10 +88,10 @@
                 :to="`/user/${suggestion.userId}`"
                 class="flex items-center gap-3 flex-1 min-w-0"
               >
-                <UAvatar
-                  icon="i-heroicons-user"
+                <UserAvatar
+                  :src="suggestion.avatarUrl"
+                  :frame="suggestion.frameStyleKey"
                   size="sm"
-                  class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
                 />
                 <div class="min-w-0">
                   <p class="text-sm font-bold text-white truncate font-display">

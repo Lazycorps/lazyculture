@@ -63,6 +63,9 @@ const userProfile = computed(() => {
     xp: userStore.user.UserProgress?.xp || 0,
     xpThreshold: userStore.user.UserProgress?.level?.xp_threshold || 0,
     nextLevelTreshold: userStore.user.nextLevelTreshold || 100,
+    equippedAvatar: userStore.user.equippedAvatar ?? null,
+    equippedFrame: userStore.user.equippedFrame ?? null,
+    Wallet: userStore.user.Wallet ?? null,
   };
 });
 

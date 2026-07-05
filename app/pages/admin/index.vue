@@ -153,6 +153,15 @@
               >
                 Gérer les Aventures
               </UButton>
+              <UButton
+                to="/admin/cosmetics"
+                color="neutral"
+                variant="subtle"
+                icon="i-heroicons-face-smile"
+                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              >
+                Gérer les avatars
+              </UButton>
             </div>
           </div>
         </UCard>

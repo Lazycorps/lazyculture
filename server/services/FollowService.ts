@@ -86,6 +86,8 @@ export class FollowService {
               name: true,
               slug: true,
               UserProgress: { select: { xp: true, levelId: true } },
+              equippedAvatar: { select: { imageUrl: true } },
+              equippedFrame: { select: { styleKey: true } },
             },
           },
         },
@@ -120,6 +122,8 @@ export class FollowService {
               name: true,
               slug: true,
               UserProgress: { select: { xp: true, levelId: true } },
+              equippedAvatar: { select: { imageUrl: true } },
+              equippedFrame: { select: { styleKey: true } },
             },
           },
         },
@@ -157,6 +161,8 @@ export class FollowService {
         name: true,
         slug: true,
         UserProgress: { select: { xp: true, levelId: true } },
+        equippedAvatar: { select: { imageUrl: true } },
+        equippedFrame: { select: { styleKey: true } },
       },
       take: 10,
     });
@@ -173,6 +179,8 @@ export class FollowService {
       level: u.UserProgress?.levelId ?? 1,
       xp: u.UserProgress?.xp ?? 0,
       isFollowing: followedIds.has(u.id),
+      avatarUrl: u.equippedAvatar?.imageUrl ?? null,
+      frameStyleKey: u.equippedFrame?.styleKey ?? null,
     }));
   }
 
@@ -222,6 +230,8 @@ export class FollowService {
         name: true,
         slug: true,
         UserProgress: { select: { xp: true, levelId: true } },
+        equippedAvatar: { select: { imageUrl: true } },
+        equippedFrame: { select: { styleKey: true } },
       },
     });
 
@@ -237,6 +247,8 @@ export class FollowService {
         level: u.UserProgress?.levelId ?? 1,
         xp: u.UserProgress?.xp ?? 0,
         isFollowing: false,
+        avatarUrl: u.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: u.equippedFrame?.styleKey ?? null,
       }));
   }
 
@@ -255,6 +267,8 @@ export class FollowService {
         name: true,
         slug: true,
         UserProgress: { select: { xp: true, levelId: true } },
+        equippedAvatar: { select: { imageUrl: true } },
+        equippedFrame: { select: { styleKey: true } },
       },
     });
 
@@ -266,6 +280,8 @@ export class FollowService {
         xp: u.UserProgress?.xp ?? 0,
         level: u.UserProgress?.levelId ?? 1,
         isMe: u.id === userId,
+        avatarUrl: u.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: u.equippedFrame?.styleKey ?? null,
       }))
       .sort((a, b) => b.xp - a.xp);
   }
@@ -287,6 +303,8 @@ export class FollowService {
         name: string;
         slug: string;
         UserProgress: { xp: number; levelId: number } | null;
+        equippedAvatar: { imageUrl: string } | null;
+        equippedFrame: { styleKey: string } | null;
       };
       followDate: Date;
     }[],
@@ -305,6 +323,8 @@ export class FollowService {
       xp: user.UserProgress?.xp ?? 0,
       isFollowedByViewer: followedIds.has(user.id),
       followDate: followDate.toISOString(),
+      avatarUrl: user.equippedAvatar?.imageUrl ?? null,
+      frameStyleKey: user.equippedFrame?.styleKey ?? null,
     }));
   }
 

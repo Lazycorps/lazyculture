@@ -27,11 +27,7 @@
         class="flex items-center gap-3 bg-slate-950/20 border border-white/5 hover:border-white/10 rounded-2xl p-3 transition-all duration-200"
       >
         <NuxtLink :to="`/user/${result.userId}`" class="flex items-center gap-3 flex-1 min-w-0">
-          <UAvatar
-            icon="i-heroicons-user"
-            size="sm"
-            class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
-          />
+          <UserAvatar :src="result.avatarUrl" :frame="result.frameStyleKey" size="sm" />
           <div class="min-w-0">
             <p class="text-sm font-bold text-white truncate font-display">{{ result.name }}</p>
             <p class="text-[10px] text-gray-500 font-display uppercase tracking-wider">

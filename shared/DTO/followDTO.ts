@@ -6,6 +6,8 @@ export interface FollowUserDTO {
   xp: number;
   isFollowedByViewer: boolean;
   followDate: string;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
 }
 
 export interface FollowListDTO {
@@ -27,6 +29,8 @@ export interface UserSearchResultDTO {
   level: number;
   xp: number;
   isFollowing: boolean;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
 }
 
 export interface FriendRankingDTO {
@@ -36,6 +40,8 @@ export interface FriendRankingDTO {
   xp: number;
   level: number;
   isMe: boolean;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
 }
 
 export interface ProfileSocialDTO {

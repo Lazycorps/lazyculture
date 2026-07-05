@@ -35,6 +35,79 @@ model User {
     notifications          Notification[]
     BrainrunRun            BrainrunRun[]
     BrainrunMetaProgress   BrainrunMetaProgress?
+    equippedAvatarId       Int?
+    equippedAvatar         Avatar?                  @relation("EquippedAvatar", fields: [equippedAvatarId], references: [id], onDelete: SetNull)
+    equippedFrameId        Int?
+    equippedFrame          AvatarFrame?             @relation("EquippedFrame", fields: [equippedFrameId], references: [id], onDelete: SetNull)
+    Wallet                 UserWallet?
+    UserAvatar             UserAvatar[]
+    UserAvatarFrame        UserAvatarFrame[]
+}
+
+// Porte-monnaie global (pièces) : monnaie transverse à tous les modes de jeu,
+// indépendante du gold et des Points de Savoir de Brainrun
+model UserWallet {
+    userId      String   @id
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    coins       Int      @default(0)
+    totalEarned Int      @default(0) // cumul des gains, jamais décrémenté
+    createDate  DateTime @default(now())
+    updateDate  DateTime @default(now()) @updatedAt
+}
+
+model Avatar {
+    id            Int          @id @default(autoincrement())
+    name          String
+    imageUrl      String
+    unlockType    String       @default("FREE") // FREE | COINS | ACHIEVEMENT
+    price         Int          @default(0)
+    achievementId Int?
+    achievement   Achievement? @relation(fields: [achievementId], references: [id])
+    enabled       Boolean      @default(true)
+    sortOrder     Int          @default(0)
+    createDate    DateTime     @default(now())
+    updateDate    DateTime     @default(now()) @updatedAt
+    owners        UserAvatar[]
+    equippedBy    User[]       @relation("EquippedAvatar")
+}
+
+// Cadre décoratif : styleKey référence une clé de shared/avatarFrames.ts (effet CSS)
+model AvatarFrame {
+    id            Int               @id @default(autoincrement())
+    name          String
+    styleKey      String            @unique
+    unlockType    String            @default("FREE") // FREE | COINS | ACHIEVEMENT
+    price         Int               @default(0)
+    achievementId Int?
+    achievement   Achievement?      @relation(fields: [achievementId], references: [id])
+    enabled       Boolean           @default(true)
+    sortOrder     Int               @default(0)
+    createDate    DateTime          @default(now())
+    updateDate    DateTime          @default(now()) @updatedAt
+    owners        UserAvatarFrame[]
+    equippedBy    User[]            @relation("EquippedFrame")
+}
+
+model UserAvatar {
+    id         Int      @id @default(autoincrement())
+    userId     String
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    avatarId   Int
+    avatar     Avatar   @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+    unlockedAt DateTime @default(now())
+
+    @@unique([userId, avatarId])
+}
+
+model UserAvatarFrame {
+    id         Int         @id @default(autoincrement())
+    userId     String
+    user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    frameId    Int
+    frame      AvatarFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+    unlockedAt DateTime    @default(now())
+
+    @@unique([userId, frameId])
 }
 
 model Follow {
@@ -167,6 +240,8 @@ model Achievement {
     icon           String            @default("")
     hidden         Boolean           @default(false)
     users          UserAchievement[]
+    avatars        Avatar[]
+    avatarFrames   AvatarFrame[]
 }
 
 model UserAchievement {

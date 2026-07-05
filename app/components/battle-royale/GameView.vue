@@ -125,11 +125,12 @@
         >
           <!-- User Status (Lives vs Dead) -->
           <div class="relative flex-shrink-0">
-            <UAvatar
-              icon="i-heroicons-user"
+            <UserAvatar
+              :src="p.avatarUrl"
+              :frame="p.frameStyleKey"
               size="xs"
-              class="bg-violet-600/10 text-violet-400 border border-violet-500/20"
-              :class="p.lives <= 0 ? 'grayscale filter text-slate-600 bg-slate-800/10' : ''"
+              avatar-class="bg-violet-600/10 text-violet-400 border border-violet-500/20"
+              :class="p.lives <= 0 ? 'grayscale filter opacity-60' : ''"
             />
             <span
               v-if="p.lives > 0"
@@ -196,7 +197,8 @@ interface QuestionData {
 interface Player {
   userId: string;
   name: string;
-  avatar: string;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
   level: number;
   lives: number;
   isOnline: boolean;

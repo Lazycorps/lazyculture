@@ -1,6 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import { isCorrectAnswer } from "~~/server/services/QuestionService";
+import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 
 export class ResponseService {
   async validateResponse(body: ResponseDTO, userId: string) {
@@ -42,6 +43,7 @@ export class ResponseService {
       xpTot: 0,
       previousLevel: 0,
       newLevel: 0,
+      coinsEarned: 0,
     };
 
     if (success) {
@@ -52,6 +54,8 @@ export class ResponseService {
       responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
       responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
       responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
+      responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
+      await grantCoins(userId, responseResult.coinsEarned);
     }
 
     return responseResult;

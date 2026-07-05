@@ -120,10 +120,11 @@
             class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
           >
             <div class="relative">
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="secondPlace.avatarUrl"
+                :frame="secondPlace.frameStyleKey"
                 size="lg"
-                class="bg-slate-300/10 text-slate-300 border-2 shadow-lg group-hover:scale-105 transition-transform border-slate-400"
+                avatar-class="bg-slate-300/10 text-slate-300 border-2 shadow-lg group-hover:scale-105 transition-transform border-slate-400"
               />
               <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
@@ -198,10 +199,11 @@
               <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
                 >👑</span
               >
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="firstPlace.avatarUrl"
+                :frame="firstPlace.frameStyleKey"
                 size="xl"
-                class="bg-amber-500/10 text-amber-400 border-2 shadow-neon group-hover:scale-105 transition-transform border-amber-400"
+                avatar-class="bg-amber-500/10 text-amber-400 border-2 shadow-neon group-hover:scale-105 transition-transform border-amber-400"
               />
               <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
@@ -272,10 +274,11 @@
             class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
           >
             <div class="relative">
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="thirdPlace.avatarUrl"
+                :frame="thirdPlace.frameStyleKey"
                 size="lg"
-                class="bg-amber-700/10 text-amber-600 border-2 shadow-lg group-hover:scale-105 transition-transform border-amber-700/60"
+                avatar-class="bg-amber-700/10 text-amber-600 border-2 shadow-lg group-hover:scale-105 transition-transform border-amber-700/60"
               />
               <!-- Rank badge icon overlay for BR/Showdown tab -->
               <span
@@ -359,10 +362,11 @@
             >
               {{ index + 4 }}
             </span>
-            <UAvatar
-              icon="i-heroicons-user"
+            <UserAvatar
+              :src="userItem.avatarUrl"
+              :frame="userItem.frameStyleKey"
               size="sm"
-              class="bg-white/5 text-gray-400 border border-white/10"
+              avatar-class="bg-white/5 text-gray-400 border border-white/10"
             />
             <div class="text-left flex flex-col space-y-0.5">
               <span

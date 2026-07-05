@@ -16,6 +16,9 @@
             :xp-max="xpMax"
             :followers-count="social ? followersCount : null"
             :following-count="social ? social.followingCount : null"
+            :avatar-url="userStore.avatarUrl"
+            :frame-style-key="userStore.frameStyleKey"
+            is-own-profile
             @open-follow-modal="openFollowModal"
           />
 
@@ -68,6 +71,33 @@
                 </UButton>
               </div>
             </UFormField>
+
+            <!-- Personnalisation avatar -->
+            <div class="pt-5 border-t border-white/5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4
+                    class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display flex items-center"
+                  >
+                    <UIcon name="i-heroicons-face-smile" class="mr-1.5 text-violet-400 text-sm" />
+                    Avatar et cadre
+                  </h4>
+                  <p class="text-[11px] text-gray-500 mt-1 max-w-md leading-relaxed">
+                    Débloquez de nouveaux avatars et cadres avec vos pièces ou vos exploits.
+                  </p>
+                </div>
+                <UButton
+                  to="/user/avatars"
+                  color="primary"
+                  variant="soft"
+                  size="sm"
+                  icon="i-heroicons-sparkles"
+                  class="font-bold font-display uppercase tracking-wide text-xs shrink-0"
+                >
+                  Personnaliser
+                </UButton>
+              </div>
+            </div>
 
             <!-- Notifications Push Section -->
             <div class="pt-5 border-t border-white/5 space-y-4">

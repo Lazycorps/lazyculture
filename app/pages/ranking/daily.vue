@@ -25,10 +25,11 @@
             class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
           >
             <div class="relative">
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="secondPlace.avatarUrl"
+                :frame="secondPlace.frameStyleKey"
                 size="lg"
-                class="bg-slate-300/10 text-slate-300 border-2 border-slate-400 shadow-lg group-hover:scale-105 transition-transform"
+                avatar-class="bg-slate-300/10 text-slate-300 border-2 border-slate-400 shadow-lg group-hover:scale-105 transition-transform"
               />
               <span
                 class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
@@ -67,10 +68,11 @@
               <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce"
                 >👑</span
               >
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="firstPlace.avatarUrl"
+                :frame="firstPlace.frameStyleKey"
                 size="xl"
-                class="bg-amber-500/10 text-amber-400 border-2 border-amber-400 shadow-neon group-hover:scale-105 transition-transform"
+                avatar-class="bg-amber-500/10 text-amber-400 border-2 border-amber-400 shadow-neon group-hover:scale-105 transition-transform"
               />
               <span
                 class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
@@ -106,10 +108,11 @@
             class="flex flex-col items-center space-y-3 group cursor-pointer w-full"
           >
             <div class="relative">
-              <UAvatar
-                icon="i-heroicons-user"
+              <UserAvatar
+                :src="thirdPlace.avatarUrl"
+                :frame="thirdPlace.frameStyleKey"
                 size="lg"
-                class="bg-amber-700/10 text-amber-600 border-2 border-amber-700/60 shadow-lg group-hover:scale-105 transition-transform"
+                avatar-class="bg-amber-700/10 text-amber-600 border-2 border-amber-700/60 shadow-lg group-hover:scale-105 transition-transform"
               />
               <span
                 class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
@@ -157,10 +160,11 @@
             >
               {{ index + 4 }}
             </span>
-            <UAvatar
-              icon="i-heroicons-user"
+            <UserAvatar
+              :src="userItem.avatarUrl"
+              :frame="userItem.frameStyleKey"
               size="sm"
-              class="bg-white/5 text-gray-400 border border-white/10"
+              avatar-class="bg-white/5 text-gray-400 border border-white/10"
             />
             <span class="font-bold text-sm text-gray-200 group-hover:text-white transition-colors">
               {{ userItem.userName || "Joueur Anonyme" }}

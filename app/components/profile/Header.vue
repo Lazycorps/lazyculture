@@ -2,11 +2,22 @@
   <div
     class="flex flex-col items-center sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 mb-6"
   >
-    <UAvatar
-      icon="i-heroicons-user"
-      size="xl"
-      class="bg-violet-600/20 text-violet-300 border-2 border-violet-500/30 w-20 h-20 shadow-neon"
-    />
+    <div class="relative shrink-0">
+      <UserAvatar
+        :src="avatarUrl"
+        :frame="frameStyleKey"
+        size="xl"
+        avatar-class="w-20 h-20 shadow-neon border-2"
+      />
+      <NuxtLink
+        v-if="isOwnProfile"
+        to="/user/avatars"
+        class="absolute -bottom-1 -right-1 flex items-center justify-center w-7 h-7 rounded-full bg-violet-600 text-white border-2 border-slate-950 hover:bg-violet-500 transition-colors shadow-neon"
+        title="Changer d'avatar"
+      >
+        <UIcon name="i-heroicons-pencil" class="text-sm" />
+      </NuxtLink>
+    </div>
     <div class="flex-1 text-center sm:text-left space-y-1.5 w-full">
       <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-3 gap-1">
         <h2 class="text-2xl font-black font-display text-white tracking-wide truncate">
@@ -77,11 +88,17 @@ const props = withDefaults(
     followersCount?: number | null;
     followingCount?: number | null;
     isFollowedBy?: boolean;
+    avatarUrl?: string | null;
+    frameStyleKey?: string | null;
+    isOwnProfile?: boolean;
   }>(),
   {
     followersCount: null,
     followingCount: null,
     isFollowedBy: false,
+    avatarUrl: null,
+    frameStyleKey: null,
+    isOwnProfile: false,
   },
 );
 

@@ -48,10 +48,11 @@
           to="/user/profil"
           class="flex items-center space-x-3 cursor-pointer group/profile -mx-2 -my-1 p-2 rounded-xl hover:bg-white/5 transition-all"
         >
-          <UAvatar
-            icon="i-heroicons-user"
+          <UserAvatar
+            :src="userProfile?.equippedAvatar?.imageUrl"
+            :frame="userProfile?.equippedFrame?.styleKey"
             size="md"
-            class="bg-violet-600/20 text-violet-300 border border-violet-500/30 group-hover/profile:border-violet-500/60 transition-colors"
+            avatar-class="group-hover/profile:border-violet-500/60 transition-colors"
           />
           <div class="overflow-hidden">
             <p
@@ -63,6 +64,13 @@
               Niveau {{ userProfile?.level || 1 }}
             </p>
           </div>
+          <span
+            v-if="userProfile?.Wallet"
+            class="ml-auto inline-flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-extrabold px-2 py-0.5 rounded-full font-display shrink-0"
+          >
+            <UIcon name="i-heroicons-circle-stack" class="text-sm" />
+            {{ userProfile.Wallet.coins }}
+          </span>
         </NuxtLink>
 
         <!-- Level Progress Jauge -->

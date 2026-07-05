@@ -2,11 +2,13 @@ import prisma from "~~/server/utils/prisma";
 import type { Question } from "@prisma/client";
 import { updateUserRank } from "./rankHelper";
 import { achievementService } from "~~/server/services/AchievementService";
+import { coinsFromXp, grantCoins } from "./walletHelper";
 
 export interface BRPlayer {
   userId: string;
   name: string;
-  avatar: string; // fallback or icon
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
   level: number;
   lives: number;
   lastAnsweredRound: number;
@@ -129,7 +131,8 @@ class BattleRoyaleManager {
             players: match.players.map((p) => ({
               userId: p.userId,
               name: p.name,
-              avatar: p.avatar,
+              avatarUrl: p.avatarUrl,
+              frameStyleKey: p.frameStyleKey,
               level: p.level,
               isOnline: p.isOnline,
               isReady: p.isReady,
@@ -150,7 +153,8 @@ class BattleRoyaleManager {
               players: match.players.map((p) => ({
                 userId: p.userId,
                 name: p.name,
-                avatar: p.avatar,
+                avatarUrl: p.avatarUrl,
+                frameStyleKey: p.frameStyleKey,
                 level: p.level,
                 lives: p.lives,
                 isOnline: p.isOnline,
@@ -321,7 +325,14 @@ class BattleRoyaleManager {
       try {
         const dbPlayer = await prisma.battleRoyalePlayer.findUnique({
           where: { matchId_userId: { matchId, userId } },
-          include: { user: true },
+          include: {
+            user: {
+              include: {
+                equippedAvatar: { select: { imageUrl: true } },
+                equippedFrame: { select: { styleKey: true } },
+              },
+            },
+          },
         });
         if (dbPlayer) {
           const progress = await prisma.userProgress.findUnique({
@@ -335,7 +346,8 @@ class BattleRoyaleManager {
           player = {
             userId,
             name: dbPlayer.user.name || "Joueur",
-            avatar: "🐢",
+            avatarUrl: dbPlayer.user.equippedAvatar?.imageUrl ?? null,
+            frameStyleKey: dbPlayer.user.equippedFrame?.styleKey ?? null,
             level,
             lives: dbPlayer.lives,
             lastAnsweredRound: dbPlayer.lastAnsweredRound,
@@ -368,7 +380,8 @@ class BattleRoyaleManager {
       players: match.players.map((p) => ({
         userId: p.userId,
         name: p.name,
-        avatar: p.avatar,
+        avatarUrl: p.avatarUrl,
+        frameStyleKey: p.frameStyleKey,
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
@@ -410,7 +423,8 @@ class BattleRoyaleManager {
       players: match.players.map((p) => ({
         userId: p.userId,
         name: p.name,
-        avatar: p.avatar,
+        avatarUrl: p.avatarUrl,
+        frameStyleKey: p.frameStyleKey,
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
@@ -459,11 +473,20 @@ class BattleRoyaleManager {
     });
     const rankPoints = brRank?.points || 0;
 
+    const cosmetics = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        equippedAvatar: { select: { imageUrl: true } },
+        equippedFrame: { select: { styleKey: true } },
+      },
+    });
+
     // Ajouter en mémoire
     match.players.push({
       userId: user.id,
       name: user.name,
-      avatar: "🐢",
+      avatarUrl: cosmetics?.equippedAvatar?.imageUrl ?? null,
+      frameStyleKey: cosmetics?.equippedFrame?.styleKey ?? null,
       level,
       lives: 3,
       lastAnsweredRound: -1,
@@ -649,7 +672,8 @@ class BattleRoyaleManager {
       players: match.players.map((p) => ({
         userId: p.userId,
         name: p.name,
-        avatar: p.avatar,
+        avatarUrl: p.avatarUrl,
+        frameStyleKey: p.frameStyleKey,
         level: p.level,
         isOnline: p.isOnline,
         isReady: p.isReady,
@@ -687,7 +711,8 @@ class BattleRoyaleManager {
         players: match.players.map((p) => ({
           userId: p.userId,
           name: p.name,
-          avatar: p.avatar,
+          avatarUrl: p.avatarUrl,
+          frameStyleKey: p.frameStyleKey,
           level: p.level,
           isOnline: p.isOnline,
           isReady: p.isReady,
@@ -993,6 +1018,9 @@ class BattleRoyaleManager {
         })
         .catch(console.error);
 
+      // Créditer les pièces du match (une seule fois, sur l'XP totale du match)
+      await grantCoins(player.userId, coinsFromXp(player.xpEarned)).catch(console.error);
+
       // Mettre à jour le classement compétitif (LP et rang)
       const rankUpdate = await updateUserRank(player.userId, rank, totalPlayers).catch((err) => {
         console.error("Erreur lors de la mise à jour du rang compétitif:", err);
@@ -1146,7 +1174,8 @@ class BattleRoyaleManager {
       players: match.players.map((p) => ({
         userId: p.userId,
         name: p.name,
-        avatar: p.avatar,
+        avatarUrl: p.avatarUrl,
+        frameStyleKey: p.frameStyleKey,
         level: p.level,
         lives: p.lives,
         isOnline: p.isOnline,

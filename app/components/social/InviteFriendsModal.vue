@@ -49,11 +49,7 @@
                 :model-value="selectedIds.includes(friend.userId)"
                 @update:model-value="toggleSelection(friend.userId)"
               />
-              <UAvatar
-                icon="i-heroicons-user"
-                size="sm"
-                class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
-              />
+              <UserAvatar :src="friend.avatarUrl" :frame="friend.frameStyleKey" size="sm" />
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-bold text-white truncate font-display">{{ friend.name }}</p>
                 <p class="text-[10px] text-gray-500 font-display uppercase tracking-wider">

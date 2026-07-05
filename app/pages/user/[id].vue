@@ -56,6 +56,8 @@
             :followers-count="profileData.social ? followersCount : null"
             :following-count="profileData.social ? profileData.social.followingCount : null"
             :is-followed-by="profileData.social?.isFollowedBy"
+            :avatar-url="profileData.user.avatarUrl"
+            :frame-style-key="profileData.user.frameStyleKey"
             @open-follow-modal="openFollowModal"
           />
 

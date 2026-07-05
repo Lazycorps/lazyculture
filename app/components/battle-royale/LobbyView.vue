@@ -100,11 +100,7 @@
           >
             <div class="flex items-center space-x-3">
               <div class="relative">
-                <UAvatar
-                  icon="i-heroicons-user"
-                  size="sm"
-                  class="bg-violet-600/20 text-violet-300 border border-violet-500/30"
-                />
+                <UserAvatar :src="p.avatarUrl" :frame="p.frameStyleKey" size="sm" />
                 <!-- Online Status Dot -->
                 <span
                   class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-slate-900 transition-colors"
@@ -168,7 +164,8 @@
 interface Player {
   userId: string;
   name: string;
-  avatar: string;
+  avatarUrl: string | null;
+  frameStyleKey: string | null;
   level: number;
   isOnline: boolean;
   isReady: boolean;

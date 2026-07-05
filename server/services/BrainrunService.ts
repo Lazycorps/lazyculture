@@ -7,6 +7,7 @@ import {
 } from "~~/server/services/QuestionService";
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
+import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
@@ -1249,6 +1250,7 @@ export class BrainrunService {
     });
     await updateUserProgress(run.userId, xpEarned);
     await grantKnowledgePoints(run.userId, knowledgePointsEarned);
+    await grantCoins(run.userId, coinsFromXp(xpEarned));
 
     const totalGames = await prisma.brainrunRun.count({
       where: { userId: run.userId, status: { in: ["WON", "LOST", "ABANDONED"] } },

@@ -8,7 +8,12 @@ export class RankingService {
   async getTopUsers(): Promise<UserRankingDTO[]> {
     const userProgress = await prisma.userProgress.findMany({
       include: {
-        user: true,
+        user: {
+          include: {
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
+          },
+        },
       },
       orderBy: [{ xp: "desc" }],
       take: 20,
@@ -40,6 +45,8 @@ export class RankingService {
         bestAscent:
           topUsersAscent?.filter((user) => user.userId == u.userId)[0]?._max.result?.toNumber() ??
           0,
+        avatarUrl: u.user.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: u.user.equippedFrame?.styleKey ?? null,
       });
     });
     return usersRanking;
@@ -54,6 +61,8 @@ export class RankingService {
             id: true,
             name: true,
             slug: true,
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
           },
         },
       },
@@ -73,6 +82,8 @@ export class RankingService {
         wins: rankRecord.wins,
         gamesPlayed: rankRecord.gamesPlayed,
         rankInfo,
+        avatarUrl: rankRecord.user?.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: rankRecord.user?.equippedFrame?.styleKey ?? null,
       };
     });
   }
@@ -86,6 +97,8 @@ export class RankingService {
             id: true,
             name: true,
             slug: true,
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
           },
         },
       },
@@ -105,6 +118,8 @@ export class RankingService {
         wins: rankRecord.wins,
         gamesPlayed: rankRecord.gamesPlayed,
         rankInfo,
+        avatarUrl: rankRecord.user?.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: rankRecord.user?.equippedFrame?.styleKey ?? null,
       };
     });
   }
@@ -142,6 +157,8 @@ export class RankingService {
           select: {
             id: true,
             name: true,
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
           },
         },
       },
@@ -161,15 +178,24 @@ export class RankingService {
     // 4. Calculer les podiums pour chaque série
     const userPodiums: Record<string, DailyPodiumRankingDTO> = {};
 
-    const getOrCreateUserPodium = (userId: string, name: string): DailyPodiumRankingDTO => {
+    const getOrCreateUserPodium = (
+      userId: string,
+      user: {
+        name: string;
+        equippedAvatar: { imageUrl: string } | null;
+        equippedFrame: { styleKey: string } | null;
+      },
+    ): DailyPodiumRankingDTO => {
       if (!userPodiums[userId]) {
         userPodiums[userId] = {
           userId,
-          name: name || "Anonyme",
+          name: user.name || "Anonyme",
           firstPlaces: 0,
           secondPlaces: 0,
           thirdPlaces: 0,
           score: 0,
+          avatarUrl: user.equippedAvatar?.imageUrl ?? null,
+          frameStyleKey: user.equippedFrame?.styleKey ?? null,
         };
       }
       return userPodiums[userId];
@@ -206,15 +232,15 @@ export class RankingService {
 
       // Distribuer les places de podium (top 3)
       if (sorted[0]) {
-        const up = getOrCreateUserPodium(sorted[0].userId, sorted[0].user.name);
+        const up = getOrCreateUserPodium(sorted[0].userId, sorted[0].user);
         up.firstPlaces++;
       }
       if (sorted[1]) {
-        const up = getOrCreateUserPodium(sorted[1].userId, sorted[1].user.name);
+        const up = getOrCreateUserPodium(sorted[1].userId, sorted[1].user);
         up.secondPlaces++;
       }
       if (sorted[2]) {
-        const up = getOrCreateUserPodium(sorted[2].userId, sorted[2].user.name);
+        const up = getOrCreateUserPodium(sorted[2].userId, sorted[2].user);
         up.thirdPlaces++;
       }
     }
