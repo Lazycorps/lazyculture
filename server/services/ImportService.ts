@@ -11,7 +11,105 @@ export type QuizzCultureRequestDTO = {
   difficulty: number;
 };
 
+export type QuizzQuipoQuizRequestDTO = {
+  body: any;
+  themes: string[];
+  difficulty: number;
+};
+
 export class ImportService {
+  async importQuipoQuiz(supabase: SupabaseClient, request: QuizzQuipoQuizRequestDTO) {
+    const { body, themes, difficulty } = request;
+
+    let quizEntries: any[] = [];
+    if (body.data && Array.isArray(body.data.quizEntries)) {
+      quizEntries = body.data.quizEntries;
+    } else if (Array.isArray(body.quizEntries)) {
+      quizEntries = body.quizEntries;
+    } else if (Array.isArray(body)) {
+      quizEntries = body;
+    } else if (body && typeof body === "object") {
+      quizEntries = [body];
+    }
+
+    const questionsToInsert: QuestionDataDTO[] = [];
+    const duplicates: string[] = [];
+
+    for (const entry of quizEntries) {
+      const questions_true_or_false = entry.questions_true_or_false || [];
+      for (const q of questions_true_or_false) {
+        const libelle = q.question_title?.trim();
+        if (!libelle) continue;
+
+        // Check for duplicate in DB (same title, active questions)
+        const exists = await prisma.question.findFirst({
+          where: {
+            deleted: false,
+            data: {
+              path: ["libelle"],
+              equals: libelle,
+            },
+          },
+        });
+
+        if (exists) {
+          duplicates.push(libelle);
+          continue;
+        }
+
+        const questionData = new QuestionDataDTO();
+        questionData.type = "boolean";
+        questionData.difficulty = difficulty;
+        questionData.theme = themes;
+        questionData.libelle = libelle;
+
+        // Strip HTML from explanation using JSDOM
+        const explanationHtml = q.anwser_explanation || q.answer_explanation || "";
+        const dom = new JSDOM(explanationHtml);
+        questionData.commentaire = dom.window.document.body.textContent?.trim() || "";
+
+        // Propose Vrai/Faux
+        questionData.propositions = [
+          { id: 1, value: "Vrai", img: "" },
+          { id: 2, value: "Faux", img: "" },
+        ];
+
+        // 1 for Vrai (true), 2 for Faux (false)
+        questionData.response = q.answer === true ? 1 : 2;
+
+        // Image URL
+        if (q.image && q.image.length > 0 && q.image[0].url) {
+          questionData.img = q.image[0].url;
+        }
+
+        questionsToInsert.push(questionData);
+      }
+    }
+
+    // Now upload images and persist
+    for (const question of questionsToInsert) {
+      if (question.img) {
+        try {
+          const imageName = crypto.randomUUID();
+          question.img = await this.downloadAndUploadImage(supabase, question.img, imageName);
+        } catch (imageError) {
+          console.error(`Failed to upload image for question: ${question.libelle}`, imageError);
+          question.img = "";
+        }
+      }
+    }
+
+    const insertedQuestions = await this.persistQuestions(questionsToInsert, "QuipoQuiz");
+
+    return {
+      success: true,
+      importedCount: insertedQuestions.length,
+      duplicateCount: duplicates.length,
+      questions: insertedQuestions,
+      duplicates,
+    };
+  }
+
   async importCultureQuizz(supabase: SupabaseClient, request: QuizzCultureRequestDTO) {
     const questions = await this.extractQuestionsData(request);
 

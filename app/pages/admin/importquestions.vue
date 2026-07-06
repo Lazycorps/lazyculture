@@ -317,7 +317,8 @@ ${questionsListText}
 4. Le champ "response" doit correspondre à l'id de la bonne proposition.
 5. "difficulty" doit être un entier entre 1 (très facile) et 5 (très difficile).
 6. Garde "img" et "commentaireImg" vides ("").
-7. L'explication dans "commentaire" ("commentaire") doit être intéressante et concise.`;
+7. L'explication dans "commentaire" ("commentaire") doit être intéressante et concise.
+8. Ne rien inventer et ne pas faire de traductions qui n'existent pas ou ne sont pas exactes (particulièrement pour les noms propres, jeux vidéo ou termes techniques dont la traduction française officielle n'existe pas ou diffère).`;
 
   navigator.clipboard.writeText(promptText);
   toast.add({

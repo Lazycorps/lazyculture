@@ -196,6 +196,15 @@
               >
                 Import CultureQuiz
               </UButton>
+              <UButton
+                to="/admin/import-quipoquiz"
+                color="neutral"
+                variant="subtle"
+                icon="i-heroicons-globe-alt"
+                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+              >
+                Import QuipoQuiz
+              </UButton>
             </div>
           </div>
         </UCard>
