@@ -51,7 +51,7 @@ export const BRAINRUN_DIFFICULTY_BY_ACT: Record<
   number,
   Record<"STANDARD" | "ELITE" | "BOSS", [number, number]>
 > = {
-  1: { STANDARD: [1, 3], ELITE: [1, 3], BOSS: [1, 3] },
+  1: { STANDARD: [1, 2], ELITE: [1, 2], BOSS: [1, 2] },
   2: { STANDARD: [2, 4], ELITE: [2, 4], BOSS: [2, 4] },
   3: { STANDARD: [3, 5], ELITE: [3, 5], BOSS: [3, 5] },
 };
