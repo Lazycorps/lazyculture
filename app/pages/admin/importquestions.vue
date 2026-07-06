@@ -286,7 +286,7 @@ function copyPromptWithQuestions() {
       ? existingQuestions.value.map((q) => `- ${q.libelle}`).join("\n")
       : "(Aucune question existante pour l'instant)";
 
-  const promptText = `Génère-moi une liste de nouvelles questions de culture générale uniques pour le thème "${themeName}" au format JSON strict (sans enrobage Markdown ni texte superflu, juste le tableau JSON brut commençant par [ et finissant par ]).
+  const promptText = `Génère-moi une liste de 20 nouvelles questions de culture générale uniques pour le thème "${themeName}" au format JSON strict (sans enrobage Markdown ni texte superflu, juste le tableau JSON brut commençant par [ et finissant par ]).
 
 Respecte scrupuleusement la structure de données suivante :
 [
@@ -312,7 +312,7 @@ Règles impératives :
 1. Ne génère pas de doublons. Voici la liste des questions qui existent déjà dans notre base de données pour ce thème et que tu ne dois PAS générer :
 ${questionsListText}
 
-2. Pour le type "choix", fournis exactement 4 propositions avec des id de 1 à 4.
+2. Pour le type "choix", fournis exactement 4 propositions avec des id de 1 à 4. Les différentes propositions fausses doivent être cohérentes (plausibles) et pas trop hors sujet.
 3. Pour le type "boolean", fournis exactement 2 propositions ("Vrai" avec id 1, et "Faux" avec id 2).
 4. Le champ "response" doit correspondre à l'id de la bonne proposition.
 5. "difficulty" doit être un entier entre 1 (très facile) et 5 (très difficile).
