@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
 
   if (action === "create") {
     match = await battleRoyaleManager.createNewMatch();
+  } else if (action === "replay" && targetMatchId) {
+    match = await battleRoyaleManager.getOrCreateReplayMatch(targetMatchId);
   } else if (action === "join" && targetMatchId) {
     match = battleRoyaleManager.getMatch(targetMatchId);
     if (!match || match.status !== "WAITING") {

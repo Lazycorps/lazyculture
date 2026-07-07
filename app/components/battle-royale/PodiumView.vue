@@ -225,22 +225,22 @@
         size="lg"
         color="primary"
         block
-        icon="i-heroicons-arrow-path"
-        class="font-black font-display uppercase tracking-widest py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
-        @click="$emit('leave')"
+        icon="i-heroicons-play"
+        class="font-black font-display uppercase tracking-widest py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all duration-300"
+        @click="$emit('replay')"
       >
-        Retour au Salon
+        Rejouer (Nouveau Salon)
       </UButton>
       <UButton
         size="lg"
         color="neutral"
-        variant="ghost"
+        variant="soft"
         block
         icon="i-heroicons-arrow-left-on-rectangle"
-        class="font-black font-display uppercase tracking-widest py-2 hover:bg-white/5"
-        to="/themes"
+        class="font-black font-display uppercase tracking-widest py-2.5"
+        @click="$emit('leave')"
       >
-        Retour aux Thèmes
+        Retour aux Salons
       </UButton>
     </div>
   </div>
@@ -269,6 +269,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "leave"): void;
+  (e: "replay"): void;
 }>();
 
 const isWinner = computed(() => {

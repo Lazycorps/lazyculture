@@ -50,10 +50,37 @@ export interface BRMatch {
 
 class BattleRoyaleManager {
   private activeMatches: Record<string, BRMatch> = {};
+  private replayMatches: Record<string, string> = {};
 
   constructor() {
     // Nettoyer les anciens salons orphelins après démarrage
     void this.cleanupOrphanedMatches();
+  }
+
+  /**
+   * Obtient ou crée un replay de match lié à un ancien match.
+   */
+  async getOrCreateReplayMatch(oldMatchId: string): Promise<BRMatch> {
+    const existingReplayId = this.replayMatches[oldMatchId];
+    if (existingReplayId) {
+      const match = this.getMatch(existingReplayId);
+      if (match && match.status === "WAITING") {
+        return match;
+      }
+    }
+
+    const match = await this.createNewMatch();
+    this.replayMatches[oldMatchId] = match.matchId;
+
+    // Nettoyer après 10 minutes pour libérer la mémoire
+    setTimeout(
+      () => {
+        delete this.replayMatches[oldMatchId];
+      },
+      10 * 60 * 1000,
+    );
+
+    return match;
   }
 
   private async cleanupOrphanedMatches() {

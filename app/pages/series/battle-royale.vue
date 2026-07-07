@@ -256,6 +256,7 @@
             :standings="standings"
             :myUserId="user.id"
             @leave="session.disconnect()"
+            @replay="handleReplay"
           />
 
           <!-- 4. Round Results Overlay (displays correction after round timeout) -->
@@ -411,7 +412,7 @@ onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
 
-async function joinArena(action: "create" | "join", targetMatchId?: string) {
+async function joinArena(action: "create" | "join" | "replay", targetMatchId?: string) {
   try {
     joining.value = true;
     stopLobbyPolling();
@@ -475,6 +476,16 @@ async function handleToggleReady(isReady: boolean) {
     });
   } catch (e) {
     console.error("Erreur lors de la modification du statut prêt :", e);
+  }
+}
+
+async function handleReplay() {
+  const oldMatchId = matchId.value;
+  session.disconnect();
+  if (oldMatchId) {
+    await joinArena("replay", oldMatchId);
+  } else {
+    await joinArena("create");
   }
 }
 
