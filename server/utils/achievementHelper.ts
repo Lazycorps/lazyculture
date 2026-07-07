@@ -27,19 +27,6 @@ type ActionType =
   | "brRankPoints"
   | "brStreak";
 
-// Conditions d'achievement
-interface AchievementCondition {
-  type: ActionType;
-  value: number;
-}
-
-// Définition d'un achievement avec ses conditions
-interface Achievement {
-  id: number;
-  title: string;
-  condition: AchievementCondition;
-}
-
 export async function checkAndAwardAchievements(
   userId: string,
   action: ActionType,
@@ -73,7 +60,7 @@ export async function checkAndAwardAchievements(
         title: achievement.title,
         userId: userId,
         xpEarned: achievement.xpEarned,
-        icon: "",
+        icon: achievement.icon,
       });
     }
   }

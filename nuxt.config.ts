@@ -72,7 +72,8 @@ export default defineNuxtConfig({
       theme_color: "#070a13",
       background_color: "#070a13",
       display: "standalone",
-      start_url: "/",
+      // Directement /themes : "/" est une redirection 307, ce qui ralentit chaque lancement
+      start_url: "/themes",
       scope: "/",
       orientation: "any",
       icons: [
@@ -100,14 +101,29 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: "/",
+      // SSR : pas de navigateFallback — les pages sont rendues par le serveur,
+      // un fallback vers "/" (non précaché) fait planter le service worker au démarrage
       cleanupOutdatedCaches: true,
       importScripts: ["/sw-push.js"],
+      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+      // latest.json sert à détecter les nouveaux déploiements : toujours depuis le réseau
+      globIgnores: ["**/_nuxt/builds/**"],
+      runtimeCaching: [
+        {
+          // Pages SSR : réseau d'abord, cache en secours (hors-ligne / réseau lent)
+          urlPattern: ({ request }: { request: any }) => request.mode === "navigate",
+          handler: "NetworkFirst",
+          options: {
+            cacheName: "pages",
+            networkTimeoutSeconds: 4,
+            expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 7 },
+          },
+        },
+      ],
     },
     devOptions: {
       enabled: true,
       type: "module",
-      navigateFallback: "/",
     },
   },
   css: ["~/assets/styles/main.css"],
