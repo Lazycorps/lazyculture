@@ -20,7 +20,12 @@ type ActionType =
   | "showdownGames"
   | "showdownWins"
   | "brainrunGames"
-  | "brainrunWins";
+  | "brainrunWins"
+  | "brPerfectWin"
+  | "brClutchWin"
+  | "brRounds"
+  | "brRankPoints"
+  | "brStreak";
 
 // Conditions d'achievement
 interface AchievementCondition {

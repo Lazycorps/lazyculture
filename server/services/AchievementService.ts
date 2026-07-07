@@ -164,7 +164,15 @@ export class AchievementService {
     return await checkAndAwardAchievements(userId, "dailySeriesStreak", currentStreak);
   }
 
-  async checkBattleRoyaleAchievements(userId: string) {
+  async checkBattleRoyaleAchievements(
+    userId: string,
+    playerStats?: {
+      lives: number;
+      roundsPlayed: number;
+      isWinner: boolean;
+      correctStreak: number;
+    },
+  ) {
     const brRank = await prisma.battleRoyaleRank.findUnique({
       where: { userId },
     });
@@ -178,7 +186,45 @@ export class AchievementService {
 
     const winsAchievement = await checkAndAwardAchievements(userId, "brWins", brRank.wins);
 
-    return [...gamesPlayedAchievement, ...winsAchievement];
+    const extraAchievements: UserAchievementDTO[] = [];
+
+    if (brRank.points !== undefined && brRank.points !== null) {
+      const pointsAchievements = await checkAndAwardAchievements(
+        userId,
+        "brRankPoints",
+        brRank.points,
+      );
+      extraAchievements.push(...pointsAchievements);
+    }
+
+    if (playerStats) {
+      if (playerStats.isWinner) {
+        if (playerStats.lives === 3) {
+          const perfectWin = await checkAndAwardAchievements(userId, "brPerfectWin", 1);
+          extraAchievements.push(...perfectWin);
+        }
+        if (playerStats.lives === 1) {
+          const clutchWin = await checkAndAwardAchievements(userId, "brClutchWin", 1);
+          extraAchievements.push(...clutchWin);
+        }
+      }
+
+      const roundAchievement = await checkAndAwardAchievements(
+        userId,
+        "brRounds",
+        playerStats.roundsPlayed,
+      );
+      extraAchievements.push(...roundAchievement);
+
+      const streakAchievement = await checkAndAwardAchievements(
+        userId,
+        "brStreak",
+        playerStats.correctStreak,
+      );
+      extraAchievements.push(...streakAchievement);
+    }
+
+    return [...gamesPlayedAchievement, ...winsAchievement, ...extraAchievements];
   }
 
   async checkShowdownAchievements(userId: string) {

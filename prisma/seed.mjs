@@ -1,434 +1,281 @@
-// Seed idempotent du catalogue de cosmétiques (avatars + cadres).
-// Lancement : npx prisma db seed  (ou node prisma/seed.mjs)
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const AVATARS = [
-  { name: "Tortue", imageUrl: "/avatars/tortue.svg", unlockType: "FREE", price: 0, sortOrder: 0 },
-  { name: "Renard", imageUrl: "/avatars/renard.svg", unlockType: "FREE", price: 0, sortOrder: 1 },
-  { name: "Robot", imageUrl: "/avatars/robot.svg", unlockType: "FREE", price: 0, sortOrder: 2 },
-  { name: "Fantôme", imageUrl: "/avatars/fantome.svg", unlockType: "FREE", price: 0, sortOrder: 3 },
-  { name: "Alien", imageUrl: "/avatars/alien.svg", unlockType: "COINS", price: 500, sortOrder: 4 },
+const achievementsData = [
+  // --- NOUVEAUX SUCCÈS BATTLE ROYALE ---
   {
-    name: "Dragon",
-    imageUrl: "/avatars/dragon.svg",
-    unlockType: "COINS",
-    price: 1500,
-    sortOrder: 5,
+    title: "L'Intouchable",
+    description: "Remporter une partie de Battle Royale en conservant ses 3 vies intactes.",
+    conditionType: "brPerfectWin",
+    conditionValue: 1,
+    xpEarned: 100,
+    icon: "",
+    hidden: false,
   },
   {
-    name: "Couronne",
-    imageUrl: "/avatars/couronne.svg",
-    unlockType: "ACHIEVEMENT",
-    price: 0,
-    sortOrder: 6,
+    title: "Sur le fil",
+    description: "Remporter une partie de Battle Royale avec seulement 1 vie restante.",
+    conditionType: "brClutchWin",
+    conditionValue: 1,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
   },
   {
-    name: "Paresseux Cozy",
-    imageUrl: "/images/avatars/avatar_1.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 7,
+    title: "Marathonien",
+    description: "Atteindre le Round 10 ou plus dans un match de Battle Royale.",
+    conditionType: "brRounds",
+    conditionValue: 10,
+    xpEarned: 30,
+    icon: "",
+    hidden: false,
   },
   {
-    name: "Koala Gamer",
-    imageUrl: "/images/avatars/avatar_2.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 8,
+    title: "Légende du Royale",
+    description: "Atteindre 1 000 LP (points de classement) en Battle Royale.",
+    conditionType: "brRankPoints",
+    conditionValue: 1000,
+    xpEarned: 150,
+    icon: "",
+    hidden: false,
   },
   {
-    name: "Panda Streamer",
-    imageUrl: "/images/avatars/avatar_3.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 9,
+    title: "Sniper intellectuel",
+    description: "Enchaîner une série de 8 bonnes réponses consécutives dans une Battle Royale.",
+    conditionType: "brStreak",
+    conditionValue: 8,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
   },
-  {
-    name: "Hibou Érudit",
-    imageUrl: "/images/avatars/avatar_4.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 10,
-  },
-  {
-    name: "Chat 'Cat-ch up'",
-    imageUrl: "/images/avatars/avatar_5.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 11,
-  },
-  {
-    name: "Renard Joyeux",
-    imageUrl: "/images/avatars/avatar_6.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 12,
-  },
-  {
-    name: "Chiot Champion",
-    imageUrl: "/images/avatars/avatar_7.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 13,
-  },
-  {
-    name: "Serpent Analyste",
-    imageUrl: "/images/avatars/avatar_8.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 14,
-  },
-  {
-    name: "Castor Noteur",
-    imageUrl: "/images/avatars/avatar_9.png",
-    unlockType: "FREE",
-    price: 0,
-    sortOrder: 15,
-  },
-  {
-    name: "Paresseux Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_1.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 16,
-  },
-  {
-    name: "Koala Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_2.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 17,
-  },
-  {
-    name: "Panda Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_3.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 18,
-  },
-  {
-    name: "Hibou Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_4.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 19,
-  },
-  {
-    name: "Chat Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_5.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 20,
-  },
-  {
-    name: "Renard Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_6.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 21,
-  },
-  {
-    name: "Chiot Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_7.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 22,
-  },
-  {
-    name: "Serpent Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_8.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 23,
-  },
-  {
-    name: "Castor Cyberpunk",
-    imageUrl: "/images/avatars/cyber_avatar_9.png",
-    unlockType: "COINS",
-    price: 500,
-    sortOrder: 24,
-  },
-  {
-    name: "Caneton Curieux",
-    imageUrl: "/images/avatars/achievement_avatar_1.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Bienvenue !",
-    price: 0,
-    sortOrder: 25,
-  },
-  {
-    name: "Hibou Savant",
-    imageUrl: "/images/avatars/achievement_avatar_2.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Maître des réponses",
-    price: 0,
-    sortOrder: 26,
-  },
-  {
-    name: "Hamster Distrait",
-    imageUrl: "/images/avatars/achievement_avatar_3.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Ça ira mieux la prochaine fois",
-    price: 0,
-    sortOrder: 27,
-  },
-  {
-    name: "Raton Novice",
-    imageUrl: "/images/avatars/achievement_avatar_4.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Aréniste",
-    price: 0,
-    sortOrder: 28,
-  },
-  {
-    name: "Chaton Momifié",
-    imageUrl: "/images/avatars/achievement_avatar_5.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Alzheimer",
-    price: 0,
-    sortOrder: 29,
-  },
-  {
-    name: "Guépard Assidu",
-    imageUrl: "/images/avatars/achievement_avatar_6.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Dépendance",
-    price: 0,
-    sortOrder: 30,
-  },
-  {
-    name: "Lion Couronné",
-    imageUrl: "/images/avatars/achievement_avatar_7.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Légende de l'arène",
-    price: 0,
-    sortOrder: 31,
-  },
-  {
-    name: "Raton Érudit",
-    imageUrl: "/images/avatars/achievement_avatar_8.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Gladiateur de l'arène",
-    price: 0,
-    sortOrder: 32,
-  },
-  {
-    name: "Raton Duelliste",
-    imageUrl: "/images/avatars/achievement_avatar_9.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Maître du Showdown",
-    price: 0,
-    sortOrder: 33,
-  },
-  {
-    name: "Écureuil Héroïque",
-    imageUrl: "/images/avatars/achievement_avatar_10.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Inoxtag",
-    price: 0,
-    sortOrder: 34,
-  },
-  {
-    name: "Renard Zen",
-    imageUrl: "/images/avatars/achievement_avatar_11.png",
-    unlockType: "ACHIEVEMENT",
-    achievementTitle: "Incollable",
-    price: 0,
-    sortOrder: 35,
-  },
-  {
-    name: "Paresseux Quiz Pro",
-    imageUrl: "/images/avatars/lazy_avatar_1.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 36,
-  },
-  {
-    name: "Koala Somnolent",
-    imageUrl: "/images/avatars/lazy_avatar_2.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 37,
-  },
-  {
-    name: "Panda Gamer Violet",
-    imageUrl: "/images/avatars/lazy_avatar_3.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 38,
-  },
-  {
-    name: "Panda Gamer Cyan",
-    imageUrl: "/images/avatars/lazy_avatar_4.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 39,
-  },
-  {
-    name: "Hibou Rêveur Brun",
-    imageUrl: "/images/avatars/lazy_avatar_5.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 40,
-  },
-  {
-    name: "Hibou Assoupi Orange",
-    imageUrl: "/images/avatars/lazy_avatar_6.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 41,
-  },
-  {
-    name: "Chat Gris Apaisé",
-    imageUrl: "/images/avatars/lazy_avatar_7.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 42,
-  },
-  {
-    name: "Chat Orange Apaisé",
-    imageUrl: "/images/avatars/lazy_avatar_8.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 43,
-  },
-  {
-    name: "Renard Quiz Master",
-    imageUrl: "/images/avatars/lazy_avatar_9.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 44,
-  },
-  {
-    name: "Castor Fatigué Bleu",
-    imageUrl: "/images/avatars/lazy_avatar_10.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 45,
-  },
-  {
-    name: "Abeille Endormie Jaune",
-    imageUrl: "/images/avatars/lazy_avatar_11.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 46,
-  },
-  {
-    name: "Abeille Somnolente Orange",
-    imageUrl: "/images/avatars/lazy_avatar_12.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 47,
-  },
-  {
-    name: "Crocodile Neon Gamer",
-    imageUrl: "/images/avatars/lazy_avatar_13.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 48,
-  },
-  {
-    name: "Castor Assoupi Blanc",
-    imageUrl: "/images/avatars/lazy_avatar_14.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 49,
-  },
-  {
-    name: "Castor Fatigué Jaune",
-    imageUrl: "/images/avatars/lazy_avatar_15.png",
-    unlockType: "COINS",
-    price: 300,
-    sortOrder: 50,
-  },
-];
 
-const FRAMES = [
-  { name: "Émeraude", styleKey: "emerald", unlockType: "FREE", price: 0, sortOrder: 0 },
-  { name: "Néon", styleKey: "neon", unlockType: "COINS", price: 500, sortOrder: 1 },
-  { name: "Cyan pulsant", styleKey: "cyan", unlockType: "COINS", price: 750, sortOrder: 2 },
-  { name: "Or", styleKey: "gold", unlockType: "COINS", price: 1000, sortOrder: 3 },
-  { name: "Flammes", styleKey: "fire", unlockType: "COINS", price: 2000, sortOrder: 4 },
-  { name: "Arc-en-ciel", styleKey: "rainbow", unlockType: "ACHIEVEMENT", price: 0, sortOrder: 5 },
-  { name: "Cyber Glitch", styleKey: "cyber", unlockType: "COINS", price: 1500, sortOrder: 6 },
+  // --- SUCCÈS PAR DÉFAUT / ANCIENS ---
+  // Réponses globales
   {
-    name: "Nébuleuse Cosmique",
-    styleKey: "cosmic",
-    unlockType: "COINS",
-    price: 2500,
-    sortOrder: 7,
+    title: "Premier mot",
+    description: "Répondre à 1 question.",
+    conditionType: "answer",
+    conditionValue: 1,
+    xpEarned: 10,
+    icon: "",
+    hidden: false,
   },
   {
-    name: "Portail de l'Abysse",
-    styleKey: "abyss",
-    unlockType: "COINS",
-    price: 3000,
-    sortOrder: 8,
+    title: "Bavard",
+    description: "Répondre à 100 questions.",
+    conditionType: "answer",
+    conditionValue: 100,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
   },
-  { name: "Éclat de Diamant", styleKey: "diamond", unlockType: "COINS", price: 4000, sortOrder: 9 },
+  {
+    title: "Encyclopédie vivante",
+    description: "Répondre à 1 000 questions.",
+    conditionType: "answer",
+    conditionValue: 1000,
+    xpEarned: 150,
+    icon: "",
+    hidden: false,
+  },
+
+  // Réponses correctes
+  {
+    title: "Bon départ",
+    description: "Donner 1 bonne réponse.",
+    conditionType: "answerCorrect",
+    conditionValue: 1,
+    xpEarned: 10,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Savant",
+    description: "Donner 100 bonnes réponses.",
+    conditionType: "answerCorrect",
+    conditionValue: 100,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Génie",
+    description: "Donner 500 bonnes réponses.",
+    conditionType: "answerCorrect",
+    conditionValue: 500,
+    xpEarned: 100,
+    icon: "",
+    hidden: false,
+  },
+
+  // Séries de réponses correctes (globales)
+  {
+    title: "Infaillible",
+    description: "Enchaîner 5 bonnes réponses.",
+    conditionType: "answerCorrectStreak",
+    conditionValue: 5,
+    xpEarned: 30,
+    icon: "",
+    hidden: false,
+  },
+
+  // Parties Battle Royale
+  {
+    title: "Nouveau Challenger",
+    description: "Jouer 1 partie en Battle Royale.",
+    conditionType: "brGames",
+    conditionValue: 1,
+    xpEarned: 10,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Habitué de l'arène",
+    description: "Jouer 10 parties en Battle Royale.",
+    conditionType: "brGames",
+    conditionValue: 10,
+    xpEarned: 30,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Vétéran du Royale",
+    description: "Jouer 50 parties en Battle Royale.",
+    conditionType: "brGames",
+    conditionValue: 50,
+    xpEarned: 80,
+    icon: "",
+    hidden: false,
+  },
+
+  // Victoires Battle Royale
+  {
+    title: "Premier Couronnement",
+    description: "Gagner 1 partie en Battle Royale.",
+    conditionType: "brWins",
+    conditionValue: 1,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Maître du Royale",
+    description: "Gagner 5 parties en Battle Royale.",
+    conditionType: "brWins",
+    conditionValue: 5,
+    xpEarned: 100,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Souverain incontesté",
+    description: "Gagner 25 parties en Battle Royale.",
+    conditionType: "brWins",
+    conditionValue: 25,
+    xpEarned: 250,
+    icon: "",
+    hidden: false,
+  },
+
+  // Showdown
+  {
+    title: "Duelliste novice",
+    description: "Jouer 1 partie de Showdown.",
+    conditionType: "showdownGames",
+    conditionValue: 1,
+    xpEarned: 10,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Adepte du duel",
+    description: "Jouer 10 parties de Showdown.",
+    conditionType: "showdownGames",
+    conditionValue: 10,
+    xpEarned: 30,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Premier triomphe",
+    description: "Gagner 1 partie de Showdown.",
+    conditionType: "showdownWins",
+    conditionValue: 1,
+    xpEarned: 30,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Champion des arènes",
+    description: "Gagner 10 parties de Showdown.",
+    conditionType: "showdownWins",
+    conditionValue: 10,
+    xpEarned: 100,
+    icon: "",
+    hidden: false,
+  },
+
+  // Brainrun
+  {
+    title: "Explorateur des méandres",
+    description: "Jouer 1 partie de Brainrun.",
+    conditionType: "brainrunGames",
+    conditionValue: 1,
+    xpEarned: 10,
+    icon: "",
+    hidden: false,
+  },
+  {
+    title: "Conquérant de l'esprit",
+    description: "Gagner 1 partie de Brainrun.",
+    conditionType: "brainrunWins",
+    conditionValue: 1,
+    xpEarned: 50,
+    icon: "",
+    hidden: false,
+  },
 ];
 
 async function main() {
-  // Les éléments "ACHIEVEMENT" sont rattachés au premier exploit existant par défaut
-  // ou résolus dynamiquement par titre.
-  const firstAchievement = await prisma.achievement.findFirst({ orderBy: { id: "asc" } });
-  if (!firstAchievement) {
-    console.warn("Aucun exploit en base : les cosmétiques liés à un exploit seront ignorés.");
-  }
+  console.log("Démarrage du seed des succès...");
 
-  for (const avatar of AVATARS) {
-    let achievementId = null;
-    if (avatar.unlockType === "ACHIEVEMENT") {
-      if (avatar.achievementTitle) {
-        const ach = await prisma.achievement.findFirst({
-          where: { title: avatar.achievementTitle },
-        });
-        if (ach) {
-          achievementId = ach.id;
-        } else if (firstAchievement) {
-          achievementId = firstAchievement.id;
-        }
-      } else if (firstAchievement) {
-        achievementId = firstAchievement.id;
-      }
-      if (!achievementId) continue;
-    }
+  // Récupérer les succès existants pour éviter les doublons
+  const existingAchievements = await prisma.achievement.findMany();
 
-    const { achievementTitle: _achievementTitle, ...avatarData } = avatar;
-    const data = {
-      ...avatarData,
-      achievementId,
-    };
+  for (const item of achievementsData) {
+    const existing = existingAchievements.find(
+      (a) => a.conditionType === item.conditionType && a.conditionValue === item.conditionValue,
+    );
 
-    const existing = await prisma.avatar.findFirst({ where: { name: avatar.name } });
     if (existing) {
-      await prisma.avatar.update({ where: { id: existing.id }, data });
+      await prisma.achievement.update({
+        where: { id: existing.id },
+        data: {
+          title: item.title,
+          description: item.description,
+          xpEarned: item.xpEarned,
+          icon: item.icon,
+          hidden: item.hidden,
+        },
+      });
+      console.log(`Mis à jour : ${item.title}`);
     } else {
-      await prisma.avatar.create({ data });
+      const created = await prisma.achievement.create({
+        data: item,
+      });
+      console.log(`Créé : ${created.title}`);
     }
   }
 
-  for (const frame of FRAMES) {
-    if (frame.unlockType === "ACHIEVEMENT" && !firstAchievement) continue;
-    const data = {
-      ...frame,
-      achievementId: frame.unlockType === "ACHIEVEMENT" ? firstAchievement.id : null,
-    };
-    await prisma.avatarFrame.upsert({
-      where: { styleKey: frame.styleKey },
-      update: data,
-      create: data,
-    });
-  }
-
-  console.log(`Seed cosmétiques terminé : ${AVATARS.length} avatars, ${FRAMES.length} cadres.`);
+  console.log("Seed des succès terminé avec succès !");
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("Erreur durant le seed :", e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

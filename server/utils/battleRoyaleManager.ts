@@ -20,6 +20,8 @@ export interface BRPlayer {
   isOnline: boolean;
   isReady: boolean;
   rankPoints: number;
+  correctStreak?: number;
+  maxCorrectStreak?: number;
 }
 
 export interface BRMatch {
@@ -367,6 +369,8 @@ class BattleRoyaleManager {
             isOnline: true,
             isReady: false,
             rankPoints,
+            correctStreak: 0,
+            maxCorrectStreak: 0,
           };
           match.players.push(player);
         }
@@ -488,6 +492,8 @@ class BattleRoyaleManager {
       isOnline: false, // Devient true lors de la connexion SSE
       isReady: false,
       rankPoints,
+      correctStreak: 0,
+      maxCorrectStreak: 0,
     });
 
     return true;
@@ -828,6 +834,13 @@ class BattleRoyaleManager {
       const answered = player.lastAnsweredRound === roundIndex;
       const correct = answered && player.selectedPropositionId === correctResponseId;
 
+      if (correct) {
+        player.correctStreak = (player.correctStreak || 0) + 1;
+        player.maxCorrectStreak = Math.max(player.maxCorrectStreak || 0, player.correctStreak);
+      } else {
+        player.correctStreak = 0;
+      }
+
       const livesBefore = player.lives;
       let livesAfter = livesBefore;
 
@@ -1042,7 +1055,12 @@ class BattleRoyaleManager {
 
       // Vérifier les exploits Battle Royale
       const unlockedAchievements = await achievementService
-        .checkBattleRoyaleAchievements(player.userId)
+        .checkBattleRoyaleAchievements(player.userId, {
+          lives: player.lives,
+          roundsPlayed: player.lives > 0 ? match.currentRound : player.eliminatedAtRound || 0,
+          isWinner: winnerId === player.userId,
+          correctStreak: player.maxCorrectStreak || 0,
+        })
         .catch((err) => {
           console.error("Erreur lors de la vérification des exploits Battle Royale:", err);
           return [];
