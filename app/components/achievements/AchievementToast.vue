@@ -4,15 +4,20 @@
   >
     <!-- Achievement Icon -->
     <div
-      class="w-14 h-14 rounded-xl bg-slate-900 border border-amber-500/40 flex items-center justify-center flex-shrink-0 shadow-neon"
+      class="w-14 h-14 flex items-center justify-center flex-shrink-0 overflow-hidden rounded-xl"
     >
       <img
         v-if="achievement?.icon"
         :src="achievement.icon"
         alt="Achievement Icon"
-        class="w-4/5 h-4/5 object-contain"
+        class="w-full h-full object-cover"
       />
-      <div v-else class="text-2xl">🏆</div>
+      <div
+        v-else
+        class="w-full h-full bg-slate-900 border border-amber-500/40 flex items-center justify-center text-2xl shadow-neon rounded-xl"
+      >
+        🏆
+      </div>
     </div>
 
     <!-- Text Content -->

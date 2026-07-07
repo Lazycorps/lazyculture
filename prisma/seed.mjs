@@ -10,7 +10,7 @@ const achievementsData = [
     conditionType: "brPerfectWin",
     conditionValue: 1,
     xpEarned: 100,
-    icon: "",
+    icon: "/images/achievements/achievement_25.webp",
     hidden: false,
   },
   {
@@ -19,7 +19,7 @@ const achievementsData = [
     conditionType: "brClutchWin",
     conditionValue: 1,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_26.webp",
     hidden: false,
   },
   {
@@ -28,7 +28,7 @@ const achievementsData = [
     conditionType: "brRounds",
     conditionValue: 10,
     xpEarned: 30,
-    icon: "",
+    icon: "/images/achievements/achievement_27.webp",
     hidden: false,
   },
   {
@@ -37,7 +37,7 @@ const achievementsData = [
     conditionType: "brRankPoints",
     conditionValue: 1000,
     xpEarned: 150,
-    icon: "",
+    icon: "/images/achievements/achievement_28.webp",
     hidden: false,
   },
   {
@@ -46,7 +46,7 @@ const achievementsData = [
     conditionType: "brStreak",
     conditionValue: 8,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_29.webp",
     hidden: false,
   },
 
@@ -58,7 +58,7 @@ const achievementsData = [
     conditionType: "answer",
     conditionValue: 1,
     xpEarned: 10,
-    icon: "",
+    icon: "/images/achievements/achievement_2.webp",
     hidden: false,
   },
   {
@@ -67,7 +67,7 @@ const achievementsData = [
     conditionType: "answer",
     conditionValue: 100,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_30.webp",
     hidden: false,
   },
   {
@@ -76,7 +76,7 @@ const achievementsData = [
     conditionType: "answer",
     conditionValue: 1000,
     xpEarned: 150,
-    icon: "",
+    icon: "/images/achievements/achievement_31.webp",
     hidden: false,
   },
 
@@ -87,7 +87,7 @@ const achievementsData = [
     conditionType: "answerCorrect",
     conditionValue: 1,
     xpEarned: 10,
-    icon: "",
+    icon: "/images/achievements/achievement_32.webp",
     hidden: false,
   },
   {
@@ -96,7 +96,7 @@ const achievementsData = [
     conditionType: "answerCorrect",
     conditionValue: 100,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_33.webp",
     hidden: false,
   },
   {
@@ -105,7 +105,7 @@ const achievementsData = [
     conditionType: "answerCorrect",
     conditionValue: 500,
     xpEarned: 100,
-    icon: "",
+    icon: "/images/achievements/achievement_34.webp",
     hidden: false,
   },
 
@@ -116,7 +116,7 @@ const achievementsData = [
     conditionType: "answerCorrectStreak",
     conditionValue: 5,
     xpEarned: 30,
-    icon: "",
+    icon: "/images/achievements/achievement_35.webp",
     hidden: false,
   },
 
@@ -127,7 +127,7 @@ const achievementsData = [
     conditionType: "brGames",
     conditionValue: 1,
     xpEarned: 10,
-    icon: "",
+    icon: "/images/achievements/achievement_17.webp",
     hidden: false,
   },
   {
@@ -136,7 +136,7 @@ const achievementsData = [
     conditionType: "brGames",
     conditionValue: 10,
     xpEarned: 30,
-    icon: "",
+    icon: "/images/achievements/achievement_18.webp",
     hidden: false,
   },
   {
@@ -145,7 +145,7 @@ const achievementsData = [
     conditionType: "brGames",
     conditionValue: 50,
     xpEarned: 80,
-    icon: "",
+    icon: "/images/achievements/achievement_36.webp",
     hidden: false,
   },
 
@@ -156,7 +156,7 @@ const achievementsData = [
     conditionType: "brWins",
     conditionValue: 1,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_19.webp",
     hidden: false,
   },
   {
@@ -165,7 +165,7 @@ const achievementsData = [
     conditionType: "brWins",
     conditionValue: 5,
     xpEarned: 100,
-    icon: "",
+    icon: "/images/achievements/achievement_20.webp",
     hidden: false,
   },
   {
@@ -174,7 +174,7 @@ const achievementsData = [
     conditionType: "brWins",
     conditionValue: 25,
     xpEarned: 250,
-    icon: "",
+    icon: "/images/achievements/achievement_37.webp",
     hidden: false,
   },
 
@@ -185,7 +185,7 @@ const achievementsData = [
     conditionType: "showdownGames",
     conditionValue: 1,
     xpEarned: 10,
-    icon: "",
+    icon: "/images/achievements/achievement_21.webp",
     hidden: false,
   },
   {
@@ -194,7 +194,7 @@ const achievementsData = [
     conditionType: "showdownGames",
     conditionValue: 10,
     xpEarned: 30,
-    icon: "",
+    icon: "/images/achievements/achievement_22.webp",
     hidden: false,
   },
   {
@@ -203,7 +203,7 @@ const achievementsData = [
     conditionType: "showdownWins",
     conditionValue: 1,
     xpEarned: 30,
-    icon: "",
+    icon: "/images/achievements/achievement_23.webp",
     hidden: false,
   },
   {
@@ -212,7 +212,7 @@ const achievementsData = [
     conditionType: "showdownWins",
     conditionValue: 10,
     xpEarned: 100,
-    icon: "",
+    icon: "/images/achievements/achievement_38.webp",
     hidden: false,
   },
 
@@ -223,7 +223,7 @@ const achievementsData = [
     conditionType: "brainrunGames",
     conditionValue: 1,
     xpEarned: 10,
-    icon: "",
+    icon: "/images/achievements/achievement_39.webp",
     hidden: false,
   },
   {
@@ -232,7 +232,7 @@ const achievementsData = [
     conditionType: "brainrunWins",
     conditionValue: 1,
     xpEarned: 50,
-    icon: "",
+    icon: "/images/achievements/achievement_40.webp",
     hidden: false,
   },
 ];

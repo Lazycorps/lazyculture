@@ -28,11 +28,11 @@
 
         <!-- Achievement Badge Container -->
         <div
-          class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md flex items-center justify-center cursor-help border transition-all duration-200 overflow-hidden"
+          class="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center cursor-help transition-all duration-200"
           :class="
             userHasAchievement(achievement.id)
-              ? 'bg-slate-900 border-amber-500/40 shadow-lg gold-glow scale-100 hover:scale-105'
-              : 'bg-slate-950/50 border-white/5 grayscale opacity-45 scale-95 hover:opacity-70 hover:scale-[0.98]'
+              ? 'scale-100 hover:scale-105'
+              : 'grayscale opacity-40 scale-95 hover:opacity-65 hover:scale-[0.98]'
           "
         >
           <!-- Badge Icon Image -->
