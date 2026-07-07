@@ -575,6 +575,7 @@
             <!-- Question card -->
             <div v-if="currentQuestion" class="space-y-4">
               <QuestionDisplay
+                :questionId="currentQuestion.id"
                 :libelle="currentQuestion.libelle"
                 :img="currentQuestion.img"
                 :themes="[]"

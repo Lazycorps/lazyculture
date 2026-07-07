@@ -97,6 +97,7 @@
 
     <!-- Question card content -->
     <QuestionDisplay
+      :questionId="question.id"
       :libelle="question.libelle"
       :img="question.img"
       :themes="question.themes"

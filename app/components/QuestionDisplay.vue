@@ -43,7 +43,12 @@
       </div>
 
       <!-- Options / Propositions list -->
-      <TransitionGroup tag="div" name="option-swap" class="flex flex-col gap-1.5 py-0.5 w-full">
+      <TransitionGroup
+        :key="questionId"
+        tag="div"
+        name="option-swap"
+        class="flex flex-col gap-1.5 py-0.5 w-full"
+      >
         <button
           v-for="proposition in propositions"
           :key="`${questionId}-${proposition.id}`"
