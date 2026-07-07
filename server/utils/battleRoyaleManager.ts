@@ -128,16 +128,7 @@ class BattleRoyaleManager {
         if (match.status === "WAITING") {
           this.checkLobbyCountdown(matchId);
           this.broadcast(matchId, "lobby_update", {
-            players: match.players.map((p) => ({
-              userId: p.userId,
-              name: p.name,
-              avatarUrl: p.avatarUrl,
-              frameStyleKey: p.frameStyleKey,
-              level: p.level,
-              isOnline: p.isOnline,
-              isReady: p.isReady,
-              rankPoints: p.rankPoints || 0,
-            })),
+            players: this.getPlayersState(match),
             countdown: match.countdown,
             isCountdownRunning: !!match.countdownInterval,
           });
@@ -150,17 +141,7 @@ class BattleRoyaleManager {
             void this.endMatch(matchId, null);
           } else {
             this.broadcast(matchId, "lobby_update", {
-              players: match.players.map((p) => ({
-                userId: p.userId,
-                name: p.name,
-                avatarUrl: p.avatarUrl,
-                frameStyleKey: p.frameStyleKey,
-                level: p.level,
-                lives: p.lives,
-                isOnline: p.isOnline,
-                isReady: p.isReady,
-                rankPoints: p.rankPoints || 0,
-              })),
+              players: this.getPlayersState(match),
             });
           }
         }
@@ -377,16 +358,7 @@ class BattleRoyaleManager {
 
     // Diffuser la mise à jour du lobby
     this.broadcast(matchId, "lobby_update", {
-      players: match.players.map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        avatarUrl: p.avatarUrl,
-        frameStyleKey: p.frameStyleKey,
-        level: p.level,
-        isOnline: p.isOnline,
-        isReady: p.isReady,
-        rankPoints: p.rankPoints || 0,
-      })),
+      players: this.getPlayersState(match),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
     });
@@ -420,16 +392,7 @@ class BattleRoyaleManager {
     this.checkLobbyCountdown(matchId);
 
     this.broadcast(matchId, "lobby_update", {
-      players: match.players.map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        avatarUrl: p.avatarUrl,
-        frameStyleKey: p.frameStyleKey,
-        level: p.level,
-        isOnline: p.isOnline,
-        isReady: p.isReady,
-        rankPoints: p.rankPoints || 0,
-      })),
+      players: this.getPlayersState(match),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
     });
@@ -544,6 +507,9 @@ class BattleRoyaleManager {
     this.broadcast(matchId, "answers_progress", {
       answersCount,
       aliveCount,
+      answeredUserIds: match.players
+        .filter((p) => p.lives > 0 && p.lastAnsweredRound === match.currentRound)
+        .map((p) => p.userId),
     });
 
     // Si tout le monde a répondu avant la fin du chrono, on accélère la fin du round !
@@ -669,16 +635,7 @@ class BattleRoyaleManager {
 
     // Diffuser la mise à jour
     this.broadcast(matchId, "lobby_update", {
-      players: match.players.map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        avatarUrl: p.avatarUrl,
-        frameStyleKey: p.frameStyleKey,
-        level: p.level,
-        isOnline: p.isOnline,
-        isReady: p.isReady,
-        rankPoints: p.rankPoints || 0,
-      })),
+      players: this.getPlayersState(match),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
     });
@@ -708,16 +665,7 @@ class BattleRoyaleManager {
     if (match.players.length < 2) {
       match.status = "WAITING";
       this.broadcast(matchId, "lobby_update", {
-        players: match.players.map((p) => ({
-          userId: p.userId,
-          name: p.name,
-          avatarUrl: p.avatarUrl,
-          frameStyleKey: p.frameStyleKey,
-          level: p.level,
-          isOnline: p.isOnline,
-          isReady: p.isReady,
-          rankPoints: p.rankPoints || 0,
-        })),
+        players: this.getPlayersState(match),
         countdown: match.countdown,
         isCountdownRunning: !!match.countdownInterval,
       });
@@ -905,12 +853,36 @@ class BattleRoyaleManager {
         .catch(console.error);
     }
 
+    // Trouver le joueur ayant répondu correctement le plus rapidement
+    const correctPlayers = match.players.filter(
+      (p) =>
+        p.lastAnsweredRound === roundIndex &&
+        p.lastAnswerCorrect === true &&
+        p.lastAnswerTime !== null,
+    );
+
+    let fastestPlayer: { userId: string; name: string; timeTaken: number } | null = null;
+    if (correctPlayers.length > 0 && match.currentQuestionStart) {
+      correctPlayers.sort((a, b) => a.lastAnswerTime!.getTime() - b.lastAnswerTime!.getTime());
+      const fastest = correctPlayers[0]!;
+      const timeTaken = Math.max(
+        0,
+        (fastest.lastAnswerTime!.getTime() - match.currentQuestionStart.getTime()) / 1000,
+      );
+      fastestPlayer = {
+        userId: fastest.userId,
+        name: fastest.name,
+        timeTaken,
+      };
+    }
+
     // 2. Diffuser les résultats du round
     this.broadcast(matchId, "round_ended", {
       round: roundIndex,
       correctAnswerId: correctResponseId,
       commentaire: match.currentQuestionCommentaire,
       results: roundResults,
+      fastestPlayer,
     });
 
     // 3. Vérifier les conditions de fin de match
@@ -1155,6 +1127,21 @@ class BattleRoyaleManager {
     });
   }
 
+  private getPlayersState(match: BRMatch) {
+    return match.players.map((p) => ({
+      userId: p.userId,
+      name: p.name,
+      avatarUrl: p.avatarUrl,
+      frameStyleKey: p.frameStyleKey,
+      level: p.level,
+      lives: p.lives,
+      isOnline: p.isOnline,
+      isReady: p.isReady,
+      hasAnswered: p.lastAnsweredRound === match.currentRound,
+      rankPoints: p.rankPoints || 0,
+    }));
+  }
+
   /**
    * Retourne un état de la partie adapté à un utilisateur spécifique (pour éviter la triche).
    */
@@ -1171,18 +1158,7 @@ class BattleRoyaleManager {
         : null,
       myLives: player ? player.lives : 0,
       myStatus: player ? (player.lives <= 0 ? "SPECTATOR" : "ALIVE") : "SPECTATOR",
-      players: match.players.map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        avatarUrl: p.avatarUrl,
-        frameStyleKey: p.frameStyleKey,
-        level: p.level,
-        lives: p.lives,
-        isOnline: p.isOnline,
-        isReady: p.isReady,
-        hasAnswered: p.lastAnsweredRound === match.currentRound,
-        rankPoints: p.rankPoints || 0,
-      })),
+      players: this.getPlayersState(match),
       countdown: match.countdown,
       isCountdownRunning: !!match.countdownInterval,
     };

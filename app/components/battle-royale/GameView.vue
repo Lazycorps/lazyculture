@@ -120,8 +120,11 @@
           :key="p.userId"
           class="flex items-center space-x-2.5 p-2 rounded-xl border bg-slate-950/20"
           :class="[
-            p.lives <= 0 ? 'border-red-950 opacity-40' : 'border-white/5',
-            p.hasAnswered ? 'bg-emerald-950/10 border-emerald-500/20' : '',
+            p.lives <= 0
+              ? 'border-red-950 opacity-40'
+              : p.hasAnswered
+                ? 'bg-emerald-950/20 border-emerald-500'
+                : 'border-white/5',
           ]"
         >
           <!-- User Status (Lives vs Dead) -->

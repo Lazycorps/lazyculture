@@ -265,6 +265,7 @@
             :correctAnswerId="lastRoundResults.correctAnswerId"
             :commentaire="lastRoundResults.commentaire"
             :results="lastRoundResults.results"
+            :fastestPlayer="lastRoundResults.fastestPlayer"
             :question="currentQuestion"
             :myUserId="user.id"
           />

@@ -44,6 +44,31 @@
         </div>
       </div>
 
+      <!-- Fastest Player Highlight -->
+      <div
+        v-if="fastestPlayer"
+        class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+      >
+        <div class="flex items-center space-x-2.5">
+          <span class="text-xl animate-bounce">⚡</span>
+          <div class="text-left">
+            <p class="text-[9px] font-black uppercase text-amber-400 tracking-wider">
+              Le plus rapide
+            </p>
+            <p class="text-xs font-black text-white">
+              {{ fastestPlayer.name }}
+            </p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span
+            class="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20"
+          >
+            {{ fastestPlayer.timeTaken.toFixed(2) }}s
+          </span>
+        </div>
+      </div>
+
       <!-- Elimination / Survivorship Live Feed -->
       <div class="space-y-2">
         <h4 class="text-[10px] font-black uppercase text-gray-400 tracking-wider">
@@ -123,6 +148,12 @@ interface QuestionData {
   propositions: Proposition[];
 }
 
+interface FastestPlayer {
+  userId: string;
+  name: string;
+  timeTaken: number;
+}
+
 const props = defineProps<{
   round: number;
   correctAnswerId: number;
@@ -130,6 +161,7 @@ const props = defineProps<{
   results: RoundResult[];
   question: QuestionData;
   myUserId: string;
+  fastestPlayer?: FastestPlayer | null;
 }>();
 
 // Trouver le résultat de l'utilisateur connecté

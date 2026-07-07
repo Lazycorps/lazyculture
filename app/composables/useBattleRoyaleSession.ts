@@ -88,8 +88,8 @@ export const useBattleRoyaleSession = () => {
       const data = JSON.parse(event.data);
       players.value = data.players.map((p: any) => ({
         ...p,
-        lives: 3,
-        hasAnswered: false,
+        lives: p.lives !== undefined ? p.lives : 3,
+        hasAnswered: p.hasAnswered !== undefined ? p.hasAnswered : false,
       }));
       countdown.value = data.countdown;
       isCountdownRunning.value = data.isCountdownRunning || false;
@@ -128,9 +128,10 @@ export const useBattleRoyaleSession = () => {
 
       answersCount.value = 0;
       aliveCount.value = players.value.filter((p) => p.lives > 0).length;
-      players.value.forEach((p) => {
-        p.hasAnswered = false;
-      });
+      players.value = players.value.map((p) => ({
+        ...p,
+        hasAnswered: false,
+      }));
     });
 
     // Answers progress
@@ -138,6 +139,12 @@ export const useBattleRoyaleSession = () => {
       const data = JSON.parse(event.data);
       answersCount.value = data.answersCount;
       aliveCount.value = data.aliveCount;
+      if (data.answeredUserIds) {
+        players.value = players.value.map((p) => ({
+          ...p,
+          hasAnswered: data.answeredUserIds.includes(p.userId),
+        }));
+      }
     });
 
     // Round ended
