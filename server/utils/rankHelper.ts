@@ -97,27 +97,34 @@ export function getRankFromPoints(points: number): RankInfo {
 export function calculateLPGainOrLoss(rank: number, totalPlayers: number): number {
   if (totalPlayers <= 1) return 0;
 
-  // Le vainqueur gagne un bonus substantiel dépendant du nombre total de joueurs
-  if (rank === 1) {
-    return 30 + totalPlayers * 2;
-  }
+  // Points maximums et minimums de base escaladés par rapport au nombre de joueurs
+  const maxLP = 15 + totalPlayers * 1.5;
+  const minLP = -(5 + totalPlayers * 1.0);
 
-  // Position relative entre 0 (dernier) et 1 (premier exclu, car rank > 1)
+  // Position relative du joueur: 1 pour le premier (excluant bonus de victoire), 0 pour le dernier
   const relativePosition = (totalPlayers - rank) / (totalPlayers - 1);
 
-  if (relativePosition >= 0.5) {
-    // Moitié supérieure : gain modéré (0 à +15 LP)
-    return Math.round(15 * (relativePosition - 0.5) * 2);
-  } else {
-    // Moitié inférieure : perte modérée à forte (0 à -25 LP)
-    return Math.round(-25 * (0.5 - relativePosition) * 2);
+  // Calcul linéaire des LP de base
+  let lp = minLP + (maxLP - minLP) * relativePosition;
+
+  // Ajouter un bonus de victoire pour la 1ère place
+  if (rank === 1) {
+    const winBonus = 5 + totalPlayers * 0.5;
+    lp += winBonus;
   }
+
+  return Math.round(lp);
 }
 
 /**
  * Met à jour le classement compétitif d'un utilisateur après un match.
  */
-export async function updateUserRank(userId: string, matchRank: number, totalPlayers: number) {
+export async function updateUserRank(
+  userId: string,
+  matchRank: number,
+  totalPlayers: number,
+  lobbyAvgPoints?: number,
+) {
   // 1. Récupérer ou initialiser le classement compétitif de l'utilisateur
   let brRank = await prisma.battleRoyaleRank.findUnique({
     where: { userId },
@@ -135,7 +142,15 @@ export async function updateUserRank(userId: string, matchRank: number, totalPla
   }
 
   const oldPoints = brRank.points;
-  const lpChange = calculateLPGainOrLoss(matchRank, totalPlayers);
+  let lpChange = calculateLPGainOrLoss(matchRank, totalPlayers);
+
+  // Ajustement Elo basé sur l'écart de niveau avec la moyenne du lobby
+  if (lobbyAvgPoints !== undefined) {
+    const diff = lobbyAvgPoints - oldPoints;
+    // Ajustement de 5% de la différence de LP, borné entre -10 et +10 LP
+    const ratingAdjustment = Math.max(-10, Math.min(10, Math.round(diff * 0.05)));
+    lpChange += ratingAdjustment;
+  }
 
   // Les LP ne peuvent pas descendre en dessous de 0
   let newPoints = Math.max(0, oldPoints + lpChange);

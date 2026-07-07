@@ -44,7 +44,7 @@ describe("rankHelper - updateUserRank Protection Logic (Battle Royale)", () => {
       });
     });
 
-    const result = await updateUserRank("user_test", 10, 10);
+    const result = await updateUserRank("user_test", 20, 20);
 
     expect(result.oldPoints).toBe(420);
     expect(result.newPoints).toBe(400); // Capped at division base (Silver II)
@@ -74,7 +74,7 @@ describe("rankHelper - updateUserRank Protection Logic (Battle Royale)", () => {
       });
     });
 
-    const result = await updateUserRank("user_test", 10, 10);
+    const result = await updateUserRank("user_test", 20, 20);
 
     expect(result.oldPoints).toBe(400);
     expect(result.newPoints).toBe(375); // Demoted
@@ -83,6 +83,72 @@ describe("rankHelper - updateUserRank Protection Logic (Battle Royale)", () => {
     expect(result.newRank.tier).toBe("Silver");
     expect(result.newRank.division).toBe("III");
     expect(result.newRank.pointsInDivision).toBe(75);
+  });
+
+  it("should apply positive lobby rating adjustment (underdog bonus)", async () => {
+    const oldPoints = 420; // Silver II (base 400, pointsInDivision 20)
+
+    (prisma.battleRoyaleRank.findUnique as any).mockResolvedValue({
+      userId: "user_test",
+      points: oldPoints,
+      wins: 10,
+      gamesPlayed: 20,
+    });
+
+    (prisma.battleRoyaleRank.update as any).mockImplementation(({ data }: any) => {
+      return Promise.resolve({
+        userId: "user_test",
+        points: data.points,
+        wins: 10,
+        gamesPlayed: 21,
+      });
+    });
+
+    // rank 20/20 is -25 LP of base loss. Lobby average is 620 LP.
+    // diff = 620 - 420 = +200 LP. adjustment = +10 LP.
+    // net loss = -25 + 10 = -15 LP.
+    const result = await updateUserRank("user_test", 20, 20, 620);
+
+    expect(result.oldPoints).toBe(420);
+    expect(result.newPoints).toBe(405);
+    expect(result.lpChange).toBe(-15);
+    expect(result.isDemoted).toBe(false);
+    expect(result.newRank.tier).toBe("Silver");
+    expect(result.newRank.division).toBe("II");
+    expect(result.newRank.pointsInDivision).toBe(5);
+  });
+
+  it("should apply negative lobby rating adjustment (favorite penalty)", async () => {
+    const oldPoints = 650; // Gold III (base 600, pointsInDivision 50)
+
+    (prisma.battleRoyaleRank.findUnique as any).mockResolvedValue({
+      userId: "user_test",
+      points: oldPoints,
+      wins: 10,
+      gamesPlayed: 20,
+    });
+
+    (prisma.battleRoyaleRank.update as any).mockImplementation(({ data }: any) => {
+      return Promise.resolve({
+        userId: "user_test",
+        points: data.points,
+        wins: 10,
+        gamesPlayed: 21,
+      });
+    });
+
+    // rank 20/20 is -25 LP of base loss. Lobby average is 450 LP.
+    // diff = 450 - 650 = -200 LP. adjustment = -10 LP.
+    // net loss = -25 - 10 = -35 LP.
+    const result = await updateUserRank("user_test", 20, 20, 450);
+
+    expect(result.oldPoints).toBe(650);
+    expect(result.newPoints).toBe(615);
+    expect(result.lpChange).toBe(-35);
+    expect(result.isDemoted).toBe(false);
+    expect(result.newRank.tier).toBe("Gold");
+    expect(result.newRank.division).toBe("III");
+    expect(result.newRank.pointsInDivision).toBe(15);
   });
 });
 

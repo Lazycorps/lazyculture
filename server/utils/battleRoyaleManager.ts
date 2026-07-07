@@ -984,6 +984,15 @@ class BattleRoyaleManager {
 
     const totalPlayers = sortedPlayers.length;
 
+    // Calculer la moyenne des LP de départ du lobby
+    const validRankPoints = sortedPlayers
+      .map((p) => p.rankPoints)
+      .filter((pts): pts is number => typeof pts === "number" && !isNaN(pts));
+    const lobbyAvgPoints =
+      validRankPoints.length > 0
+        ? validRankPoints.reduce((sum, pts) => sum + pts, 0) / validRankPoints.length
+        : undefined;
+
     // Attribuer les bonus proportionnels au nombre de joueurs, au classement, et aux rounds joués
     for (let i = 0; i < totalPlayers; i++) {
       const player = sortedPlayers[i]!;
@@ -1021,7 +1030,12 @@ class BattleRoyaleManager {
       await grantCoins(player.userId, coinsFromXp(player.xpEarned)).catch(console.error);
 
       // Mettre à jour le classement compétitif (LP et rang)
-      const rankUpdate = await updateUserRank(player.userId, rank, totalPlayers).catch((err) => {
+      const rankUpdate = await updateUserRank(
+        player.userId,
+        rank,
+        totalPlayers,
+        lobbyAvgPoints,
+      ).catch((err) => {
         console.error("Erreur lors de la mise à jour du rang compétitif:", err);
         return null;
       });
