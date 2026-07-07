@@ -77,20 +77,25 @@
     <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
       ref="actionBarRef"
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-all duration-300"
-      :class="
+      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300"
+      :class="[
+        revealed
+          ? showComment
+            ? 'p-3 md:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]'
+            : 'p-2.5 md:p-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
+          : 'p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
         revealed
           ? isCorrect
             ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
             : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
-          : 'bg-slate-950/80 border-white/10'
-      "
+          : 'bg-slate-950/80 border-white/10',
+      ]"
     >
       <div class="max-w-xl mx-auto w-full flex flex-col">
         <div class="w-full">
-          <div v-if="revealed" class="flex items-start space-x-3 md:space-x-4">
+          <div v-if="revealed" class="flex items-start space-x-2.5 md:space-x-3 mb-2 md:mb-3">
             <div
-              class="w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center text-lg md:text-xl flex-shrink-0"
+              class="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-sm md:text-base flex-shrink-0"
               :class="
                 isCorrect
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
@@ -102,13 +107,22 @@
             </div>
             <div class="space-y-0.5 min-w-0 flex-1">
               <h4
-                class="font-black font-display text-base tracking-wide flex items-center justify-between"
+                class="font-black font-display text-sm tracking-wide flex items-center justify-between"
                 :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
               >
                 <span>{{ isCorrect ? "Bravo !" : "Incorrect" }}</span>
+                <UButton
+                  variant="ghost"
+                  :color="isCorrect ? 'success' : 'error'"
+                  size="xs"
+                  class="p-1 -mr-1"
+                  :icon="showComment ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                  @click="toggleComment"
+                />
               </h4>
               <div
-                class="max-h-[20dvh] md:max-h-28 overflow-y-auto pr-2 custom-scrollbar select-text mb-3"
+                v-show="showComment"
+                class="max-h-[20dvh] md:max-h-28 overflow-y-auto pr-2 custom-scrollbar select-text"
               >
                 <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
                   {{
@@ -135,8 +149,9 @@
           </UButton>
           <UButton
             v-else
-            size="lg"
-            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+            :size="showComment ? 'lg' : 'md'"
+            class="w-full font-black font-display uppercase tracking-widest justify-center shadow-lg transition-all duration-300"
+            :class="showComment ? 'py-2.5 md:py-3.5' : 'py-2 md:py-2.5 text-xs md:text-sm'"
             :color="revealed ? (isCorrect ? 'success' : 'error') : 'neutral'"
             :loading="!revealed"
             :disabled="!revealed"
@@ -340,7 +355,18 @@ const bossRevivedFlash = useState("brainrun-boss-revived-flash", () => false);
 const actionBarHeight = ref(96);
 let actionBarObserver: ResizeObserver | null = null;
 
+const showComment = ref(true);
+
+function toggleComment() {
+  showComment.value = !showComment.value;
+  localStorage.setItem("lazyculture-show-comment", String(showComment.value));
+}
+
 onMounted(() => {
+  const saved = localStorage.getItem("lazyculture-show-comment");
+  if (saved !== null) {
+    showComment.value = saved === "true";
+  }
   showBottomNav.value = false;
   if (actionBarRef.value) {
     actionBarObserver = new ResizeObserver(() => {

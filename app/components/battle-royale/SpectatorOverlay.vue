@@ -28,16 +28,27 @@
 
       <!-- Correction Display -->
       <div class="bg-white/5 border border-white/15 rounded-xl p-3.5 space-y-2">
-        <div class="flex items-center text-xs font-bold text-emerald-400">
-          <UIcon name="i-heroicons-check-circle" class="mr-1 text-base" />
-          Bonne réponse :
+        <div class="flex items-center justify-between text-xs font-bold text-emerald-400 w-full">
+          <div class="flex items-center">
+            <UIcon name="i-heroicons-check-circle" class="mr-1 text-base" />
+            Bonne réponse :
+          </div>
+          <UButton
+            v-if="commentaire"
+            variant="ghost"
+            color="success"
+            size="xs"
+            class="p-0.5 -mr-1"
+            :icon="showComment ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+            @click="toggleComment"
+          />
         </div>
         <p class="text-sm font-black text-white leading-relaxed">
           {{ correctAnswerText }}
         </p>
-        <hr v-if="commentaire" class="border-white/5 my-2" />
+        <hr v-if="commentaire && showComment" class="border-white/5 my-2" />
         <div
-          v-if="commentaire"
+          v-show="commentaire && showComment"
           class="max-h-24 overflow-y-auto pr-1 text-xs text-gray-300 leading-relaxed custom-scrollbar"
         >
           {{ commentaire }}
@@ -221,7 +232,18 @@ const statusTextClass = computed(() => {
   return "text-rose-400";
 });
 
+const showComment = ref(true);
+
+function toggleComment() {
+  showComment.value = !showComment.value;
+  localStorage.setItem("lazyculture-show-comment", String(showComment.value));
+}
+
 onMounted(() => {
+  const saved = localStorage.getItem("lazyculture-show-comment");
+  if (saved !== null) {
+    showComment.value = saved === "true";
+  }
   if (isCorrect.value) {
     const { playSound } = useAudio();
     playSound("response-success");
