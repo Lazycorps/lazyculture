@@ -105,7 +105,11 @@ export default defineNuxtConfig({
       // un fallback vers "/" (non précaché) fait planter le service worker au démarrage
       cleanupOutdatedCaches: true,
       importScripts: ["/sw-push.js"],
-      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+      // Precache limité à ce qui accélère le lancement : code, polices et icônes racine.
+      // Les images (achievements, etc.) sont cachées à la demande via runtimeCaching,
+      // sinon chaque nouvel utilisateur télécharge tout /images en arrière-plan et
+      // chaque ajout d'image déclenche le prompt de mise à jour chez tout le monde.
+      globPatterns: ["**/*.{js,css,html,woff2}", "*.{png,svg,ico}"],
       // latest.json sert à détecter les nouveaux déploiements : toujours depuis le réseau
       globIgnores: ["**/_nuxt/builds/**"],
       runtimeCaching: [
@@ -117,6 +121,15 @@ export default defineNuxtConfig({
             cacheName: "pages",
             networkTimeoutSeconds: 4,
             expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 7 },
+          },
+        },
+        {
+          // Images statiques : cachées à la première consultation seulement
+          urlPattern: ({ url }: { url: any }) => url.pathname.startsWith("/images/"),
+          handler: "CacheFirst",
+          options: {
+            cacheName: "images",
+            expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
           },
         },
       ],
