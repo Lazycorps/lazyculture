@@ -15,5 +15,6 @@ export class UserAchievementDTO {
   description = "";
   createdAt = "";
   xpEarned = 0;
+  coinsEarned = 0;
   icon = "";
 }
