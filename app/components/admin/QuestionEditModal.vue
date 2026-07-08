@@ -131,6 +131,31 @@
               </div>
               <USwitch v-model="editedItem.deleted" color="error" />
             </div>
+
+            <!-- Dates de création et d'édition -->
+            <div
+              v-if="editedItem.id > 0"
+              class="bg-white/5 border border-white/10 rounded-xl p-4 space-y-2 text-[10px] text-gray-400 font-semibold"
+            >
+              <div class="flex items-center justify-between">
+                <span>Créée le :</span>
+                <span class="text-gray-200">
+                  {{ formatDate(editedItem.createDate) }}
+                  <span v-if="editedItem.userCreate" class="text-gray-500 font-medium">
+                    par {{ editedItem.userCreate }}
+                  </span>
+                </span>
+              </div>
+              <div v-if="editedItem.updateDate" class="flex items-center justify-between">
+                <span>Modifiée le :</span>
+                <span class="text-gray-200">
+                  {{ formatDate(editedItem.updateDate) }}
+                  <span v-if="editedItem.userUpdate" class="text-gray-500 font-medium">
+                    par {{ editedItem.userUpdate }}
+                  </span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -164,17 +189,17 @@
             <div
               v-for="(reporting, index) in editedItem.reportings"
               :key="index"
-              class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl"
+              class="flex flex-col md:flex-row md:items-start justify-between gap-3 bg-amber-500/5 border border-amber-500/20 p-3 rounded-xl"
             >
               <div class="flex-1 min-w-0">
                 <p class="text-xs text-amber-300/80 font-semibold font-display">
-                  Raison du signalement :
+                  Signalé par {{ reporting.userName || "Inconnu" }} :
                 </p>
-                <p class="text-xs text-gray-200 mt-1 truncate">
+                <p class="text-xs text-gray-200 mt-1 break-words whitespace-pre-wrap">
                   {{ reporting.commentaire || "Aucun commentaire" }}
                 </p>
               </div>
-              <div class="flex items-center space-x-2 flex-shrink-0">
+              <div class="flex items-center space-x-2 flex-shrink-0 pt-0.5">
                 <USwitch v-model="reporting.closed" color="success" id="report-closed" />
                 <label
                   for="report-closed"
@@ -396,6 +421,18 @@ function updateProposition(index: number, value: string) {
   }
 }
 
+function formatDate(date: any): string {
+  if (!date) return "";
+  const d = new Date(date);
+  return d.toLocaleDateString("fr-FR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const isSaveDisabled = computed(() => {
   if (!editedItem.value || !editedItem.value.data) return true;
   const libelleValid = (editedItem.value.data.libelle || "").trim() !== "";
@@ -427,19 +464,34 @@ async function save() {
 
     editedItem.value.data.type = "choix";
 
-    let result: QuestionDTO;
+    let result: any;
     if (editedItem.value.id > 0) {
-      result = await $fetch<QuestionDTO>("/api/question/update", {
+      result = await $fetch<any>("/api/question/update", {
         method: "put",
         body: { ...editedItem.value },
       });
     } else {
-      result = await $fetch<QuestionDTO>("/api/question/create", {
+      result = await $fetch<any>("/api/question/create", {
         method: "post",
         body: { ...editedItem.value },
       });
     }
-    emit("save", result);
+
+    const savedQuestion: QuestionDTO = {
+      ...editedItem.value,
+      id: result.newQuestion?.id || result.updatedQuestion?.id || editedItem.value.id,
+      createDate:
+        result.newQuestion?.createDate ||
+        result.updatedQuestion?.createDate ||
+        editedItem.value.createDate,
+      updateDate:
+        result.newQuestion?.updateDate ||
+        result.updatedQuestion?.updateDate ||
+        editedItem.value.updateDate,
+      reportings: editedItem.value.reportings || [],
+    };
+
+    emit("save", savedQuestion);
     isOpen.value = false;
   } catch (err) {
     console.error("Failed to save question:", err);

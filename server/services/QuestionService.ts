@@ -44,6 +44,13 @@ export class QuestionService {
           where: {
             closed: false, // Inclut seulement les rapports où closed = false
           },
+          include: {
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
         },
       },
     });
@@ -64,6 +71,7 @@ export class QuestionService {
         reportingDTO.id = report.id;
         reportingDTO.commentaire = report.commentaire;
         reportingDTO.closed = report.closed;
+        reportingDTO.userName = report.user?.name || "Inconnu";
         return reportingDTO;
       });
 

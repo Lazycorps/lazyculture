@@ -34,4 +34,5 @@ export class QuestionReportingDTO {
   id: number = 0;
   commentaire: string = "";
   closed: boolean = true;
+  userName: string = "";
 }

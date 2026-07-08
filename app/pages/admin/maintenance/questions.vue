@@ -453,15 +453,22 @@ function onQuestionSaved(savedQuestion: QuestionDTO) {
   if (editedIndex.value > -1) {
     if (questions?.value) {
       questions.value[editedIndex.value] = savedQuestion;
+      questions.value = [...questions.value];
     }
   } else {
-    questions?.value?.push(savedQuestion);
+    if (questions?.value) {
+      questions.value.push(savedQuestion);
+      questions.value = [...questions.value];
+    } else {
+      questions.value = [savedQuestion];
+    }
   }
 }
 
 function onQuestionDeleted(questionId: number) {
   if (questions?.value && editedIndex.value > -1) {
     questions.value.splice(editedIndex.value, 1);
+    questions.value = [...questions.value];
   }
 }
 
