@@ -10,11 +10,12 @@ import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
+  assignCombatIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   calculBrainrunUserXP,
-  computeVisibleCols,
   consumeShieldIfArmed,
+  effectiveThemes,
   generateActGraph,
   generateBonusOffers,
   generateShopOffers,
@@ -27,6 +28,7 @@ import {
   isBossAnswerTimedOut,
   maybeConvertNodeToEvent,
   nextRowAfterClear,
+  pickCombatCandidate,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
   pickRandomStashConsumables,
@@ -235,59 +237,42 @@ export class BrainrunService {
       // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
       const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
 
-      // Standard/Elite tirent un ennemi du pool de l'acte, en excluant ceux déjà rencontrés dans
-      // cet acte (réinitialisé au changement d'acte). Boss tire un boss nommé parmi les 2 candidats
-      // de l'acte (une seule salle de boss par acte, pas besoin d'exclusion). Si le pool filtré est
-      // vide (run très long), retombe sur le pool complet plutôt que de bloquer la partie.
-      // Purge Thématique : exclut les ennemis/boss dont un thème est banni ; retombe sur le pool
-      // non filtré si l'exclusion viderait entièrement le pool (run très long / peu de contenu
-      // restant), même filet de sécurité que le filtre usedEnemyIds juste après.
-      const notBanned = (themes: string[]) =>
-        run.bannedThemes.length === 0 || themes.every((t) => !run.bannedThemes.includes(t));
-
-      let enemyId: string | null = null;
-      let bossId: string | null = null;
-      let combatThemes: string[] | undefined;
-      if (combatType === "BOSS") {
-        const bossPool = getBrainrunBossesByAct(run.currentAct);
-        let boss;
-        if (forcedCombatId) {
-          // Debug uniquement (debugJumpToNode) : impose un boss du catalogue de l'acte courant
-          // plutôt que le tirage aléatoire habituel.
-          boss = bossPool.find((b) => b.id === forcedCombatId);
+      // L'ennemi/boss du nœud a déjà été fixé à la génération de la carte (cf. seedActGraph/
+      // assignCombatIdentities), pour que la relique Prévoyance montre le vrai ennemi qu'on va
+      // affronter. `forcedCombatId` (debug uniquement, cf. debugJumpToNode) permet de l'écraser
+      // explicitement. Purge Thématique n'exclut plus l'ennemi lui-même : elle retire simplement
+      // le thème banni du pool utilisé pour les questions (cf. effectiveThemes ci-dessous).
+      let enemyId = node.enemyId;
+      let bossId = node.bossId;
+      if (forcedCombatId) {
+        if (combatType === "BOSS") {
+          const boss = getBrainrunBossById(forcedCombatId);
           if (!boss) {
             throw createError({ statusCode: 400, statusMessage: "Boss invalide pour cet acte." });
           }
+          bossId = boss.id;
+          enemyId = null;
         } else {
-          const unbannedBossPool = bossPool.filter((b) => notBanned(b.themes));
-          const bossCandidates = unbannedBossPool.length > 0 ? unbannedBossPool : bossPool;
-          boss = bossCandidates[Math.floor(Math.random() * bossCandidates.length)]!;
-        }
-        bossId = boss.id;
-        combatThemes = boss.themes;
-      } else {
-        const tier = combatType === "STANDARD" ? "CLASSIC" : "ELITE";
-        const pool = getBrainrunEnemiesByActAndTier(run.currentAct, tier);
-        let enemy;
-        if (forcedCombatId) {
-          // Debug uniquement : impose un ennemi du catalogue de l'acte/tier courant.
-          enemy = pool.find((e) => e.id === forcedCombatId);
+          const enemy = getBrainrunEnemyById(forcedCombatId);
           if (!enemy) {
             throw createError({
               statusCode: 400,
               statusMessage: "Ennemi invalide pour cet acte/type.",
             });
           }
-        } else {
-          const unbannedPool = pool.filter((e) => notBanned(e.themes));
-          const available = unbannedPool.filter((e) => !run.usedEnemyIds.includes(e.id));
-          const candidates =
-            available.length > 0 ? available : unbannedPool.length > 0 ? unbannedPool : pool;
-          enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
+          enemyId = enemy.id;
+          bossId = null;
         }
-        enemyId = enemy.id;
-        combatThemes = enemy.themes;
       }
+      const combatDef =
+        combatType === "BOSS" ? getBrainrunBossById(bossId!) : getBrainrunEnemyById(enemyId!);
+      if (!combatDef) {
+        throw createError({
+          statusCode: 500,
+          statusMessage: "Ennemi/boss introuvable pour ce nœud.",
+        });
+      }
+      const combatThemes = effectiveThemes(combatDef.themes, run.bannedThemes);
 
       const questionIds = await questionService.getRandomIdsByDifficulty(
         minDifficulty,
@@ -308,10 +293,9 @@ export class BrainrunService {
           questionIds,
           responses: [],
           consumableReveal: autoHintReveal,
-          ...(enemyId ? { enemyId } : {}),
+          ...(forcedCombatId ? { enemyId, bossId } : {}),
           ...(combatType === "BOSS"
             ? {
-                bossId,
                 bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
                 bossMaxHealthPoint: BRAINRUN_BOSS_MAX_HP,
                 bossPhase: 0,
@@ -328,7 +312,6 @@ export class BrainrunService {
         data: {
           currentCol: col,
           usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
-          ...(enemyId ? { usedEnemyIds: [...run.usedEnemyIds, enemyId] } : {}),
         },
       });
     }
@@ -410,7 +393,6 @@ export class BrainrunService {
       });
     }
 
-    const actChanged = target.act !== run.currentAct;
     let actRooms = run.rooms.filter((r) => r.act === target.act);
     if (actRooms.length === 0) {
       const effects = getActiveRelicEffects(run.relics);
@@ -432,11 +414,31 @@ export class BrainrunService {
     }
 
     if (target.roomType && target.roomType !== node.type) {
+      // L'ennemi/boss du nœud a été fixé pour son type d'origine (cf. seedActGraph) : s'il ne
+      // correspond plus au type forcé ici, on en retire un nouveau adapté (sauf si forcedCombatId
+      // est fourni, auquel cas resolveNodeChoice s'en charge lui-même juste après).
+      let combatUpdate: { enemyId: string | null; bossId: string | null } | undefined;
+      if (!target.forcedCombatId) {
+        if (target.roomType === "BOSS") {
+          combatUpdate = {
+            enemyId: null,
+            bossId: pickCombatCandidate(getBrainrunBossesByAct(target.act), []).id,
+          };
+        } else if (target.roomType === "STANDARD" || target.roomType === "ELITE") {
+          const tier = target.roomType === "STANDARD" ? "CLASSIC" : "ELITE";
+          combatUpdate = {
+            enemyId: pickCombatCandidate(getBrainrunEnemiesByActAndTier(target.act, tier), []).id,
+            bossId: null,
+          };
+        } else {
+          combatUpdate = { enemyId: null, bossId: null };
+        }
+      }
       await prisma.brainrunRoom.update({
         where: { id: node.id },
-        data: { type: target.roomType },
+        data: { type: target.roomType, ...combatUpdate },
       });
-      node = { ...node, type: target.roomType };
+      node = { ...node, type: target.roomType, ...combatUpdate };
     }
 
     await prisma.brainrunRun.update({
@@ -444,19 +446,12 @@ export class BrainrunService {
       data: {
         currentAct: target.act,
         currentRow: target.row,
-        // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours, cf. advanceAfterRoomClear.
-        ...(actChanged ? { usedEnemyIds: [] } : {}),
         // Cf. debugSetStats : bloque XP/pièces/Points de Savoir/achievements en fin de run.
         isDebugRun: true,
       },
     });
 
-    const jumpedRun = {
-      ...run,
-      currentAct: target.act,
-      currentRow: target.row,
-      usedEnemyIds: actChanged ? [] : run.usedEnemyIds,
-    };
+    const jumpedRun = { ...run, currentAct: target.act, currentRow: target.row };
     await this.resolveNodeChoice(jumpedRun, node, target.col, userId, target.forcedCombatId);
     return this.getStateById(runId);
   }
@@ -1551,15 +1546,31 @@ export class BrainrunService {
     // rangée Neutre en tête — cf. generateActGraph. Aimant à Événements (déjà possédée) : s'applique
     // aussi aux actes suivants générés ici.
     const nodes = generateActGraph(act, Math.random, eventBonusChance);
+    // L'ennemi/boss de chaque nœud de combat est fixé ici, une fois pour toutes, plutôt qu'au
+    // moment d'y entrer (cf. resolveNodeChoice) : nécessaire pour que la relique Prévoyance montre
+    // le vrai ennemi qu'on affrontera, et garantit qu'aucun ennemi n'apparaît deux fois sur la
+    // carte tant que le pool du tier n'est pas épuisé (cf. references/map.md).
+    const combatIdentities = assignCombatIdentities(
+      nodes,
+      getBrainrunEnemiesByActAndTier(act, "CLASSIC"),
+      getBrainrunEnemiesByActAndTier(act, "ELITE"),
+      getBrainrunBossesByAct(act),
+    );
+    const identityByKey = new Map(combatIdentities.map((i) => [`${i.row}:${i.col}`, i]));
     await prisma.brainrunRoom.createMany({
-      data: nodes.map((node) => ({
-        runId,
-        act,
-        row: node.row,
-        col: node.col,
-        nextCols: node.nextCols,
-        type: node.type,
-      })),
+      data: nodes.map((node) => {
+        const identity = identityByKey.get(`${node.row}:${node.col}`)!;
+        return {
+          runId,
+          act,
+          row: node.row,
+          col: node.col,
+          nextCols: node.nextCols,
+          type: node.type,
+          enemyId: identity.enemyId,
+          bossId: identity.bossId,
+        };
+      }),
     });
     if (act === 1) {
       // Le nœud Neutre (rangée 1 de l'acte 1) est cosmétique : la run démarre directement dessus,
@@ -1606,9 +1617,6 @@ export class BrainrunService {
         currentAct: outcome.act,
         currentRow: outcome.row,
         currentCol: null,
-        // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours (chaque acte a son
-        // propre roster) : on le réinitialise dès qu'on change d'acte.
-        ...(outcome.act !== act ? { usedEnemyIds: [] } : {}),
         ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
       },
     });
@@ -1777,21 +1785,24 @@ export class BrainrunService {
 
     const effects = getActiveRelicEffects(run.relics);
     const candidateCols = awaitingChoice ? getCandidateCols(actRooms, run.currentRow) : null;
-    const visionStartCols = awaitingChoice ? (candidateCols ?? []) : [activeRoom!.col];
-    const visibleKeys = computeVisibleCols(
-      actRooms,
-      visionStartCols,
-      run.currentRow,
-      effects.mapVisionRows,
-    );
+    // Plus de brouillard de guerre : toutes les salles de l'acte affichent toujours leur type.
+    // Prévoyance (hasForesight) expose en plus les thèmes de l'ennemi/boss de chaque nœud de
+    // combat, pour la modale de prévisualisation côté client (cf. references/map.md).
     const mapNodes: BrainrunMapNodeDTO[] = actRooms.map((r) => {
-      const revealed = r.status !== "PENDING" || visibleKeys.has(`${r.row}:${r.col}`);
+      const isCombatNode = r.type === "STANDARD" || r.type === "ELITE" || r.type === "BOSS";
+      const combatDef =
+        effects.hasForesight && isCombatNode
+          ? r.type === "BOSS"
+            ? getBrainrunBossById(r.bossId)
+            : getBrainrunEnemyById(r.enemyId)
+          : undefined;
       return {
         row: r.row,
         col: r.col,
         nextCols: r.nextCols,
         status: r.status as BrainrunRoomStatus,
-        type: revealed ? (r.type as BrainrunRoomType) : null,
+        type: r.type as BrainrunRoomType,
+        themes: combatDef ? effectiveThemes(combatDef.themes, run.bannedThemes) : null,
       };
     });
 

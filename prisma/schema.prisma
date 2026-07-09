@@ -376,11 +376,10 @@ model BrainrunRun {
     maxHealthPoint  Int
     gold            Int            @default(0)
     usedQuestionIds Int[]          @default([]) // anti-répétition sur toute la run
-    usedEnemyIds    String[]       @default([]) // ennemis déjà tirés dans l'acte en cours (shared/brainrunEnemies.ts), réinitialisé à chaque changement d'acte
     relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
     consumables     Json           @default("{}") // Record<consumableId, count>
     shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
-    bannedThemes    String[]       @default([]) // thèmes bannis par la relique Purge Thématique, exclus des pools ennemi/boss
+    bannedThemes    String[]       @default([]) // thèmes bannis par la relique Purge Thématique, retirés du pool de thèmes des questions (l'ennemi/boss déjà fixé sur la carte n'est jamais changé, cf. effectiveThemes)
     pendingThemeBanChoice Boolean  @default(false) // true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque acknowledgeRoom
     xpEarned        Int?
     knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)

@@ -113,11 +113,6 @@ export const BRAINRUN_MIN_SHOP_OFFERS = 2;
 export const BRAINRUN_MIN_REST_OFFERS = 2;
 export const BRAINRUN_MIN_EVENT_OFFERS = 2;
 
-/** Portée de vision de base sur la carte (en rangées, toujours au moins la rangée immédiatement
- * accessible) et bonus accordé par la relique Prévoyance (rangées supplémentaires). */
-export const BRAINRUN_MAP_BASE_VISION_ROWS = 1;
-export const BRAINRUN_FORESIGHT_BONUS_VISION_ROWS = 2;
-
 /** Types de salle qui, une fois choisis, se résolvent instantanément (pas de question). */
 export const BRAINRUN_INSTANT_ROOM_TYPES: BrainrunRoomType[] = ["REST", "SHOP", "EVENT"];
 /** Types de salle "de combat", avec des questions, de l'or et de l'XP. */

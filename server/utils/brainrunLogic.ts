@@ -27,7 +27,6 @@ import {
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
-  BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
   BRAINRUN_HAGGLER_MULTIPLIER,
   BRAINRUN_KP_PER_GOLD,
   BRAINRUN_MAX_ELITE_PER_ROUTE,
@@ -98,9 +97,9 @@ export type BrainrunRelicEffects = {
   autoRestockShop: boolean;
   /** Aimant à Événements : probabilité qu'un futur nœud Combat soit converti en Événement. */
   eventBonusChance: number;
-  /** Prévoyance : nombre de rangées de vision supplémentaires sur la carte, au-delà de la
-   * rangée immédiatement accessible (toujours visible par défaut). */
-  mapVisionRows: number;
+  /** Prévoyance : permet de cliquer un nœud de combat n'importe où sur la carte pour voir les
+   * thèmes de son ennemi/boss, avec un bouton pour s'y déplacer si le nœud est accessible. */
+  hasForesight: boolean;
   /** Lot de Consolation : or gagné en ignorant le bonus post-combat. */
   goldOnBonusSkip: number;
   /** Sixième Sens : probabilité par question de révéler la bonne réponse après un délai. */
@@ -120,7 +119,7 @@ const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   shopPriceMultiplier: 1,
   autoRestockShop: false,
   eventBonusChance: 0,
-  mapVisionRows: 0,
+  hasForesight: false,
   goldOnBonusSkip: 0,
   autoHintChance: 0,
   healChanceOnCombatEnd: 0,
@@ -154,10 +153,7 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
       case "EVENT_MAGNET":
         return { ...effects, eventBonusChance: BRAINRUN_EVENT_MAGNET_CHANCE };
       case "FORESIGHT":
-        return {
-          ...effects,
-          mapVisionRows: effects.mapVisionRows + BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
-        };
+        return { ...effects, hasForesight: true };
       case "CONSOLATION_PRIZE":
         return { ...effects, goldOnBonusSkip: effects.goldOnBonusSkip + BRAINRUN_CONSOLATION_GOLD };
       case "SIXTH_SENSE":
@@ -807,29 +803,65 @@ export function getCandidateCols(
   return previousCleared?.nextCols ?? [];
 }
 
-/** Parcourt le graphe en largeur depuis `startCols` (sur `startRow`) sur `extraRows` rangées
- * supplémentaires, et retourne l'ensemble des clés "row:col" révélées par la vision (relique
- * Prévoyance) — startCols lui-même est toujours inclus, extraRows peut valoir 0. */
-export function computeVisibleCols(
-  actNodes: { row: number; col: number; nextCols: number[] }[],
-  startCols: number[],
-  startRow: number,
-  extraRows: number,
-): Set<string> {
-  const visible = new Set<string>();
-  let frontier = startCols;
-  startCols.forEach((c) => visible.add(`${startRow}:${c}`));
+/** Pioche un candidat dans `pool` en excluant `excludeIds` ; retombe sur le pool complet si
+ * l'exclusion le viderait entièrement (jamais bloquant). */
+export function pickCombatCandidate<T extends { id: string }>(
+  pool: T[],
+  excludeIds: string[],
+  random: () => number = Math.random,
+): T {
+  const available = pool.filter((c) => !excludeIds.includes(c.id));
+  const candidates = available.length > 0 ? available : pool;
+  return candidates[Math.floor(random() * candidates.length)]!;
+}
 
-  let row = startRow;
-  for (let step = 0; step < extraRows && frontier.length > 0; step++) {
-    const next = new Set<number>();
-    for (const col of frontier) {
-      const node = actNodes.find((n) => n.row === row && n.col === col);
-      node?.nextCols.forEach((c) => next.add(c));
+export type BrainrunNodeCombatIdentity = {
+  row: number;
+  col: number;
+  enemyId: string | null;
+  bossId: string | null;
+};
+
+/**
+ * Fixe l'ennemi/boss de chaque nœud de combat (Standard/Élite/Boss) d'un acte, une fois pour
+ * toutes à la génération de la carte (plus de tirage à l'entrée de la salle, cf.
+ * references/map.md) : garantit qu'un même ennemi n'apparaît jamais deux fois sur la carte tant
+ * que le pool du tier (Classique/Élite, séparément) n'est pas épuisé. Le Boss (1 seul nœud par
+ * acte) n'a pas besoin d'exclusion.
+ */
+export function assignCombatIdentities(
+  nodes: { row: number; col: number; type: BrainrunRoomType }[],
+  classicPool: { id: string }[],
+  elitePool: { id: string }[],
+  bossPool: { id: string }[],
+  random: () => number = Math.random,
+): BrainrunNodeCombatIdentity[] {
+  const usedClassic: string[] = [];
+  const usedElite: string[] = [];
+  return nodes.map((node) => {
+    if (node.type === "STANDARD") {
+      const enemy = pickCombatCandidate(classicPool, usedClassic, random);
+      usedClassic.push(enemy.id);
+      return { row: node.row, col: node.col, enemyId: enemy.id, bossId: null };
     }
-    row += 1;
-    next.forEach((c) => visible.add(`${row}:${c}`));
-    frontier = [...next];
-  }
-  return visible;
+    if (node.type === "ELITE") {
+      const enemy = pickCombatCandidate(elitePool, usedElite, random);
+      usedElite.push(enemy.id);
+      return { row: node.row, col: node.col, enemyId: enemy.id, bossId: null };
+    }
+    if (node.type === "BOSS") {
+      const boss = pickCombatCandidate(bossPool, [], random);
+      return { row: node.row, col: node.col, enemyId: null, bossId: boss.id };
+    }
+    return { row: node.row, col: node.col, enemyId: null, bossId: null };
+  });
+}
+
+/** Thèmes effectifs d'un ennemi/boss pour l'affichage (modale Prévoyance) et la sélection de
+ * questions : retire les thèmes bannis (Purge Thématique) de sa liste déclarée ; retombe sur la
+ * liste non filtrée si ça la viderait entièrement (même filet de sécurité qu'ailleurs). */
+export function effectiveThemes(themes: string[], bannedThemes: string[]): string[] {
+  if (bannedThemes.length === 0) return themes;
+  const filtered = themes.filter((t) => !bannedThemes.includes(t));
+  return filtered.length > 0 ? filtered : themes;
 }

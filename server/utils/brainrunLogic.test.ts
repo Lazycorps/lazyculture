@@ -2,12 +2,13 @@ import { describe, it, expect } from "vite-plus/test";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
+  assignCombatIdentities,
   assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   calculBrainrunUserXP,
-  computeVisibleCols,
   consumeShieldIfArmed,
+  effectiveThemes,
   enforceEliteRouteBounds,
   generateActEdges,
   generateActGraph,
@@ -22,6 +23,7 @@ import {
   isBossAnswerTimedOut,
   maybeConvertNodeToEvent,
   nextRowAfterClear,
+  pickCombatCandidate,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
   pickRandomStashConsumables,
@@ -442,34 +444,97 @@ describe("getCandidateCols", () => {
   });
 });
 
-describe("computeVisibleCols", () => {
-  const nodes = [
-    { row: 1, col: 0, nextCols: [0, 1] },
-    { row: 2, col: 0, nextCols: [0] },
-    { row: 2, col: 1, nextCols: [1] },
-    { row: 3, col: 0, nextCols: [] },
-    { row: 3, col: 1, nextCols: [] },
-  ];
+describe("pickCombatCandidate", () => {
+  const pool = [{ id: "a" }, { id: "b" }, { id: "c" }];
 
-  it("always includes the starting columns, even with no extra vision", () => {
-    expect(computeVisibleCols(nodes, [0], 1, 0)).toEqual(new Set(["1:0"]));
+  it("never picks an excluded id while alternatives remain", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(pickCombatCandidate(pool, ["a", "b"]).id).toBe("c");
+    }
   });
 
-  it("extends the vision by extraRows, following actual edges only", () => {
-    expect(computeVisibleCols(nodes, [0], 1, 1)).toEqual(new Set(["1:0", "2:0", "2:1"]));
+  it("falls back to the full pool once the exclusion would empty it", () => {
+    const picked = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      picked.add(pickCombatCandidate(pool, ["a", "b", "c"]).id);
+    }
+    expect([...picked].sort()).toEqual(["a", "b", "c"]);
   });
 
-  it("follows edges transitively across multiple rows", () => {
-    expect(computeVisibleCols(nodes, [0], 1, 2)).toEqual(
-      new Set(["1:0", "2:0", "2:1", "3:0", "3:1"]),
+  it("is deterministic given a fixed random source", () => {
+    const fixedRandom = () => 0.5;
+    expect(pickCombatCandidate(pool, [], fixedRandom)).toEqual(
+      pickCombatCandidate(pool, [], fixedRandom),
     );
   });
+});
 
-  it("stops expanding once the frontier runs out of outgoing edges", () => {
-    // Rangée 3 n'a aucune arête sortante (fin d'acte) : demander une rangée de plus ne doit rien ajouter.
-    expect(computeVisibleCols(nodes, [0], 1, 5)).toEqual(
-      new Set(["1:0", "2:0", "2:1", "3:0", "3:1"]),
-    );
+describe("assignCombatIdentities", () => {
+  const classicPool = [{ id: "c1" }, { id: "c2" }];
+  const elitePool = [{ id: "e1" }, { id: "e2" }];
+  const bossPool = [{ id: "b1" }];
+
+  it("assigns an enemyId to every Standard/Elite node and a bossId to the Boss node", () => {
+    const nodes = [
+      { row: 1, col: 0, type: "STANDARD" as const },
+      { row: 1, col: 1, type: "ELITE" as const },
+      { row: 1, col: 2, type: "REST" as const },
+      { row: 2, col: 0, type: "BOSS" as const },
+    ];
+    const identities = assignCombatIdentities(nodes, classicPool, elitePool, bossPool);
+    expect(identities.find((i) => i.row === 1 && i.col === 0)).toMatchObject({
+      enemyId: expect.any(String),
+      bossId: null,
+    });
+    expect(identities.find((i) => i.row === 1 && i.col === 1)).toMatchObject({
+      enemyId: expect.any(String),
+      bossId: null,
+    });
+    expect(identities.find((i) => i.row === 1 && i.col === 2)).toEqual({
+      row: 1,
+      col: 2,
+      enemyId: null,
+      bossId: null,
+    });
+    expect(identities.find((i) => i.row === 2 && i.col === 0)).toEqual({
+      row: 2,
+      col: 0,
+      enemyId: null,
+      bossId: "b1",
+    });
+  });
+
+  it("never assigns the same Standard enemy twice while the classic pool isn't exhausted", () => {
+    const nodes = [
+      { row: 1, col: 0, type: "STANDARD" as const },
+      { row: 1, col: 1, type: "STANDARD" as const },
+    ];
+    const identities = assignCombatIdentities(nodes, classicPool, elitePool, bossPool);
+    expect(identities[0]!.enemyId).not.toBe(identities[1]!.enemyId);
+  });
+
+  it("keeps Standard and Elite exclusion pools separate", () => {
+    const nodes = [
+      { row: 1, col: 0, type: "STANDARD" as const },
+      { row: 1, col: 1, type: "ELITE" as const },
+    ];
+    const identities = assignCombatIdentities(nodes, classicPool, elitePool, bossPool);
+    expect(classicPool.map((c) => c.id)).toContain(identities[0]!.enemyId);
+    expect(elitePool.map((e) => e.id)).toContain(identities[1]!.enemyId);
+  });
+});
+
+describe("effectiveThemes", () => {
+  it("removes banned themes from the list", () => {
+    expect(effectiveThemes(["cinema", "series_cultes"], ["cinema"])).toEqual(["series_cultes"]);
+  });
+
+  it("returns the themes unchanged when nothing is banned", () => {
+    expect(effectiveThemes(["cinema", "series_cultes"], [])).toEqual(["cinema", "series_cultes"]);
+  });
+
+  it("falls back to the unfiltered themes if banning would empty the list", () => {
+    expect(effectiveThemes(["cinema"], ["cinema"])).toEqual(["cinema"]);
   });
 });
 
@@ -484,7 +549,7 @@ describe("getActiveRelicEffects", () => {
       shopPriceMultiplier: 1,
       autoRestockShop: false,
       eventBonusChance: 0,
-      mapVisionRows: 0,
+      hasForesight: false,
       goldOnBonusSkip: 0,
       autoHintChance: 0,
       healChanceOnCombatEnd: 0,
@@ -503,7 +568,7 @@ describe("getActiveRelicEffects", () => {
     expect(effects.shopPriceMultiplier).toBeCloseTo(0.8);
     expect(effects.autoRestockShop).toBe(true);
     expect(effects.eventBonusChance).toBeCloseTo(0.3);
-    expect(effects.mapVisionRows).toBe(2);
+    expect(effects.hasForesight).toBe(true);
     expect(effects.goldOnBonusSkip).toBe(15);
     expect(effects.autoHintChance).toBeCloseTo(0.05);
     expect(effects.bonusConsumableSlots).toBe(2);

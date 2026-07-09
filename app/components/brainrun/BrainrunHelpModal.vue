@@ -20,10 +20,11 @@
         <div class="space-y-5">
           <p class="text-xs text-gray-400 leading-relaxed">
             Chaque acte se joue sur une carte à embranchements : choisissez votre chemin parmi
-            plusieurs salles jusqu'au Boss qui termine l'acte. Le type des salles trop lointaines
-            reste masqué (icône "?") tant que vous ne les avez pas atteintes — la relique Prévoyance
-            permet de voir plus loin. Répondez correctement aux questions pour progresser ; une
-            mauvaise réponse vous coûte un point de vie. Survivez aux 3 actes pour gagner la run !
+            plusieurs salles jusqu'au Boss qui termine l'acte. Le type de toutes les salles est
+            toujours visible — avec la relique Prévoyance, cliquez un nœud de combat pour voir les
+            thèmes de son ennemi avant de vous y engager. Répondez correctement aux questions pour
+            progresser ; une mauvaise réponse vous coûte un point de vie. Survivez aux 3 actes pour
+            gagner la run !
           </p>
 
           <div class="space-y-2.5">

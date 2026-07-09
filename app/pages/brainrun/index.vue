@@ -373,9 +373,10 @@
                 @continue="brainrun.acknowledgeRoom()"
               />
 
-              <!-- Carte de l'acte : le joueur choisit vers quel nœud avancer. Les nœuds masqués
-                   (type inconnu) sont révélés en les atteignant, ou à l'avance grâce à la
-                   relique Prévoyance. -->
+              <!-- Carte de l'acte : le joueur choisit vers quel nœud avancer. Toutes les salles
+                   sont toujours visibles ; avec la relique Prévoyance, cliquer un nœud de combat
+                   ouvre une prévisualisation au lieu de s'y déplacer directement (cf. previewNode
+                   ci-dessous). -->
               <div v-else-if="awaitingChoice">
                 <p
                   class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-1"
@@ -387,7 +388,17 @@
                   :current-row="run?.currentRow ?? 1"
                   :candidate-cols="candidateCols"
                   :loading="loading"
+                  :has-foresight="hasForesight"
                   @select-node="selectNode"
+                  @preview-node="(node) => (previewNode = node)"
+                />
+                <BrainrunNodePreviewModal
+                  v-if="previewNode"
+                  :node="previewNode"
+                  :can-move-here="isPreviewNodeReachable"
+                  :loading="loading"
+                  @move="moveToPreviewNode"
+                  @close="previewNode = null"
                 />
               </div>
 
@@ -602,6 +613,7 @@ import {
   BRAINRUN_BOSS_QUESTION_TIME_MS,
   brainrunPotentialBossDamage,
   getBrainrunRoomsPerAct,
+  type BrainrunMapNodeDTO,
 } from "#shared/brainrun";
 import {
   BRAINRUN_CONSUMABLES,
@@ -651,6 +663,24 @@ const loading = brainrun.loading;
 const isRunActive = brainrun.isRunActive;
 // Relique Purge Thématique : bloque l'écran courant tant que le thème à bannir n'est pas choisi.
 const pendingThemeBan = computed(() => run.value?.pendingThemeBanChoice ?? false);
+
+// Relique Prévoyance : clic sur un nœud de combat n'importe où sur la carte → prévisualisation
+// (cf. BrainrunMap.vue/BrainrunNodePreviewModal.vue) plutôt qu'un déplacement direct.
+const hasForesight = computed(() => run.value?.relics.includes("FORESIGHT") ?? false);
+const previewNode = ref<BrainrunMapNodeDTO | null>(null);
+const isPreviewNodeReachable = computed(() => {
+  if (!previewNode.value || candidateCols.value === null) return false;
+  return (
+    previewNode.value.row === (run.value?.currentRow ?? 1) &&
+    candidateCols.value.includes(previewNode.value.col)
+  );
+});
+async function moveToPreviewNode() {
+  if (!previewNode.value) return;
+  const col = previewNode.value.col;
+  previewNode.value = null;
+  await selectNode(col);
+}
 
 // Barre de PV du boss + dégâts potentiels (remplace le séparateur habituel pendant un combat
 // de boss) : le décompte est celui tenu par BrainrunQuestionRunner, partagé via useState.

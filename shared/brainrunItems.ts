@@ -182,7 +182,8 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
   FORESIGHT: {
     id: "FORESIGHT",
     name: "Prévoyance",
-    description: "Révèle le type des salles jusqu'à 2 rangées plus loin sur la carte de l'acte.",
+    description:
+      "Cliquez sur un nœud de combat, où qu'il soit sur la carte, pour voir les thèmes de son ennemi.",
     icon: "i-heroicons-eye",
     rarity: "COMMON",
   },

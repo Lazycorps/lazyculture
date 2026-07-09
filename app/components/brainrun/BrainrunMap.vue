@@ -64,18 +64,13 @@
             <button
               :id="nodeDomId(node.row, node.col)"
               type="button"
-              :disabled="!isClickable(node) || loading"
+              :disabled="(!isClickable(node) && !canPreview(node)) || loading"
               class="relative w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all duration-75 disabled:cursor-not-allowed"
               :class="nodeClass(node)"
-              @click="emit('select-node', node.col)"
+              @click="onNodeClick(node)"
             >
               <UIcon
-                v-if="!node.type"
-                name="i-heroicons-question-mark-circle"
-                class="text-lg text-slate-600"
-              />
-              <UIcon
-                v-else-if="node.status === 'CLEARED'"
+                v-if="node.status === 'CLEARED'"
                 name="i-heroicons-check"
                 class="text-xl text-white font-bold"
               />
@@ -89,7 +84,7 @@
           </div>
 
           <span
-            v-if="node.type && (isClickable(node) || node.status !== 'PENDING')"
+            v-if="isClickable(node) || node.status !== 'PENDING'"
             class="text-[9px] font-black font-display uppercase tracking-wide text-center max-w-[4.5rem] leading-tight px-1.5 py-0.5 rounded-full"
             :class="labelClass(node)"
           >
@@ -102,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import type { BrainrunMapNodeDTO } from "#shared/brainrun";
+import type { BrainrunMapNodeDTO, BrainrunRoomType } from "#shared/brainrun";
 import { useUserStore } from "~/stores/userStore";
 
 const props = defineProps<{
@@ -110,12 +105,34 @@ const props = defineProps<{
   currentRow: number;
   candidateCols: number[] | null;
   loading: boolean;
+  /** Relique Prévoyance possédée : permet de cliquer un nœud de combat n'importe où sur la carte
+   * pour prévisualiser son ennemi/boss, plutôt que de s'y déplacer directement. */
+  hasForesight: boolean;
 }>();
 
-const emit = defineEmits<{ "select-node": [col: number] }>();
+const emit = defineEmits<{
+  "select-node": [col: number];
+  "preview-node": [node: BrainrunMapNodeDTO];
+}>();
 
 const { roomTypeLabel, roomTypeIcon } = useBrainrunRoomTypeDisplay();
 const userStore = useUserStore();
+
+const COMBAT_ROOM_TYPES: BrainrunRoomType[] = ["STANDARD", "ELITE", "BOSS"];
+
+/** Prévoyance : ce nœud peut être cliqué pour prévisualiser son ennemi/boss, où qu'il soit sur la
+ * carte — le clic ouvre alors une modale au lieu de déplacer directement (cf. onNodeClick). */
+function canPreview(node: BrainrunMapNodeDTO): boolean {
+  return props.hasForesight && COMBAT_ROOM_TYPES.includes(node.type);
+}
+
+function onNodeClick(node: BrainrunMapNodeDTO): void {
+  if (canPreview(node)) {
+    emit("preview-node", node);
+    return;
+  }
+  if (isClickable(node)) emit("select-node", node.col);
+}
 
 const rows = computed(() => {
   const byRow = new Map<number, BrainrunMapNodeDTO[]>();
@@ -155,11 +172,8 @@ function nodeClass(node: BrainrunMapNodeDTO): string {
   if (isClickable(node)) {
     return "bg-white/10 border-t-2 border-x-2 border-b-6 border-violet-500/60 border-b-violet-800/70 text-violet-200 hover:brightness-125 active:translate-y-[3px] active:border-b-2 cursor-pointer";
   }
-  if (node.type) {
-    // Révélé à distance par la relique Prévoyance, pas encore accessible.
-    return "bg-white/5 border-2 border-white/10 text-gray-300";
-  }
-  return "bg-slate-900 border-2 border-slate-800 text-slate-600";
+  // Pas encore accessible : la salle reste visible (plus de brouillard de guerre), style neutre.
+  return "bg-white/5 border-2 border-white/10 text-gray-300";
 }
 
 function labelClass(node: BrainrunMapNodeDTO): string {

@@ -60,16 +60,19 @@ export type BrainrunRoomType =
 export type BrainrunRoomStatus = "PENDING" | "ACTIVE" | "CLEARED" | "FAILED" | "SKIPPED";
 export type BrainrunRunStatus = "IN_PROGRESS" | "WON" | "LOST" | "ABANDONED";
 
-/** Nœud de la carte d'acte tel qu'exposé au client : la position/le tracé sont toujours visibles,
- * `type` est masqué (null) tant que le nœud n'est ni joué ni dans la portée de vision du joueur
- * (relique Prévoyance) — cf. BrainrunService.buildState. */
+/** Nœud de la carte d'acte tel qu'exposé au client : toutes les salles d'un acte sont toujours
+ * visibles (position, tracé, type), plus de brouillard de guerre — cf. BrainrunService.buildState. */
 export type BrainrunMapNodeDTO = {
   row: number;
   col: number;
   /** Colonnes de la rangée row+1 accessibles depuis ce nœud ; vide pour le Boss. */
   nextCols: number[];
   status: BrainrunRoomStatus;
-  type: BrainrunRoomType | null;
+  type: BrainrunRoomType;
+  /** Thèmes de l'ennemi/boss de ce nœud (bannis retirés), uniquement si le joueur possède la
+   * relique Prévoyance (`FORESIGHT`) et que ce nœud est un combat (Standard/Élite/Boss) ; sinon
+   * `null` (pas de relique, ou salle non-combat) — alimente la modale de prévisualisation. */
+  themes: string[] | null;
 };
 
 export type BrainrunRoomResponse = {
