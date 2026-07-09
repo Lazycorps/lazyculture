@@ -370,7 +370,7 @@ model BrainrunRun {
     user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
     status          String         @default("IN_PROGRESS") // IN_PROGRESS, WON, LOST, ABANDONED
     currentAct      Int            @default(1) // 1..3
-    currentRow      Int            @default(1) // 1..7, rangée où se trouve/choisit le joueur dans l'acte
+    currentRow      Int            @default(1) // 1..getBrainrunRoomsPerAct(currentAct) (10 pour l'acte 1, 9 sinon), rangée où se trouve/choisit le joueur dans l'acte
     currentCol      Int? // colonne du nœud actif dans currentRow ; null tant que le joueur n'a pas choisi de nœud sur cette rangée
     healthPoint     Int
     maxHealthPoint  Int

@@ -3,16 +3,16 @@ import {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_TOTAL_ACTS,
+  getBrainrunRoomsPerAct,
 } from "#shared/brainrun";
 
 export {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_TOTAL_ACTS,
+  getBrainrunRoomsPerAct,
 };
 
 export const BRAINRUN_START_HP = 3;
@@ -67,10 +67,38 @@ export const BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT: Record<number, [number
   3: [4, 5],
 };
 
-/** Forme de la carte à embranchements d'un acte : nombre de nœuds par rangée (index 0 = rangée 1),
- * la dernière rangée est toujours le Boss (1 seul nœud, tous les nœuds de l'avant-dernière rangée
- * y convergent). cf. server/utils/brainrunLogic.ts (generateActEdges/generateActGraph). */
-export const BRAINRUN_ACT_ROW_WIDTHS = [2, 3, 3, 3, 3, 2, 1];
+/** Largeurs des 6 étages "du milieu" d'un acte (entre l'étage 1, forcé Standard, et l'avant-dernière
+ * rangée, forcée Bibliothèque) : volontairement variées plutôt qu'uniformes à 4, pour que la carte
+ * ne ressemble pas à un simple rectangle — les rangées à 4 nœuds doivent rester rares (2 sur les 6
+ * ici), et des rangées à 2 nœuds sont prévues pour resserrer la carte par endroits. */
+const BRAINRUN_MID_FLOOR_WIDTHS = [2, 3, 4, 4, 3, 2];
+
+/**
+ * Forme de la carte à embranchements d'un acte : nombre de nœuds par rangée (index 0 = rangée 1).
+ * L'acte 1 démarre par une rangée Neutre (1 seul nœud, cf. shared/brainrun.ts) ; les actes 2/3 n'en
+ * ont pas, le nœud de Boss de l'acte précédent tenant lieu de point de départ visuel. Dans les deux
+ * cas, après la (rangée Neutre +) la première rangée d'étage est toujours forcée 3x Standard,
+ * l'avant-dernière rangée toujours forcée 100% Bibliothèque (repos garanti avant le Boss, façon
+ * feu de camp de Slay the Spire), et la dernière rangée toujours le Boss (1 seul nœud, tous les
+ * nœuds de l'avant-dernière rangée y convergent). cf. server/utils/brainrunLogic.ts
+ * (generateActEdges/assignNodeTypes/generateActGraph).
+ */
+const BRAINRUN_ACT_ROW_WIDTHS_WITH_NEUTRAL = [1, 3, ...BRAINRUN_MID_FLOOR_WIDTHS, 3, 1];
+const BRAINRUN_ACT_ROW_WIDTHS_WITHOUT_NEUTRAL = [3, ...BRAINRUN_MID_FLOOR_WIDTHS, 3, 1];
+
+export function getBrainrunActRowWidths(act: number): number[] {
+  return act === 1 ? BRAINRUN_ACT_ROW_WIDTHS_WITH_NEUTRAL : BRAINRUN_ACT_ROW_WIDTHS_WITHOUT_NEUTRAL;
+}
+
+/** Position (1-indexée) de l'étage forcé 100% Élite parmi les étages "du milieu" d'un acte (entre
+ * l'étage 1, forcé Standard, et l'avant-dernière rangée, forcée Bibliothèque) : garantit
+ * mécaniquement qu'aucune route ne peut traverser un acte sans croiser au moins une Élite. */
+export const BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX = 3;
+
+/** Nombre maximum d'Élites qu'une route (rangée 1 → Boss) peut traverser sur un acte ; appliqué
+ * a posteriori par enforceEliteRouteBounds (server/utils/brainrunLogic.ts), qui retype en Standard
+ * les Élites en excès si une route en dépasse le nombre. */
+export const BRAINRUN_MAX_ELITE_PER_ROUTE = 4;
 
 /** Probabilité qu'un nœud (hors avant-dernière rangée, qui converge toujours seule vers le Boss)
  * ait une 2e arête sortante en plus de sa cible centrale : les mono-routes (un seul choix) doivent

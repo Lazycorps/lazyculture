@@ -8,11 +8,17 @@ import type {
 import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression).
- * BRAINRUN_ROOMS_PER_ACT = nombre de rangées par acte (6 rangées de choix + 1 rangée Boss) ; la
- * forme détaillée de la carte (nœuds par rangée) est BRAINRUN_ACT_ROW_WIDTHS, côté serveur uniquement
- * (server/utils/brainrunConfig.ts), le client n'a besoin que du décompte de rangées pour la progression. */
+ * La forme détaillée de la carte (nœuds par rangée) est définie par acte dans
+ * server/utils/brainrunConfig.ts (getBrainrunActRowWidths) ; le client n'a besoin que du décompte
+ * de rangées par acte pour la progression, via getBrainrunRoomsPerAct ci-dessous. */
 export const BRAINRUN_TOTAL_ACTS = 3;
-export const BRAINRUN_ROOMS_PER_ACT = 7;
+
+/** Nombre de rangées d'un acte : l'acte 1 a une rangée Neutre en plus en tête (10 rangées : 1
+ * Neutre + 9 étages), les actes 2/3 n'en ont pas (9 rangées : 9 étages), le nœud de boss de l'acte
+ * précédent tenant lieu de point de départ visuel — cf. references/map.md. */
+export function getBrainrunRoomsPerAct(act: number): number {
+  return act === 1 ? 10 : 9;
+}
 /** Temps imparti par question du combat de boss (contre-la-montre) ; le client en a besoin pour
  * afficher le chrono. Rallongé de 5s (par rapport aux 10s d'origine) pour compenser la décroissance
  * continue (point par point) des dégâts potentiels, qui laisse moins de marge qu'un palier fixe. */
@@ -43,7 +49,14 @@ export function brainrunPotentialBossDamage(elapsedMs: number, bonusTimeMs: numb
   return Math.max(0, Math.round(maxDamage * (1 - elapsedMs / totalMs)));
 }
 
-export type BrainrunRoomType = "STANDARD" | "ELITE" | "BOSS" | "REST" | "SHOP" | "EVENT";
+export type BrainrunRoomType =
+  | "NEUTRAL"
+  | "STANDARD"
+  | "ELITE"
+  | "BOSS"
+  | "REST"
+  | "SHOP"
+  | "EVENT";
 export type BrainrunRoomStatus = "PENDING" | "ACTIVE" | "CLEARED" | "FAILED" | "SKIPPED";
 export type BrainrunRunStatus = "IN_PROGRESS" | "WON" | "LOST" | "ABANDONED";
 

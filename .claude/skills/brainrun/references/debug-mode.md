@@ -48,7 +48,7 @@ mort ne se déclenche normalement que dans `submitAnswer`). Pose aussi `isDebugR
 Téléporte vers un nœud précis, qui doit être `PENDING` (refuse un nœud déjà `ACTIVE`/`CLEARED`/
 `FAILED` avec une 409 — pas de ré-résolution d'une salle déjà traitée).
 
-1. Valide act (1..`BRAINRUN_TOTAL_ACTS`), row (1..longueur de `BRAINRUN_ACT_ROW_WIDTHS`), col
+1. Valide act (1..`BRAINRUN_TOTAL_ACTS`), row (1..longueur de `getBrainrunActRowWidths(act)`), col
    (0..largeur de la rangée - 1).
 2. Invariant protégé : la dernière rangée est **toujours et seulement** le Boss (cf. `map.md`,
    dont dépend `nextRowAfterClear` pour détecter fin d'acte/de run) — refuse de forcer `BOSS` hors

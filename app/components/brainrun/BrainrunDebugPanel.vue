@@ -77,17 +77,28 @@
       <div class="flex items-center gap-1.5 flex-wrap">
         <select
           v-model="roomType"
-          class="bg-white/5 border border-white/10 rounded px-1 py-0.5 text-white"
+          class="bg-slate-800 border border-white/10 rounded px-1 py-0.5 text-white"
         >
-          <option value="">(type actuel)</option>
-          <option v-for="t in roomTypes" :key="t" :value="t">{{ t }}</option>
+          <option value="" class="bg-slate-900 text-white">(type actuel)</option>
+          <option v-for="t in roomTypes" :key="t" :value="t" class="bg-slate-900 text-white">
+            {{ t }}
+          </option>
         </select>
-        <input
+        <select
+          v-if="combatOptions.length"
           v-model="forcedCombatId"
-          type="text"
-          placeholder="id ennemi/boss (optionnel)"
-          class="flex-1 min-w-[110px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white"
-        />
+          class="flex-1 min-w-[110px] bg-slate-800 border border-white/10 rounded px-1.5 py-0.5 text-white"
+        >
+          <option value="" class="bg-slate-900 text-white">(aléatoire)</option>
+          <option
+            v-for="o in combatOptions"
+            :key="o.id"
+            :value="o.id"
+            class="bg-slate-900 text-white"
+          >
+            {{ o.name }}
+          </option>
+        </select>
       </div>
       <button
         type="button"
@@ -103,12 +114,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import {
-  BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_TOTAL_ACTS,
+  getBrainrunRoomsPerAct,
   type BrainrunRoomType,
 } from "#shared/brainrun";
+import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
+import { getBrainrunBossesByAct } from "#shared/brainrunBosses";
 
 /** Panneau visible uniquement en développement (import.meta.dev, rejeté par le serveur sinon) :
  * force PV/or/téléportation pour tester une situation précise sans devoir la provoquer en jouant
@@ -120,7 +133,6 @@ const loading = brainrun.loading;
 
 const roomTypes: BrainrunRoomType[] = ["STANDARD", "ELITE", "BOSS", "REST", "SHOP", "EVENT"];
 const totalActs = BRAINRUN_TOTAL_ACTS;
-const roomsPerAct = BRAINRUN_ROOMS_PER_ACT;
 
 const open = ref(false);
 const error = ref<string | null>(null);
@@ -131,9 +143,39 @@ const gold = ref(run.value?.gold ?? 0);
 
 const act = ref(run.value?.currentAct ?? 1);
 const row = ref(run.value?.currentRow ?? 1);
+const roomsPerAct = computed(() => getBrainrunRoomsPerAct(act.value));
 const col = ref(0);
 const roomType = ref<BrainrunRoomType | "">("");
 const forcedCombatId = ref("");
+
+/** Liste d'ennemis/boss du catalogue (shared/brainrunEnemies.ts / brainrunBosses.ts) correspondant
+ * à l'acte/type choisis, pour remplacer la saisie libre d'id par un select — vide (donc masqué)
+ * tant qu'un type de combat n'est pas explicitement sélectionné. */
+const combatOptions = computed(() => {
+  if (roomType.value === "STANDARD") {
+    return getBrainrunEnemiesByActAndTier(act.value, "CLASSIC").map((e) => ({
+      id: e.id,
+      name: e.name,
+    }));
+  }
+  if (roomType.value === "ELITE") {
+    return getBrainrunEnemiesByActAndTier(act.value, "ELITE").map((e) => ({
+      id: e.id,
+      name: e.name,
+    }));
+  }
+  if (roomType.value === "BOSS") {
+    return getBrainrunBossesByAct(act.value).map((b) => ({ id: b.id, name: b.name }));
+  }
+  return [];
+});
+
+// Une sélection ne reste valide que pour l'acte/type qui l'ont proposée (les catalogues sont
+// distincts par acte) : on la réinitialise dès que l'un des deux change pour éviter d'envoyer un
+// id qui ne correspond plus aux options affichées.
+watch([roomType, act], () => {
+  forcedCombatId.value = "";
+});
 
 async function applyStats() {
   error.value = null;

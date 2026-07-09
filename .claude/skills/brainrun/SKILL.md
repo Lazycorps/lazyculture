@@ -39,6 +39,7 @@ C'est l'étape la plus facile à sauter et la plus coûteuse à sauter. Avant d'
 - **Volume de questions** : un nouvel ennemi/boss/thème doit être vérifié contre le volume réel de questions par thème/difficulté (voir la mémoire `project_question_bank_theme_difficulty_stats` — re-lancer la requête si la décision est à enjeu, ne jamais sommer des totaux par thème sans calculer l'union dédupliquée sur la bande de difficulté exacte).
 - **Économie/XP/pièces/achievements** : un changement de règle d'or/XP a-t-il un effet sur `calculBrainrunUserXP`, `grantBrainrunActCoins` (plafond quotidien partagé avec le quiz du jour), ou les seuils d'achievement `brainrunGames`/`brainrunWins` ?
 - **Modèle de données** : un nouveau champ persistant nécessite une migration Prisma + mise à jour du DTO (`shared/brainrun.ts`/`shared/DTO/brainrunResponseDTO.ts`) + `toRunDTO`/`toRoomDTO` dans `BrainrunService.ts`.
+- **Mode debug** (`references/debug-mode.md`) : tout renommage/changement de forme touchant la carte (`getBrainrunActRowWidths`/`getBrainrunRoomsPerAct`, `BrainrunRoomType`) ou le tirage ennemi/boss casse potentiellement `debugSetStats`/`debugJumpToNode`/`resolveNodeChoice` et `BrainrunDebugPanel.vue` (imports, bornes act/row/col, catalogues affichés dans les selects) — vérifie et adapte ces fichiers avant de conclure, ne les découvre pas via une erreur de build ultérieure.
 
 ## 4. Implémenter en respectant les conventions du repo
 

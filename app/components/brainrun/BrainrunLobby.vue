@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { BRAINRUN_ROOMS_PER_ACT } from "#shared/brainrun";
+import { getBrainrunRoomsPerAct } from "#shared/brainrun";
 import type { BrainrunMetaProgressDTO, BrainrunRunDTO } from "#shared/brainrun";
 
 const props = defineProps<{
@@ -115,6 +115,6 @@ const showGlossary = ref(false);
 const bestRunLabel = computed(() => {
   const bestRun = props.metaProgress?.bestRun;
   if (!bestRun) return "—";
-  return `A${bestRun.act} · ${bestRun.row}/${BRAINRUN_ROOMS_PER_ACT}`;
+  return `A${bestRun.act} · ${bestRun.row}/${getBrainrunRoomsPerAct(bestRun.act)}`;
 });
 </script>

@@ -2,19 +2,20 @@
 
 ## Structure d'une run
 
-- 3 actes (`BRAINRUN_TOTAL_ACTS`), chacun = une carte à embranchements de 7 rangées (`BRAINRUN_ROOMS_PER_ACT`) : 6 rangées de choix + 1 rangée Boss (toujours la dernière, un seul nœud). Détail de la génération de carte → `map.md`.
+- 3 actes (`BRAINRUN_TOTAL_ACTS`), chacun = une carte à embranchements (`getBrainrunRoomsPerAct(act)` rangées : 10 pour l'acte 1 — rangée Neutre + 9 étages —, 9 pour les actes 2/3 — pas de rangée Neutre). Détail de la génération de carte → `map.md`.
 - PV de départ/max : `BRAINRUN_START_HP` = `BRAINRUN_MAX_HP` = 3. Plafond absolu atteignable (relique Cœur Supplémentaire, cumulable) : `BRAINRUN_ABSOLUTE_MAX_HP` = 8.
 - Une mauvaise réponse fait **toujours perdre exactement 1 PV**, quelle que soit la difficulté de la question (pas de palier) — seul le consommable Bouclier peut annuler cette perte (voir `items.md`).
 - Un Boss vaincu **régénère intégralement les PV** avant l'acte suivant (`submitAnswer`, `bossDefeated ? run.maxHealthPoint : ...`).
 
 ## Types de salle et statuts
 
-`BrainrunRoomType` = `STANDARD` | `ELITE` | `BOSS` | `REST` | `SHOP` | `EVENT`.
+`BrainrunRoomType` = `NEUTRAL` | `STANDARD` | `ELITE` | `BOSS` | `REST` | `SHOP` | `EVENT`.
 `BrainrunRoomStatus` = `PENDING` (pas encore atteint) → `ACTIVE` (en cours de résolution) → `CLEARED` | `FAILED` (mort du joueur dessus) | `SKIPPED` (non utilisé actuellement dans le flux normal).
 `BrainrunRunStatus` = `IN_PROGRESS` | `WON` | `LOST` | `ABANDONED`.
 
 - `BRAINRUN_INSTANT_ROOM_TYPES` = `REST`/`SHOP`/`EVENT` : pas de question, résolution par un choix dédié.
 - `BRAINRUN_COMBAT_ROOM_TYPES` = `STANDARD`/`ELITE`/`BOSS` : questions, or, XP.
+- `NEUTRAL` : ni l'un ni l'autre — nœud de démarrage cosmétique (rangée 1 de l'acte 1 uniquement), se nettoie instantanément au clic, sans question ni choix (voir `map.md`). N'apparaît dans aucune des deux listes ci-dessus.
 
 ## Cycle de vie d'une salle (dans `BrainrunService`)
 

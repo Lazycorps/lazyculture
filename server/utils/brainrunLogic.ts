@@ -1,5 +1,9 @@
 import type { BrainrunRoomType } from "#shared/brainrun";
-import { brainrunPotentialBossDamage, BRAINRUN_BOSS_QUESTION_TIME_MS } from "#shared/brainrun";
+import {
+  brainrunPotentialBossDamage,
+  BRAINRUN_BOSS_QUESTION_TIME_MS,
+  getBrainrunRoomsPerAct,
+} from "#shared/brainrun";
 import {
   BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CONSUMABLES,
@@ -18,24 +22,25 @@ import {
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import {
-  BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_BACKPACK_BONUS_SLOTS,
   BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
+  BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_FORESIGHT_BONUS_VISION_ROWS,
   BRAINRUN_HAGGLER_MULTIPLIER,
   BRAINRUN_KP_PER_GOLD,
+  BRAINRUN_MAX_ELITE_PER_ROUTE,
   BRAINRUN_MIN_EVENT_OFFERS,
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
-  BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_SIXTH_SENSE_CHANCE,
   BRAINRUN_SPECIALIZATION_HEAL_CHANCE,
   BRAINRUN_TOTAL_ACTS,
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
+  getBrainrunActRowWidths,
 } from "./brainrunConfig";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 
@@ -49,7 +54,7 @@ export type NextRowOutcome =
 
 /** Détermine la prochaine rangée à proposer une fois la rangée courante (act/row) nettoyée. */
 export function nextRowAfterClear(act: number, row: number): NextRowOutcome {
-  if (row < BRAINRUN_ROOMS_PER_ACT) {
+  if (row < getBrainrunRoomsPerAct(act)) {
     return { kind: "AWAIT_CHOICE", act, row: row + 1 };
   }
   if (act < BRAINRUN_TOTAL_ACTS) {
@@ -491,7 +496,7 @@ export function pickPhoneAFriendHint(
 }
 
 export function calculBrainrunUserXP(
-  clearedRooms: { type: "STANDARD" | "ELITE" | "BOSS" | "REST" | "SHOP" | "EVENT" }[],
+  clearedRooms: { type: BrainrunRoomType }[],
   won: boolean,
 ): number {
   const xpByType: Record<string, number> = {
@@ -567,8 +572,11 @@ function attachOrphans(edges: BrainrunGraphEdge[], widths: number[]): void {
 /** Construit la forme du graphe d'un acte (nœuds + arêtes vers la rangée suivante), sans les
  * types de salle. Chaque nœud a toujours au moins une arête sortante (sauf la dernière rangée,
  * le Boss) et au moins une arête entrante (sauf la rangée 1) — jamais de nœud inaccessible. */
-export function generateActEdges(random: () => number = Math.random): BrainrunGraphEdge[] {
-  const widths = BRAINRUN_ACT_ROW_WIDTHS;
+export function generateActEdges(
+  act: number,
+  random: () => number = Math.random,
+): BrainrunGraphEdge[] {
+  const widths = getBrainrunActRowWidths(act);
   const edges: BrainrunGraphEdge[] = [];
   for (let row = 1; row <= widths.length; row++) {
     const width = widths[row - 1]!;
@@ -604,63 +612,102 @@ export function maybeConvertNodeToEvent(
   return "EVENT";
 }
 
+/** Rangées "spéciales" (fixes, hors Boss) de la forme d'un acte : la rangée Neutre (acte 1
+ * uniquement), l'étage 1 (toujours forcé 3x Standard), l'étage forcé 100% Élite (garantit qu'aucune
+ * route ne peut éviter une Élite) et l'avant-dernière rangée (toujours forcée 100% Bibliothèque). */
+function getActFloorLayout(act: number): {
+  widths: number[];
+  typedWidths: number[];
+  neutralRow: number | null;
+  floor1Row: number;
+  forcedEliteRow: number;
+  restRow: number;
+  bossRow: number;
+} {
+  const widths = getBrainrunActRowWidths(act);
+  const typedWidths = widths.slice(0, -1); // toutes les rangées hors Boss
+  const hasNeutral = act === 1;
+  const neutralRow = hasNeutral ? 1 : null;
+  const floor1Row = hasNeutral ? 2 : 1;
+  const restRow = typedWidths.length;
+  const midRows = Array.from({ length: restRow - floor1Row - 1 }, (_, i) => floor1Row + 1 + i);
+  const forcedEliteRow = midRows[BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX - 1]!;
+  return {
+    widths,
+    typedWidths,
+    neutralRow,
+    floor1Row,
+    forcedEliteRow,
+    restRow,
+    bossRow: widths.length,
+  };
+}
+
 /**
- * Assigne un type de salle à chaque nœud non-Boss d'un acte (BRAINRUN_ACT_ROW_WIDTHS moins la
- * dernière rangée) : majorité de combats (BRAINRUN_MIN_PURE_COMBAT_RATIO), au moins
- * BRAINRUN_MIN_SHOP_OFFERS/REST_OFFERS/EVENT_OFFERS occurrences de chaque salle spéciale.
- * `random` est injectable pour des tests déterministes. Si `forceFirstPure` est vrai (premier
- * acte de la run), les nœuds de la rangée 1 sont garantis un Standard + un Elite — pas de
- * Boutique/Repos/Événement dès la toute première salle, tout en préservant un vrai choix.
+ * Assigne un type de salle à chaque nœud non-Boss et non-Neutre d'un acte : l'étage 1 est toujours
+ * forcé 3x Standard, un étage du milieu forcé 100% Élite, l'avant-dernière rangée forcée 100%
+ * Bibliothèque (repos garanti avant le Boss). Les étages du milieu restants suivent les quotas
+ * habituels (majorité de combats via BRAINRUN_MIN_PURE_COMBAT_RATIO, au moins
+ * BRAINRUN_MIN_SHOP_OFFERS/REST_OFFERS/EVENT_OFFERS occurrences de chaque salle spéciale).
+ * `random` est injectable pour des tests déterministes.
  */
 export function assignNodeTypes(
+  act: number,
   random: () => number = Math.random,
-  forceFirstPure: boolean = false,
   eventBonusChance: number = 0,
 ): BrainrunNodeTypeAssignment[] {
-  const widths = BRAINRUN_ACT_ROW_WIDTHS.slice(0, -1); // toutes les rangées hors Boss
-  const totalNodes = widths.reduce((sum, w) => sum + w, 0);
+  const { typedWidths, neutralRow, floor1Row, forcedEliteRow, restRow } = getActFloorLayout(act);
+  // La rangée Neutre (acte 1 uniquement) n'est ni typée ici ni comptée dans les quotas : elle est
+  // gérée à part dans generateActGraph.
+  const fixedRows = new Set(
+    [floor1Row, forcedEliteRow, restRow, neutralRow].filter((r): r is number => r !== null),
+  );
+
+  const assignments: BrainrunNodeTypeAssignment[] = [];
+  for (let col = 0; col < typedWidths[floor1Row - 1]!; col++) {
+    assignments.push({ row: floor1Row, col, type: "STANDARD" });
+  }
+  for (let col = 0; col < typedWidths[forcedEliteRow - 1]!; col++) {
+    assignments.push({ row: forcedEliteRow, col, type: "ELITE" });
+  }
+  for (let col = 0; col < typedWidths[restRow - 1]!; col++) {
+    assignments.push({ row: restRow, col, type: "REST" });
+  }
+
+  const freeSlots: { row: number; col: number }[] = [];
+  typedWidths.forEach((width, idx) => {
+    const row = idx + 1;
+    if (fixedRows.has(row)) return;
+    for (let col = 0; col < width; col++) freeSlots.push({ row, col });
+  });
+
   const specialsPool: BrainrunRoomType[] = [
     ...(Array(BRAINRUN_MIN_SHOP_OFFERS).fill("SHOP") as BrainrunRoomType[]),
     ...(Array(BRAINRUN_MIN_REST_OFFERS).fill("REST") as BrainrunRoomType[]),
     ...(Array(BRAINRUN_MIN_EVENT_OFFERS).fill("EVENT") as BrainrunRoomType[]),
   ];
-  const combatCount = totalNodes - specialsPool.length;
+  const combatCount = freeSlots.length - specialsPool.length;
   // Garanti par construction : le nombre de salles spéciales est fixé indépendamment de la taille
   // de l'acte, donc le combat occupe toujours la majorité des nœuds restants.
-  const minPure = Math.ceil(totalNodes * BRAINRUN_MIN_PURE_COMBAT_RATIO);
+  const minPure = Math.ceil(freeSlots.length * BRAINRUN_MIN_PURE_COMBAT_RATIO);
   if (combatCount < minPure) {
-    throw new Error("BRAINRUN_ACT_ROW_WIDTHS/quotas incohérents : pas assez de nœuds de combat.");
+    throw new Error(
+      "Largeurs/quotas incohérents : pas assez de nœuds de combat sur les étages libres.",
+    );
   }
   const combatPool: BrainrunRoomType[] = Array.from({ length: combatCount }, () =>
     random() < 0.5 ? "STANDARD" : "ELITE",
   );
-
-  const slots: { row: number; col: number }[] = [];
-  widths.forEach((width, idx) => {
-    for (let col = 0; col < width; col++) slots.push({ row: idx + 1, col });
+  const pool = shuffle([...combatPool, ...specialsPool], random);
+  freeSlots.forEach((slot, i) => {
+    assignments.push({ ...slot, type: pool[i]! });
   });
-  const row1Slots = slots.filter((s) => s.row === 1);
-  const otherSlots = slots.filter((s) => s.row !== 1);
-
-  let assignments: BrainrunNodeTypeAssignment[];
-  if (forceFirstPure) {
-    const row1Types = shuffle(["STANDARD", "ELITE"] as BrainrunRoomType[], random);
-    const remainingPool = shuffle(
-      [...combatPool.slice(0, combatCount - row1Slots.length), ...specialsPool],
-      random,
-    );
-    assignments = [
-      ...row1Slots.map((slot, i) => ({ ...slot, type: row1Types[i % row1Types.length]! })),
-      ...otherSlots.map((slot, i) => ({ ...slot, type: remainingPool[i]! })),
-    ];
-  } else {
-    const pool = shuffle([...combatPool, ...specialsPool], random);
-    assignments = slots.map((slot, i) => ({ ...slot, type: pool[i]! }));
-  }
 
   return assignments.map((a) => ({
     ...a,
-    type: maybeConvertNodeToEvent(a.type, eventBonusChance, random),
+    // L'Aimant à Événements ne touche jamais les étages fixes (Standard forcé, Élite forcé garant
+    // de la route, Bibliothèque forcée) — seulement les étages libres, comme avant.
+    type: fixedRows.has(a.row) ? a.type : maybeConvertNodeToEvent(a.type, eventBonusChance, random),
   }));
 }
 
@@ -671,23 +718,76 @@ export type BrainrunGraphNode = {
   nextCols: number[];
 };
 
+/** Énumère toutes les routes (rangée 1 → Boss) du graphe d'un acte. */
+function enumerateRoutes(nodes: BrainrunGraphNode[], bossRow: number): BrainrunGraphNode[][] {
+  const byKey = new Map(nodes.map((n) => [`${n.row}:${n.col}`, n]));
+  const routes: BrainrunGraphNode[][] = [];
+
+  function walk(node: BrainrunGraphNode, path: BrainrunGraphNode[]): void {
+    const nextPath = [...path, node];
+    if (node.row === bossRow) {
+      routes.push(nextPath);
+      return;
+    }
+    for (const col of node.nextCols) {
+      const next = byKey.get(`${node.row + 1}:${col}`);
+      if (next) walk(next, nextPath);
+    }
+  }
+
+  for (const start of nodes.filter((n) => n.row === 1)) walk(start, []);
+  return routes;
+}
+
+/**
+ * Garantit qu'aucune route (rangée 1 → Boss) ne traverse plus de BRAINRUN_MAX_ELITE_PER_ROUTE
+ * nœuds Élite : retype en Standard les Élites en excès d'une route qui dépasse la limite, jusqu'à
+ * convergence. `protectedRow` (l'étage forcé 100% Élite qui garantit au moins 1 Élite par route,
+ * cf. assignNodeTypes) n'est jamais retypée. Mute les nœuds passés en paramètre.
+ */
+export function enforceEliteRouteBounds(
+  nodes: BrainrunGraphNode[],
+  bossRow: number,
+  protectedRow: number,
+): BrainrunGraphNode[] {
+  let guard = 0;
+  while (guard++ < 500) {
+    const routes = enumerateRoutes(nodes, bossRow);
+    const overLimit = routes.find(
+      (route) => route.filter((n) => n.type === "ELITE").length > BRAINRUN_MAX_ELITE_PER_ROUTE,
+    );
+    if (!overLimit) break;
+    const toDowngrade = overLimit.find((n) => n.type === "ELITE" && n.row !== protectedRow);
+    if (!toDowngrade) break; // ne devrait pas arriver : protectedRow seule ne peut pas dépasser la limite
+    toDowngrade.type = "STANDARD";
+  }
+  return nodes;
+}
+
 /** Génère la carte complète d'un acte (graphe + types), prête à être persistée en base
- * (un BrainrunRoom par nœud). Combine generateActEdges et assignNodeTypes. */
+ * (un BrainrunRoom par nœud). Combine generateActEdges et assignNodeTypes, force la rangée Neutre
+ * pour l'acte 1, puis fait respecter la garantie 1-4 Élites par route (enforceEliteRouteBounds). */
 export function generateActGraph(
+  act: number,
   random: () => number = Math.random,
-  forceFirstPure: boolean = false,
   eventBonusChance: number = 0,
 ): BrainrunGraphNode[] {
-  const edges = generateActEdges(random);
-  const types = assignNodeTypes(random, forceFirstPure, eventBonusChance);
+  const { neutralRow, forcedEliteRow, bossRow } = getActFloorLayout(act);
+  const edges = generateActEdges(act, random);
+  const types = assignNodeTypes(act, random, eventBonusChance);
   const typeByKey = new Map(types.map((t) => [`${t.row}:${t.col}`, t.type]));
-  const bossRow = BRAINRUN_ACT_ROW_WIDTHS.length;
-  return edges.map((e) => ({
+  const nodes = edges.map((e) => ({
     row: e.row,
     col: e.col,
     nextCols: e.nextCols,
-    type: e.row === bossRow ? "BOSS" : typeByKey.get(`${e.row}:${e.col}`)!,
+    type:
+      e.row === bossRow
+        ? ("BOSS" as BrainrunRoomType)
+        : e.row === neutralRow
+          ? ("NEUTRAL" as BrainrunRoomType)
+          : typeByKey.get(`${e.row}:${e.col}`)!,
   }));
+  return enforceEliteRouteBounds(nodes, bossRow, forcedEliteRow);
 }
 
 /** Colonnes accessibles sur `currentRow` : toutes les colonnes de la rangée 1 si elle n'a pas

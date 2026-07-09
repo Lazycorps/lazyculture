@@ -600,8 +600,8 @@
 <script setup lang="ts">
 import {
   BRAINRUN_BOSS_QUESTION_TIME_MS,
-  BRAINRUN_ROOMS_PER_ACT,
   brainrunPotentialBossDamage,
+  getBrainrunRoomsPerAct,
 } from "#shared/brainrun";
 import {
   BRAINRUN_CONSUMABLES,
@@ -636,13 +636,12 @@ const lastBannedTheme = ref<string | null>(null);
 // Le Lobby est le point d'entrée par défaut : la run ne s'affiche qu'après "Nouvelle run"/"Reprendre".
 const view = ref<"lobby" | "run">("lobby");
 
-const roomsPerAct = BRAINRUN_ROOMS_PER_ACT;
-
 if (user.value) {
   await Promise.all([brainrun.fetchCurrent(), meta.fetchMeta()]);
 }
 
 const run = brainrun.run;
+const roomsPerAct = computed(() => getBrainrunRoomsPerAct(run.value?.currentAct ?? 1));
 const currentQuestion = brainrun.currentQuestion;
 const currentRoom = brainrun.currentRoom;
 const awaitingChoice = brainrun.awaitingChoice;

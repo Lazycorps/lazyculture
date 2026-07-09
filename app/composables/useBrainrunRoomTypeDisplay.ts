@@ -4,6 +4,8 @@ import type { BrainrunRoomType } from "#shared/brainrun";
 export function useBrainrunRoomTypeDisplay() {
   function roomTypeLabel(type: BrainrunRoomType): string {
     switch (type) {
+      case "NEUTRAL":
+        return "Départ";
       case "STANDARD":
         return "Combat";
       case "ELITE":
@@ -21,6 +23,8 @@ export function useBrainrunRoomTypeDisplay() {
 
   function roomTypeIcon(type: BrainrunRoomType): string {
     switch (type) {
+      case "NEUTRAL":
+        return "i-heroicons-flag";
       case "STANDARD":
         return "i-heroicons-bolt";
       case "ELITE":

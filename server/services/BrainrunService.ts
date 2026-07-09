@@ -43,7 +43,6 @@ import {
 } from "~~/server/utils/brainrunMetaHelper";
 import {
   BRAINRUN_ABSOLUTE_MAX_HP,
-  BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_BASE_CONSUMABLE_SLOTS,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
@@ -55,6 +54,7 @@ import {
   BRAINRUN_QUESTIONS_PER_ROOM,
   BRAINRUN_START_HP,
   BRAINRUN_TOTAL_ACTS,
+  getBrainrunActRowWidths,
 } from "~~/server/utils/brainrunConfig";
 import { assertDevOnly } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
@@ -183,7 +183,16 @@ export class BrainrunService {
     const choice = node.type as BrainrunRoomType;
     const effects = getActiveRelicEffects(run.relics);
 
-    if (choice === "REST") {
+    if (choice === "NEUTRAL") {
+      // Nœud de démarrage cosmétique (rangée 1 de l'acte 1 uniquement, cf. references/map.md) :
+      // se nettoie instantanément au clic, sans question ni choix joueur — contrairement aux
+      // salles ACTIVE (REST/SHOP/EVENT) qui attendent une action supplémentaire.
+      await prisma.brainrunRoom.update({
+        where: { id: node.id },
+        data: { status: "CLEARED" },
+      });
+      await this.advanceAfterRoomClear(run.id, run.currentAct, node.row);
+    } else if (choice === "REST") {
       // Reste ACTIVE tant que le joueur n'a pas choisi entre se reposer et bannir un thème
       // (cf. resolveRest) : contrairement aux autres salles instantanées, la Bibliothèque
       // demande toujours un choix explicite.
@@ -377,11 +386,12 @@ export class BrainrunService {
     if (target.act < 1 || target.act > BRAINRUN_TOTAL_ACTS) {
       throw createError({ statusCode: 400, statusMessage: "Acte invalide." });
     }
-    const lastRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+    const actRowWidths = getBrainrunActRowWidths(target.act);
+    const lastRow = actRowWidths.length;
     if (target.row < 1 || target.row > lastRow) {
       throw createError({ statusCode: 400, statusMessage: "Rangée invalide." });
     }
-    const width = BRAINRUN_ACT_ROW_WIDTHS[target.row - 1]!;
+    const width = actRowWidths[target.row - 1]!;
     if (target.col < 0 || target.col >= width) {
       throw createError({ statusCode: 400, statusMessage: "Colonne invalide pour cette rangée." });
     }
@@ -1537,10 +1547,10 @@ export class BrainrunService {
     act: number,
     eventBonusChance: number = 0,
   ): Promise<void> {
-    // La toute première rangée de l'acte 1 doit d'office être un combat (pas de Boutique/
-    // Repos/Événement dès le début de la run) ; les autres actes restent entièrement aléatoires.
-    // Aimant à Événements (déjà possédée) : s'applique aussi aux actes suivants générés ici.
-    const nodes = generateActGraph(Math.random, act === 1, eventBonusChance);
+    // L'étage 1 de chaque acte est d'office forcé combat (3x Standard), l'acte 1 a en plus une
+    // rangée Neutre en tête — cf. generateActGraph. Aimant à Événements (déjà possédée) : s'applique
+    // aussi aux actes suivants générés ici.
+    const nodes = generateActGraph(act, Math.random, eventBonusChance);
     await prisma.brainrunRoom.createMany({
       data: nodes.map((node) => ({
         runId,
@@ -1551,6 +1561,16 @@ export class BrainrunService {
         type: node.type,
       })),
     });
+    if (act === 1) {
+      // Le nœud Neutre (rangée 1 de l'acte 1) est cosmétique : la run démarre directement dessus,
+      // déjà nettoyé, sans que le joueur ait besoin de cliquer dessus pour révéler l'étage 1
+      // (cf. references/map.md).
+      await prisma.brainrunRoom.updateMany({
+        where: { runId, act: 1, row: 1, type: "NEUTRAL" },
+        data: { status: "CLEARED" },
+      });
+      await prisma.brainrunRun.update({ where: { id: runId }, data: { currentRow: 2 } });
+    }
   }
 
   private async advanceAfterRoomClear(runId: string, act: number, row: number): Promise<void> {
