@@ -73,9 +73,26 @@ export type BrainrunRoomResponse = {
   extraLifeUsed?: boolean;
   /** true si ce coup a mis le boss à 0 PV mais qu'il va se relever (malus "phoenix_revive"). */
   bossRevived?: boolean;
+  /** true si la relique Spécialisation a rendu 1 PV à la fin de ce combat (salle CLEARED). */
+  healthRegenerated?: boolean;
   correctResponseId?: number;
   commentaire?: string;
   commentaireImg?: string;
+};
+
+/** Résultat réellement appliqué de l'option d'Événement choisie (cf. resolveEvent) : les deltas
+ * nominaux de l'option (shared/brainrunItems.ts BrainrunEventOption) ne suffisent pas à eux
+ * seuls à décrire ce qu'il s'est passé, certains tirages étant aléatoires (relique/consommable
+ * "RANDOM", relique sacrifiée "RANDOM_OWNED") ou modifiés par le Bouclier. */
+export type BrainrunEventOutcomeDTO = {
+  optionIndex: number;
+  /** PV effectivement perdus/gagnés (0 si le Bouclier a annulé un coût). */
+  hpDelta: number;
+  goldDelta: number;
+  relicGranted: BrainrunRelicId | null;
+  relicLost: BrainrunRelicId | null;
+  consumablesGranted: { id: BrainrunConsumableId; amount: number }[];
+  shieldConsumed: boolean;
 };
 
 export type BrainrunRoomDTO = {
@@ -110,6 +127,8 @@ export type BrainrunRoomDTO = {
   offersResolved: boolean;
   /** Clé dans le catalogue BRAINRUN_EVENTS (uniquement salle EVENT active). */
   eventId: string | null;
+  /** Résultat réellement appliqué de l'option choisie (uniquement salle EVENT CLEARED). */
+  eventOutcome: BrainrunEventOutcomeDTO | null;
   /** Effets ponctuels des consommables sur la question en cours (50/50, Appel à un ami, Sablier
    * Fêlé, Coup de Grâce, Antidote) ; cf. shared/brainrunItems.ts. */
   consumableReveal: BrainrunConsumableReveal | null;
@@ -138,6 +157,9 @@ export type BrainrunRunDTO = {
   relics: BrainrunRelicId[];
   /** Consommables possédés, par id, nombre restant. */
   consumables: Record<string, number>;
+  /** Plafond total d'emplacements de consommables (somme des valeurs de `consumables`), 3 de
+   * base + bonus de la relique Sac à Dos. */
+  maxConsumables: number;
   /** true si un Bouclier est armé : la prochaine perte de PV sera annulée. */
   shieldArmed: boolean;
   /** Thèmes bannis pour le reste de la run (relique Purge Thématique). */

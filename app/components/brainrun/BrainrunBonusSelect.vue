@@ -10,7 +10,7 @@
         v-for="offer in offers"
         :key="offer.id"
         type="button"
-        :disabled="loading"
+        :disabled="loading || isBlockedByFullInventory(offer)"
         class="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3 text-left transition-colors disabled:opacity-50"
         @click="$emit('pick', offer.id)"
       >
@@ -32,7 +32,13 @@
               {{ offerKindLabel(offer) }}
             </span>
           </div>
-          <p class="text-[11px] text-gray-400 leading-snug">{{ offerDescription(offer) }}</p>
+          <p class="text-[11px] text-gray-400 leading-snug">
+            {{
+              isBlockedByFullInventory(offer)
+                ? "Inventaire de consommables plein."
+                : offerDescription(offer)
+            }}
+          </p>
         </div>
       </button>
     </div>
@@ -52,9 +58,12 @@
 <script setup lang="ts">
 import type { BrainrunOffer } from "#shared/brainrunItems";
 
-defineProps<{
+const props = defineProps<{
   offers: BrainrunOffer[];
   loading: boolean;
+  /** true si l'inventaire de consommables est déjà plein : bloque la sélection des offres
+   * CONSUMABLE (cf. BrainrunService.resolveBonus). */
+  consumablesFull: boolean;
 }>();
 
 defineEmits<{
@@ -64,4 +73,8 @@ defineEmits<{
 
 const { offerName, offerDescription, offerIcon, offerKindLabel, kindBadgeClass, rarityRingClass } =
   useBrainrunOfferDisplay();
+
+function isBlockedByFullInventory(offer: BrainrunOffer): boolean {
+  return offer.kind === "CONSUMABLE" && props.consumablesFull;
+}
 </script>

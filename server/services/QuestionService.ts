@@ -117,6 +117,11 @@ export class QuestionService {
    * BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT), à la place de [minDifficulty, maxDifficulty]
    * pour ce thème précis — y compris pendant l'élargissement ci-dessus, qui ne s'applique donc
    * qu'aux autres thèmes de la liste.
+   *
+   * `excludeThemes` (Purge Thématique Brainrun) exclut toute question portant l'un de ces thèmes,
+   * même si elle porte aussi un des `themes` autorisés — une question peut avoir plusieurs thèmes
+   * à la fois, donc filtrer uniquement sur `themes` ne suffit pas à garantir qu'un thème banni
+   * n'apparaisse jamais.
    */
   async getRandomIdsByDifficulty(
     minDifficulty: number,
@@ -126,6 +131,7 @@ export class QuestionService {
     userId?: string,
     themes?: string[],
     themeDifficultyOverrides?: Record<string, [number, number]>,
+    excludeThemes?: string[],
   ): Promise<number[]> {
     const buildThemeFilter = (maxDiff: number) =>
       themes && themes.length > 0
@@ -142,10 +148,17 @@ export class QuestionService {
             }),
           }
         : { difficulty: { gte: minDifficulty, lte: maxDiff } };
+    const excludeThemesFilter =
+      excludeThemes && excludeThemes.length > 0
+        ? {
+            NOT: excludeThemes.map((slug) => ({ data: { path: ["theme"], array_contains: slug } })),
+          }
+        : {};
     const whereForMaxDifficulty = (maxDiff: number) => ({
       deleted: false,
       id: { notIn: excludeIds },
       ...buildThemeFilter(maxDiff),
+      ...excludeThemesFilter,
     });
 
     let candidates = await prisma.question.findMany({

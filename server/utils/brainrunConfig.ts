@@ -119,3 +119,8 @@ export const BRAINRUN_SIXTH_SENSE_CHANCE = 0.05;
 export const BRAINRUN_HAGGLER_MULTIPLIER = 0.8;
 /** Plafond absolu de Pv max atteignable (relique Cœur Supplémentaire, cumulable). */
 export const BRAINRUN_ABSOLUTE_MAX_HP = 8;
+/** Probabilité de récupérer 1 PV en fin de combat gagné (relique Spécialisation). */
+export const BRAINRUN_SPECIALIZATION_HEAL_CHANCE = 0.2;
+/** Emplacements de consommables de base, et bonus accordé par la relique Sac à Dos. */
+export const BRAINRUN_BASE_CONSUMABLE_SLOTS = 3;
+export const BRAINRUN_BACKPACK_BONUS_SLOTS = 2;

@@ -3,7 +3,7 @@
     class="w-full max-w-xl mx-auto py-2 select-none"
     @click="
       openedRelicId = null;
-      openedConsumableId = null;
+      openedConsumableSlot = null;
     "
   >
     <UCard
@@ -96,9 +96,11 @@
           </div>
 
           <!-- Reliques possédées (gauche) et emplacements de consommables (droite, 3 slots fixes,
-             remplis de gauche à droite au fur et à mesure des objets obtenus).
-             Ni l'un ni l'autre n'a d'action au clic ici (l'usage d'un consommable passe par un
-             bouton dédié dans BrainrunQuestionRunner) : tap pour ouvrir/fermer l'infobulle. -->
+             5 avec la relique Sac à Dos — chaque exemplaire prend son propre emplacement, remplis
+             de gauche à droite au fur et à mesure des objets obtenus, sans compteur x2/x3).
+             Seul un emplacement occupé a une action au clic (bouton "Jeter" dans l'infobulle) —
+             l'usage d'un consommable pendant une question passe par un bouton dédié dans
+             BrainrunQuestionRunner. -->
           <div class="flex items-center justify-between gap-2 mt-2">
             <div class="flex flex-wrap gap-1.5">
               <div v-for="relic in ownedRelics" :key="relic.id" class="relative">
@@ -123,10 +125,10 @@
                 </div>
               </div>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap justify-end">
               <div
                 v-for="(consumable, index) in consumableSlots"
-                :key="consumable?.id ?? `empty-${index}`"
+                :key="index"
                 :title="consumable ? `${consumable.name} — ${consumable.description}` : undefined"
                 class="relative w-7 h-7 rounded-full flex items-center justify-center text-sm"
                 :class="
@@ -136,26 +138,29 @@
                 "
                 @click.stop="
                   consumable &&
-                  (openedConsumableId = openedConsumableId === consumable.id ? null : consumable.id)
+                  (openedConsumableSlot = openedConsumableSlot === index ? null : index)
                 "
               >
                 <UIcon v-if="consumable" :name="consumable.icon" />
-                <span
-                  v-if="consumable && consumable.count > 1"
-                  class="absolute -bottom-1 -right-1 text-[9px] font-black font-display bg-slate-900 border border-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center text-white"
-                >
-                  {{ consumable.count }}
-                </span>
                 <div
-                  v-if="consumable && openedConsumableId === consumable.id"
-                  class="absolute z-20 top-full right-0 mt-2 w-48 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left"
+                  v-if="consumable && openedConsumableSlot === index"
+                  class="absolute z-20 top-full right-0 mt-2 w-48 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left space-y-2"
                 >
-                  <p class="text-[11px] font-black font-display text-white tracking-wide">
-                    {{ consumable.name }}
-                  </p>
-                  <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
-                    {{ consumable.description }}
-                  </p>
+                  <div>
+                    <p class="text-[11px] font-black font-display text-white tracking-wide">
+                      {{ consumable.name }}
+                    </p>
+                    <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
+                      {{ consumable.description }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="w-full text-[10px] font-black font-display uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg py-1.5 hover:bg-rose-500/20"
+                    @click.stop="handleDiscardConsumable(consumable.id)"
+                  >
+                    Jeter
+                  </button>
                 </div>
               </div>
             </div>
@@ -335,17 +340,26 @@
                 :offers="currentRoom.offers ?? []"
                 :gold="run?.gold ?? 0"
                 :loading="loading"
+                :consumables-full="consumableInventoryFull"
                 @buy="(index: number) => brainrun.buyShopItem(index)"
                 @leave="brainrun.leaveShop()"
               />
 
-              <!-- Événement -->
+              <!-- Événement : reste affiché une fois CLEARED pour montrer le résultat (texte +
+                   bouton Continuer) à la place du récap générique or/PV, cf. roomRecap ci-dessous
+                   qui exclut désormais les salles EVENT. -->
               <BrainrunEvent
-                v-else-if="currentRoom?.type === 'EVENT' && currentRoom.status === 'ACTIVE'"
+                v-else-if="
+                  currentRoom?.type === 'EVENT' &&
+                  (currentRoom.status === 'ACTIVE' || currentRoom.status === 'CLEARED')
+                "
                 :event-id="currentRoom.eventId"
+                :status="currentRoom.status"
+                :outcome="currentRoom.eventOutcome"
                 :loading="loading"
                 :gold="run?.gold ?? 0"
                 @choose="(index: number) => brainrun.resolveEvent(index)"
+                @continue="brainrun.acknowledgeRoom()"
               />
 
               <!-- Carte de l'acte : le joueur choisit vers quel nœud avancer. Les nœuds masqués
@@ -421,23 +435,40 @@
                       Or gagné
                     </p>
                   </div>
-                  <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
+                  <div
+                    class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center transition-shadow"
+                    :class="
+                      roomRecap.specializationHealed
+                        ? 'ring-2 ring-emerald-400/70 animate-pulse'
+                        : ''
+                    "
+                  >
                     <p
                       class="text-xl font-black font-display"
-                      :class="roomRecap.heartsLost > 0 ? 'text-rose-400' : 'text-emerald-400'"
+                      :class="roomRecap.netHeartsChange < 0 ? 'text-rose-400' : 'text-emerald-400'"
                     >
                       {{
-                        roomRecap.heartsLost > 0
-                          ? `-${roomRecap.heartsLost}`
-                          : roomRecap.healed
-                            ? "+1"
-                            : "0"
+                        roomRecap.netHeartsChange > 0
+                          ? `+${roomRecap.netHeartsChange}`
+                          : roomRecap.netHeartsChange
                       }}
                     </p>
                     <p
                       class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"
                     >
-                      {{ roomRecap.healed ? "PV regagnés" : "PV perdus" }}
+                      {{
+                        roomRecap.netHeartsChange > 0
+                          ? "PV regagnés"
+                          : roomRecap.netHeartsChange < 0
+                            ? "PV perdus"
+                            : "PV stables"
+                      }}
+                    </p>
+                    <p
+                      v-if="roomRecap.specializationHealed"
+                      class="text-[9px] font-bold text-emerald-400 font-display mt-0.5"
+                    >
+                      Spécialisation !
                     </p>
                   </div>
                 </div>
@@ -458,6 +489,7 @@
                 v-else-if="showBonusStep"
                 :offers="currentRoom?.offers ?? []"
                 :loading="loading"
+                :consumables-full="consumableInventoryFull"
                 @pick="handleBonusPick"
                 @skip="handleBonusSkip"
               />
@@ -667,13 +699,21 @@ const bossRevivedFlash = useState("brainrun-boss-revived-flash", () => false);
 
 const roomRecap = computed(() => {
   const room = brainrun.currentRoom.value;
-  if (!room || room.status !== "CLEARED" || !room.type) return null;
+  // Les salles EVENT ont leur propre écran de résultat (BrainrunEvent.vue), pas le récap
+  // générique or/PV.
+  if (!room || room.status !== "CLEARED" || !room.type || room.type === "EVENT") return null;
   const heartsLost = room.responses.reduce((sum, r) => sum + (r.hpLoss ?? 0), 0);
+  // Relique Spécialisation : soin de fin de combat, signalé sur la dernière réponse (cf.
+  // BrainrunService.submitAnswer) — distinct du repos à la Bibliothèque (lastRestChoice).
+  const specializationHealed = room.responses.some((r) => r.healthRegenerated);
+  const restHealed = room.type === "REST" && lastRestChoice.value === "HEAL";
   return {
     type: room.type,
     goldEarned: room.goldEarned,
     heartsLost,
-    healed: room.type === "REST" && lastRestChoice.value === "HEAL",
+    healed: specializationHealed || restHealed,
+    specializationHealed,
+    netHeartsChange: (specializationHealed ? 1 : 0) + (restHealed ? 1 : 0) - heartsLost,
     bannedTheme:
       room.type === "REST" && lastRestChoice.value === "BAN_THEME" ? lastBannedTheme.value : null,
     enemyName:
@@ -686,28 +726,48 @@ const ownedRelics = computed(() =>
 );
 
 // Infobulle relique/consommable ouverte par tap ; refermée par un tap sur elle-même ou ailleurs
-// dans la carte. Aucune de ces deux icônes n'a d'action au clic (l'usage d'un consommable passe
-// par un bouton dédié dans BrainrunQuestionRunner), donc pas besoin d'appui long ici.
+// dans la carte. Les reliques n'ont pas d'action au clic ; un emplacement de consommable occupé
+// gagne un bouton "Jeter" (l'usage pendant une question passe par un bouton dédié dans
+// BrainrunQuestionRunner), donc pas besoin d'appui long ici.
 const openedRelicId = ref<BrainrunRelicId | null>(null);
-const openedConsumableId = ref<BrainrunConsumableId | null>(null);
+// Index d'emplacement plutôt que id de consommable : 2 emplacements peuvent porter le même id
+// depuis que les exemplaires identiques ne se stackent plus (cf. ownedConsumableUnits).
+const openedConsumableSlot = ref<number | null>(null);
 
-// Icônes seules (max 3, une par type possédé) alignées à droite sur la même ligne que les
-// reliques ; les boutons d'usage pendant une question restent dans BrainrunQuestionRunner.
-const ownedConsumables = computed(() => {
+// Chaque exemplaire possédé prend son propre emplacement (plus de compteur x2/x3) : on répète
+// l'id autant de fois que son compteur, dans l'ordre d'acquisition (grantConsumable n'affecte
+// une clé qu'à sa première obtention, ce qui préserve cet ordre dans l'objet consumables).
+const ownedConsumableUnits = computed(() => {
   const consumables = run.value?.consumables ?? {};
-  // Ordre d'acquisition (pas l'ordre du catalogue) : grantConsumable (BrainrunService)
-  // n'affecte une clé qu'à sa première obtention, ce qui préserve cet ordre dans l'objet.
-  return (Object.keys(consumables) as BrainrunConsumableId[])
-    .filter((id) => (consumables[id] ?? 0) > 0)
-    .map((id) => ({ ...BRAINRUN_CONSUMABLES[id], count: consumables[id]! }))
-    .slice(0, 3);
+  const units: BrainrunConsumableId[] = [];
+  (Object.keys(consumables) as BrainrunConsumableId[]).forEach((id) => {
+    for (let i = 0; i < (consumables[id] ?? 0); i++) units.push(id);
+  });
+  return units;
 });
 
-const CONSUMABLE_SLOT_COUNT = 3;
-// 3 emplacements fixes (même taille que l'icône finale) : vides tant qu'aucun objet ne les
-// occupe, remplis de gauche à droite au fur et à mesure des nouveaux objets obtenus.
-const consumableSlots = computed(() =>
-  Array.from({ length: CONSUMABLE_SLOT_COUNT }, (_, i) => ownedConsumables.value[i] ?? null),
+// Emplacements fixes (3 de base, 5 avec la relique Sac à Dos, cf. run.maxConsumables) : vides
+// tant qu'aucun objet ne les occupe, remplis de gauche à droite au fur et à mesure des nouveaux
+// objets obtenus — les emplacements déjà occupés restent alignés à gauche quand le plafond
+// augmente, les nouveaux emplacements vides n'apparaissent qu'à droite.
+const consumableSlots = computed(() => {
+  const maxSlots = run.value?.maxConsumables ?? 3;
+  return Array.from({ length: maxSlots }, (_, i) => {
+    const id = ownedConsumableUnits.value[i];
+    return id ? BRAINRUN_CONSUMABLES[id] : null;
+  });
+});
+
+async function handleDiscardConsumable(type: BrainrunConsumableId) {
+  openedConsumableSlot.value = null;
+  await brainrun.discardConsumable(type);
+}
+
+// Boutique/bonus post-combat : désactive la prise d'un consommable quand l'inventaire est déjà
+// plein, pour ne pas faire dépenser de l'or (ou perdre le bonus) pour rien — cf.
+// BrainrunService.buyShopItem/resolveBonus qui refusent aussi côté serveur.
+const consumableInventoryFull = computed(
+  () => ownedConsumableUnits.value.length >= (run.value?.maxConsumables ?? 3),
 );
 
 // Masquée sur toute la durée d'une run active (map, question, repos, boutique, récap...),

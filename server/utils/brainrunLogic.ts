@@ -19,6 +19,7 @@ import {
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_ACT_ROW_WIDTHS,
+  BRAINRUN_BACKPACK_BONUS_SLOTS,
   BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
@@ -31,17 +32,12 @@ import {
   BRAINRUN_MIN_SHOP_OFFERS,
   BRAINRUN_ROOMS_PER_ACT,
   BRAINRUN_SIXTH_SENSE_CHANCE,
+  BRAINRUN_SPECIALIZATION_HEAL_CHANCE,
   BRAINRUN_TOTAL_ACTS,
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
 } from "./brainrunConfig";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
-
-export function brainrunHpLossForDifficulty(difficulty: number): number {
-  if (difficulty <= 2) return 1;
-  if (difficulty <= 4) return 2;
-  return 3;
-}
 
 export function shouldEndRunOnDamage(healthPointAfter: number): boolean {
   return healthPointAfter <= 0;
@@ -88,7 +84,6 @@ export function brainrunBossDamage(
 export type BrainrunRelicEffects = {
   goldMultiplier: number;
   flatGoldBonusPerRoom: number;
-  hpLossReduction: number;
   bossTimeBonusMs: number;
   bossDamageBonusPerHit: number;
   hasExtraLife: boolean;
@@ -105,12 +100,15 @@ export type BrainrunRelicEffects = {
   goldOnBonusSkip: number;
   /** Sixième Sens : probabilité par question de révéler la bonne réponse après un délai. */
   autoHintChance: number;
+  /** Spécialisation : probabilité de récupérer 1 PV à la fin de chaque combat gagné. */
+  healChanceOnCombatEnd: number;
+  /** Sac à Dos : emplacements de consommables supplémentaires, au-delà du plafond de base. */
+  bonusConsumableSlots: number;
 };
 
 const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   goldMultiplier: 1,
   flatGoldBonusPerRoom: 0,
-  hpLossReduction: 0,
   bossTimeBonusMs: 0,
   bossDamageBonusPerHit: 0,
   hasExtraLife: false,
@@ -120,6 +118,8 @@ const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   mapVisionRows: 0,
   goldOnBonusSkip: 0,
   autoHintChance: 0,
+  healChanceOnCombatEnd: 0,
+  bonusConsumableSlots: 0,
 };
 
 export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects {
@@ -130,7 +130,12 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
       case "PROVIDENT_PURSE":
         return { ...effects, flatGoldBonusPerRoom: effects.flatGoldBonusPerRoom + 5 };
       case "SPECIALIZATION":
-        return { ...effects, hpLossReduction: effects.hpLossReduction + 1 };
+        return { ...effects, healChanceOnCombatEnd: BRAINRUN_SPECIALIZATION_HEAL_CHANCE };
+      case "BACKPACK":
+        return {
+          ...effects,
+          bonusConsumableSlots: effects.bonusConsumableSlots + BRAINRUN_BACKPACK_BONUS_SLOTS,
+        };
       case "BROKEN_CHRONOMETER":
         return { ...effects, bossTimeBonusMs: effects.bossTimeBonusMs + 3000 };
       case "ADRENALINE":
@@ -156,12 +161,6 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
         return effects;
     }
   }, NEUTRAL_RELIC_EFFECTS);
-}
-
-/** Composé par-dessus brainrunHpLossForDifficulty (inchangée) : ne réduit jamais en dessous de 1 PV perdu. */
-export function applyRelicsToHpLoss(baseHpLoss: number, effects: BrainrunRelicEffects): number {
-  if (baseHpLoss <= 0) return baseHpLoss;
-  return Math.max(1, baseHpLoss - effects.hpLossReduction);
 }
 
 export function applyRelicsToGold(baseGold: number, effects: BrainrunRelicEffects): number {

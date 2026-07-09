@@ -2,11 +2,9 @@ import { describe, it, expect } from "vite-plus/test";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
-  applyRelicsToHpLoss,
   assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
-  brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
   computeVisibleCols,
   consumeShieldIfArmed,
@@ -49,16 +47,6 @@ import {
 } from "#shared/brainrunItems";
 
 const ALL_RELIC_IDS = Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[];
-
-describe("brainrunHpLossForDifficulty", () => {
-  it("maps difficulty tiers to the expected HP loss", () => {
-    expect(brainrunHpLossForDifficulty(1)).toBe(1);
-    expect(brainrunHpLossForDifficulty(2)).toBe(1);
-    expect(brainrunHpLossForDifficulty(3)).toBe(2);
-    expect(brainrunHpLossForDifficulty(4)).toBe(2);
-    expect(brainrunHpLossForDifficulty(5)).toBe(3);
-  });
-});
 
 describe("shouldEndRunOnDamage", () => {
   it("ends the run at 0 HP or below, not above", () => {
@@ -363,7 +351,6 @@ describe("getActiveRelicEffects", () => {
     expect(getActiveRelicEffects([])).toEqual({
       goldMultiplier: 1,
       flatGoldBonusPerRoom: 0,
-      hpLossReduction: 0,
       bossTimeBonusMs: 0,
       bossDamageBonusPerHit: 0,
       hasExtraLife: false,
@@ -373,6 +360,8 @@ describe("getActiveRelicEffects", () => {
       mapVisionRows: 0,
       goldOnBonusSkip: 0,
       autoHintChance: 0,
+      healChanceOnCombatEnd: 0,
+      bonusConsumableSlots: 0,
     });
   });
 
@@ -380,7 +369,7 @@ describe("getActiveRelicEffects", () => {
     const effects = getActiveRelicEffects(ALL_RELIC_IDS);
     expect(effects.goldMultiplier).toBeCloseTo(1.2);
     expect(effects.flatGoldBonusPerRoom).toBe(5);
-    expect(effects.hpLossReduction).toBe(1);
+    expect(effects.healChanceOnCombatEnd).toBeCloseTo(0.2);
     expect(effects.bossTimeBonusMs).toBe(3000);
     expect(effects.bossDamageBonusPerHit).toBe(5);
     expect(effects.hasExtraLife).toBe(true);
@@ -390,6 +379,7 @@ describe("getActiveRelicEffects", () => {
     expect(effects.mapVisionRows).toBe(2);
     expect(effects.goldOnBonusSkip).toBe(15);
     expect(effects.autoHintChance).toBeCloseTo(0.05);
+    expect(effects.bonusConsumableSlots).toBe(2);
   });
 
   it("ignores unknown ids", () => {
@@ -434,19 +424,6 @@ describe("getActiveTalentEffects", () => {
 
   it("ignores unknown ids", () => {
     expect(getActiveTalentEffects(["NOT_A_TALENT"]).bonusStartHp).toBe(0);
-  });
-});
-
-describe("applyRelicsToHpLoss", () => {
-  const effects = getActiveRelicEffects(["SPECIALIZATION"]);
-
-  it("reduces the loss but never below 1 when a loss occurred", () => {
-    expect(applyRelicsToHpLoss(2, effects)).toBe(1);
-    expect(applyRelicsToHpLoss(1, effects)).toBe(1);
-  });
-
-  it("leaves a zero loss (correct answer) untouched", () => {
-    expect(applyRelicsToHpLoss(0, effects)).toBe(0);
   });
 });
 

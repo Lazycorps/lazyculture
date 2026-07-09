@@ -16,7 +16,8 @@ export type BrainrunRelicId =
   | "CONSOLATION_PRIZE"
   | "EVENT_MAGNET"
   | "HAGGLER"
-  | "RESTOCK";
+  | "RESTOCK"
+  | "BACKPACK";
 
 /** Reliques pouvant être obtenues/proposées même une fois déjà possédées (exception à la règle
  * d'unicité des reliques) : chaque exemplaire supplémentaire cumule son effet. */
@@ -130,7 +131,7 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
   SPECIALIZATION: {
     id: "SPECIALIZATION",
     name: "Spécialisation",
-    description: "Perd 1 PV de moins à chaque mauvaise réponse (minimum 1 PV perdu).",
+    description: "20% de chance de récupérer 1 PV à la fin de chaque combat.",
     icon: "i-heroicons-academic-cap",
     rarity: "COMMON",
   },
@@ -212,6 +213,13 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
     description:
       "Dès qu'un objet est acheté en Boutique, un nouvel objet du même type prend sa place.",
     icon: "i-heroicons-arrow-path",
+    rarity: "RARE",
+  },
+  BACKPACK: {
+    id: "BACKPACK",
+    name: "Sac à Dos",
+    description: "+2 emplacements de consommables (5 au lieu de 3).",
+    icon: "i-heroicons-briefcase",
     rarity: "RARE",
   },
 };

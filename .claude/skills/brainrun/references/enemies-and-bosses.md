@@ -1,0 +1,57 @@
+# Ennemis, Élites et Boss
+
+## Catalogue ennemis/élites (`shared/brainrunEnemies.ts`)
+
+`BRAINRUN_ENEMIES: BrainrunEnemyDef[]` — chaque entrée : `id`, `name`, `act` (1-3), `tier` (`CLASSIC` | `ELITE`), `themes` (slugs de `QuestionTheme` : 2-3 pour un Classique, 4-5 pour un Élite). ~10 Classiques + 5 Élites par acte, thématisés (ex. "Le Fan de Ciné" = cinema/series_cultes/culture_generale).
+
+Accès : `getBrainrunEnemiesByActAndTier(act, tier)`, `getBrainrunEnemyById(id)`.
+
+## Catalogue boss (`shared/brainrunBosses.ts`)
+
+`BRAINRUN_BOSSES: BrainrunBossDef[]` — 6 boss nommés, 2 par acte : `id`, `name`, `act`, `malus` (`BrainrunBossMalusId`), `themes` (toujours 4, `culture_generale` **systématiquement inclus**). Un seul boss par acte, tiré au hasard parmi les 2 candidats à l'entrée de la salle Boss.
+
+Accès : `getBrainrunBossesByAct(act)`, `getBrainrunBossById(id)`.
+
+## Logique de tirage (dans `BrainrunService.chooseNode`)
+
+- **Standard/Elite** : tire dans le pool de l'acte+tier, en excluant les ennemis déjà rencontrés dans l'acte en cours (`run.usedEnemyIds`, réinitialisé à chaque changement d'acte — chaque acte a son propre roster). Si le pool filtré est vide (run très longue), retombe sur le pool non filtré plutôt que de bloquer.
+- **Boss** : tire parmi les 2 boss de l'acte (pas de logique d'exclusion, une seule salle Boss par acte).
+- **Purge Thématique** (relique) : avant tout ça, filtre les candidats dont un thème est banni (`run.bannedThemes`) — si l'exclusion viderait tout le pool, retombe sur le pool non filtré (même filet de sécurité que ci-dessus).
+- Les questions de la salle sont ensuite tirées via `QuestionService.getRandomIdsByDifficulty` avec les thèmes de l'ennemi/boss retenu, la plage de difficulté de l'acte, et l'override spécifique à `culture_generale` (voir `rules-and-progression.md`).
+
+## ⚠️ Piège de volume de questions (déjà rencontré en pratique)
+
+Avant d'ajouter un ennemi/boss ou de changer ses thèmes, vérifier le **volume réel de questions par thème et par difficulté** — voir la mémoire `project_question_bank_theme_difficulty_stats` (re-lancer la requête si la décision est à enjeu ou si le dernier snapshot date). Piège concret déjà rencontré : des thèmes "univers" de niche (`star_wars`, `lord_of_the_ring`, `nintendo`, `tintin`, `world_of_warcraft`, `disney`) ont des totaux qui semblent corrects en sommant par thème, mais s'effondrent quasiment à zéro sur l'**union dédupliquée** à une difficulté ≥4. Toujours calculer l'union dédupliquée à la bande de difficulté exacte visée, jamais sommer les totaux par thème indépendamment.
+
+## Malus de boss (combat contre-la-montre)
+
+`BrainrunBossMalusId` (6 valeurs) — effets purement d'**affichage** côté client (`app/composables/useBrainrunBossMalus.ts`), la soumission de réponse repose toujours sur les `proposition.id` d'origine, jamais modifiés par un malus :
+
+| Malus                | Boss (ex.)           | Effet                                                                                        |
+| -------------------- | -------------------- | -------------------------------------------------------------------------------------------- |
+| `hidden_answer`      | Gilbert (acte 1)     | Une proposition tirée au hasard est masquée ("???"), reste cliquable                         |
+| `swap_answers`       | Le Joker (acte 1)    | 2 propositions échangent leur position toutes les 4s (`SWAP_INTERVAL_MS`)                    |
+| `mirror_answers`     | La Sorcière (acte 2) | Propositions affichées en miroir                                                             |
+| `scrambling_letters` | François (acte 2)    | Lettres mélangées 1s sur 5 (`SCRAMBLE_INTERVAL_MS`/`SCRAMBLE_RATIO`), reviennent après 700ms |
+| `phoenix_revive`     | Le Phoenix (acte 3)  | Ressuscite à 50% puis 25% PV — voir mécanique dédiée ci-dessous                              |
+| `progressive_blur`   | Gérard (acte 3)      | Flou qui se dissipe jusqu'à net à 3s restantes (`BLUR_CLEAR_AT_MS`)                          |
+
+## Mécanique de combat contre-la-montre
+
+- PV du boss : `BRAINRUN_BOSS_MAX_HP` = 5 × `BRAINRUN_BOSS_BASE_DAMAGE` = 5 × 20 = 100.
+- Chrono par question : `BRAINRUN_BOSS_QUESTION_TIME_MS` = 15 000ms (allongé de 10s à 15s pour compenser le passage à une décroissance continue plutôt que par paliers).
+- Dégâts d'une réponse correcte : `brainrunPotentialBossDamage(elapsedMs)` décroît **linéairement** de `BRAINRUN_BOSS_BASE_DAMAGE × BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER` (20×2.5=50, réponse immédiate) à 0 (temps écoulé) — pas de palier fixe. Fonction partagée client/serveur (`shared/brainrun.ts`) : le client l'utilise pour l'aperçu pendant le combat, le serveur pour le calcul réel.
+- Réponse incorrecte = 0 dégât. Timeout (`isBossAnswerTimedOut`) = échec forcé côté serveur **quelle que soit la réponse envoyée par le client** — ne jamais faire confiance à une réponse client après le délai.
+- Le chrono ne démarre qu'après l'appel explicite `prepareNextBossQuestion` (une fois que le joueur a fini de lire le feedback de la question précédente) — ne pas décompter le temps de lecture à l'insu du joueur.
+- Pas de limite de questions : `getNextBossQuestionId` en tire une nouvelle à la volée tant que le boss n'est pas à 0 PV exactement. Filet de sécurité si le vivier de questions inédites du palier est épuisé (run très longue) : retombe sur des questions déjà vues plutôt que de bloquer le combat.
+
+## Résurrection du Phoenix (`phoenix_revive`)
+
+Cas spécial le plus complexe du système de boss : à 0 PV, le combat **ne se termine pas** immédiatement pour les 2 premières fois (`activeRoom.bossPhase < 2`). La vraie résurrection (PV remontés à 50% puis 25% de `BRAINRUN_BOSS_MAX_HP`, `bossPhase` incrémenté) n'a lieu qu'au clic sur "Continuer" (`prepareNextBossQuestion`), pas dans `submitAnswer` — pour laisser au joueur le temps de croire qu'il a gagné avant l'animation de résurrection côté client. `submitAnswer` marque juste `bossRevived: true` sur la réponse pour signaler l'UI.
+
+## Si tu ajoutes un ennemi/élite/boss
+
+1. Vérifier le volume de questions (piège ci-dessus) avant de figer les thèmes.
+2. Un ennemi/élite : ajouter une entrée à `BRAINRUN_ENEMIES`, respecter la convention 2-3 thèmes (Classique) / 4-5 thèmes (Élite), inclure `culture_generale` si tu veux le diluer parmi les autres thèmes plutôt que le laisser dominer.
+3. Un boss : ajouter à `BRAINRUN_BOSSES` avec `culture_generale` **toujours** dans les thèmes, et soit réutiliser un `malus` existant soit en créer un nouveau — dans ce cas, ajouter le rendu correspondant dans `useBrainrunBossMalus.ts` (nouveau cas dans `setupForCurrentQuestion`/`displayPropositions`) et le type dans `BrainrunBossMalusId`.
+4. Aucune migration Prisma nécessaire pour un nouvel ennemi/boss (catalogue en code, seul l'`id` est persisté sur `BrainrunRoom.enemyId`/`bossId`).

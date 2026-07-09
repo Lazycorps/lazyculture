@@ -1,0 +1,70 @@
+# Reliques et consommables
+
+Catalogue commun : `shared/brainrunItems.ts`. Rareté à 2 niveaux (`BrainrunRarity` = `COMMON` | `RARE`), poids de tirage `BRAINRUN_RARITY_WEIGHT` = COMMON 3 / RARE 1 (RARE ~4x moins fréquent), modulable par le talent **Œil affûté** (`rareWeightBonus`, ajouté au poids RARE dans `weightedRandomPick`).
+
+## Reliques (`BRAINRUN_RELICS`, 15 aujourd'hui)
+
+Passives, possédées pour le reste de la run, agrégées via **`getActiveRelicEffects(relicIds)`** (`brainrunLogic.ts`) — additif sur un objet `BrainrunRelicEffects`, valeurs neutres si aucune relique. **Toute nouvelle relique qui modifie une mécanique existante doit passer par ce champ d'effets**, jamais par un `if (relics.includes(...))` ailleurs dans le code.
+
+| id                   | Nom                   | Rareté | Effet                                                                                                                           |
+| -------------------- | --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ENCYCLOPEDIA`       | Encyclopédie          | COMMON | +20% or/salle (`goldMultiplier`)                                                                                                |
+| `PROVIDENT_PURSE`    | Bourse Providentielle | COMMON | +5 or flat/salle de combat (`flatGoldBonusPerRoom`)                                                                             |
+| `SPECIALIZATION`     | Spécialisation        | COMMON | 20% chance de récupérer 1 PV en fin de combat gagné (`healChanceOnCombatEnd`, `BRAINRUN_SPECIALIZATION_HEAL_CHANCE`)            |
+| `BROKEN_CHRONOMETER` | Chronomètre Brisé     | RARE   | +3s chrono boss (`bossTimeBonusMs`)                                                                                             |
+| `ADRENALINE`         | Adrénaline            | COMMON | +5 dégâts boss/bonne réponse (`bossDamageBonusPerHit`)                                                                          |
+| `SECOND_CHANCE`      | Seconde Chance        | RARE   | annule la 1re mort (`hasExtraLife`), consommée après usage                                                                      |
+| `HAGGLER`            | Marchandeur           | COMMON | -20% prix Librairie (`shopPriceMultiplier`)                                                                                     |
+| `RESTOCK`            | Fournisseur Fidèle    | RARE   | réassort auto en Librairie (`autoRestockShop`)                                                                                  |
+| `EVENT_MAGNET`       | Aimant à Événements   | RARE   | chance de convertir un futur combat en Événement (`eventBonusChance`)                                                           |
+| `FORESIGHT`          | Prévoyance            | COMMON | +2 rangées de vision sur la carte (`mapVisionRows`)                                                                             |
+| `CONSOLATION_PRIZE`  | Lot de Consolation    | COMMON | or en ignorant un bonus post-combat (`goldOnBonusSkip`)                                                                         |
+| `SIXTH_SENSE`        | Sixième Sens          | COMMON | 5% chance/question de révéler la bonne réponse après 8s (`autoHintChance`)                                                      |
+| `EXTRA_HEART`        | Cœur Supplémentaire   | RARE   | +1 PV max immédiat — **seule relique stackable** (`BRAINRUN_STACKABLE_RELIC_IDS`), plafonnée par `BRAINRUN_ABSOLUTE_MAX_HP` (8) |
+| `THEME_PURGE`        | Purge Thématique      | RARE   | bannit un thème au choix du joueur — **flux spécial en 2 temps**, voir ci-dessous                                               |
+| `BACKPACK`           | Sac à Dos             | RARE   | +2 emplacements de consommables, 5 au lieu de 3 (`bonusConsumableSlots`)                                                        |
+
+Une mauvaise réponse fait toujours perdre **exactement 1 PV**, quelle que soit la difficulté de la question (`brainrunHpLossForDifficulty` a été retiré — plus de palier 1/2/3 PV) ; seul le consommable Bouclier peut encore annuler cette perte. C'est ce qui a rendu l'ancien effet de Spécialisation (réduction de la perte) inutile et a motivé son recyclage en soin de fin de combat.
+
+## Purge Thématique — flux en 2 temps (le seul cas non trivial)
+
+Contrairement aux autres reliques, elle ne rejoint `run.relics` **qu'après** que le joueur ait choisi le thème à bannir : `grantOffer`/`resolveEventOption` mettent `run.pendingThemeBanChoice = true` sans toucher `relics` ni `bannedThemes`. `acknowledgeRoom`/`leaveShop` refusent d'avancer tant que ce flag est vrai. `resolveThemeBan(theme)` valide le thème (doit être dans `computeAvailableThemesToBan`), pousse `THEME_PURGE` dans `relics` **et** le thème dans `bannedThemes` en une seule fois. Si tu ajoutes une autre relique qui demande un choix du joueur à l'obtention, réutiliser ce patron (`pendingXxxChoice` bloquant + résolution dédiée) plutôt que d'inventer un nouveau mécanisme.
+
+## Consommables (`BRAINRUN_CONSUMABLES`, 10 aujourd'hui)
+
+Possédés en quantité (`run.consumables: Record<id, count>`), consommés via `BrainrunService.useConsumable(type)`. Chaque type a sa propre branche dans cette méthode (pas de logique générique — normal, les effets sont trop différents) :
+
+**Plafond d'emplacements** : `BRAINRUN_BASE_CONSUMABLE_SLOTS` = 3 (5 avec la relique `BACKPACK`), calculé par `BrainrunService.maxConsumableSlots(relics)` et exposé au client via `run.maxConsumables`. Chaque exemplaire obtenu prend son propre emplacement — un 2e exemplaire identique compte pour 1 emplacement de plus, pas un compteur `x2` illimité. Tout octroi (`grantConsumable`, boucle de Cargaison Surprise) plafonne silencieusement à la capacité restante ; achat en Librairie et choix du bonus post-combat sont bloqués côté serveur (409) si l'inventaire est déjà plein, pour ne pas faire dépenser d'or/perdre un bonus pour rien. `BrainrunService.discardConsumable(type)` permet au joueur de jeter un exemplaire pour libérer un emplacement (bouton "Jeter" dans l'infobulle HUD, `app/pages/brainrun/index.vue`).
+
+| id                  | Nom                | Rareté | Prix Librairie    | Effet                                                             | Contrainte                          |
+| ------------------- | ------------------ | ------ | ----------------- | ----------------------------------------------------------------- | ----------------------------------- |
+| `FIFTY_FIFTY`       | 50/50              | COMMON | 20                | élimine la moitié des mauvaises propositions                      | 1 usage/question                    |
+| `PHONE_A_FRIEND`    | Appel à un ami     | COMMON | 20                | suggère une réponse, risque d'erreur croissant avec la difficulté | 1 usage/question                    |
+| `SHIELD`            | Bouclier           | COMMON | 20                | annule la prochaine perte de PV (combat ou Événement)             | non stackable (un seul armé)        |
+| `BOSS_CHRONO_BOOST` | Sablier Fêlé       | COMMON | 15                | +5s chrono boss en cours                                          | réservé combat Boss                 |
+| `BOSS_DAMAGE_BOOST` | Coup de Grâce      | COMMON | 20                | +10 dégâts si la réponse en cours est correcte                    | réservé combat Boss                 |
+| `MALUS_CANCEL`      | Antidote           | COMMON | 10                | annule le malus du boss sur la question en cours                  | réservé combat Boss                 |
+| `REDRAW_QUESTION`   | Nouvelle Pioche    | RARE   | 35                | remplace la question en cours, même difficulté/thèmes             | —                                   |
+| `HEAL_POTION`       | Potion de Soin     | RARE   | 35                | +1 PV                                                             | refusé si PV déjà au max            |
+| `RANDOM_STASH`      | Cargaison Surprise | RARE   | 30                | tire 3 consommables COMMON au hasard                              | —                                   |
+| `REVIVE_TOKEN`      | Dernier Souffle    | RARE   | _jamais en vente_ | ressuscite auto. à 1 PV à la 1re mort                             | auto-déclenché, usage manuel refusé |
+
+Les effets ponctuels sur la question en cours (50/50, Appel à un ami, Sablier Fêlé, Coup de Grâce, Antidote, Sixième Sens) sont persistés dans `BrainrunRoom.consumableReveal`, réinitialisé à chaque nouvelle question — **un seul usage par question et par type**, vérifié explicitement avant d'appliquer l'effet.
+
+## Offres (comment reliques/consommables sont proposés)
+
+Deux générateurs distincts dans `brainrunLogic.ts`, à ne pas confondre :
+
+- **`generateBonusOffers`** — bonus post Elite/Boss, gratuit, toujours `BRAINRUN_BONUS_OFFER_COUNT` = 3 options (jamais moins), priorité reliques non possédées pondérées par rareté, complété par des consommables puis de l'or si le pool de reliques est épuisé. Le joueur peut aussi cliquer "Passer" (`SKIP`) → relique Lot de Consolation.
+- **`generateShopOffers`** — Librairie, avec prix (détail dans `events-shop-library.md`).
+
+## Glossaire (encyclopédie des objets découverts)
+
+`BrainrunMetaProgress.discoveredRelics`/`discoveredConsumables` — alimenté par `recordRelicDiscovery`/`recordConsumableDiscovery` (`brainrunMetaHelper.ts`) à chaque première obtention, **toutes runs confondues**, persiste même après une run perdue. Affiché par `BrainrunGlossaryModal.vue` (objets non découverts affichés en silhouette "???"). Une nouvelle relique/consommable est automatiquement couverte par ce mécanisme générique, rien à faire de spécifique.
+
+## Si tu ajoutes une relique ou un consommable
+
+1. Ajouter l'entrée au catalogue (`BRAINRUN_RELICS`/`BRAINRUN_CONSUMABLES`) avec id/nom/description/icône/rareté (+`shopPrice` si vendable en Librairie).
+2. Relique : ajouter le champ d'effet correspondant à `BrainrunRelicEffects` + le cas dans `getActiveRelicEffects` ; composer l'effet dans la fonction pure concernée (`applyRelicsToHpLoss`/`ToGold`/`ToBossDamage`, ou nouvelle fonction si l'effet ne rentre dans aucune existante) plutôt que de le brancher directement dans `BrainrunService`.
+3. Consommable : ajouter une branche dans `useConsumable`, décider s'il est réservé au combat de Boss (`isBossOnlyType`), et s'il agit hors question (comme Bouclier/Potion/Cargaison) ou sur la question en cours via `consumableReveal`.
+4. Si l'effet interagit avec un autre système (carte, boutique, thèmes), suivre la checklist d'impact croisé du `SKILL.md` avant de considérer l'implémentation terminée.

@@ -194,6 +194,18 @@ export const useBrainrunSession = () => {
     return state;
   }
 
+  /** Jette un exemplaire d'un consommable possédé pour libérer un emplacement. */
+  async function discardConsumable(type: BrainrunConsumableId) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    const state = await authFetch<BrainrunStateDTO>("/api/brainrun/discard-consumable", {
+      method: "post",
+      body: { runId: run.value.id, type },
+    });
+    applyState(state);
+    return state;
+  }
+
   async function acknowledgeRoom() {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -256,6 +268,7 @@ export const useBrainrunSession = () => {
     resolveRest,
     resolveEvent,
     useConsumable,
+    discardConsumable,
     acknowledgeRoom,
     startNewRun,
     abandonRun,

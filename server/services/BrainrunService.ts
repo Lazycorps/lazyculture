@@ -10,10 +10,8 @@ import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import {
   applyRelicsToBossDamage,
   applyRelicsToGold,
-  applyRelicsToHpLoss,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
-  brainrunHpLossForDifficulty,
   calculBrainrunUserXP,
   computeVisibleCols,
   consumeShieldIfArmed,
@@ -45,6 +43,7 @@ import {
 } from "~~/server/utils/brainrunMetaHelper";
 import {
   BRAINRUN_ABSOLUTE_MAX_HP,
+  BRAINRUN_BASE_CONSUMABLE_SLOTS,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
   BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
@@ -77,6 +76,7 @@ import {
 } from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
 import type {
+  BrainrunEventOutcomeDTO,
   BrainrunMapNodeDTO,
   BrainrunMetaProgressDTO,
   BrainrunRoomDTO,
@@ -244,6 +244,7 @@ export class BrainrunService {
         userId,
         combatThemes,
         { culture_generale: BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[run.currentAct]! },
+        run.bannedThemes,
       );
       const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
 
@@ -326,9 +327,10 @@ export class BrainrunService {
     // soit la proposition envoyée par le client.
     const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
-    const rawHpLoss = success ? 0 : brainrunHpLossForDifficulty(question.difficulty);
-    const relicAdjustedHpLoss = applyRelicsToHpLoss(rawHpLoss, effects);
-    const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, relicAdjustedHpLoss);
+    // Une mauvaise réponse fait toujours perdre exactement 1 PV, quelle que soit la difficulté
+    // de la question (plus de palier 1/2/3 PV) — seul le Bouclier peut encore annuler la perte.
+    const rawHpLoss = success ? 0 : 1;
+    const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, rawHpLoss);
     const bossDamage = isBossRoom
       ? (() => {
           // Bonus de talent ("Frappe assurée") + relique (Adrénaline) + Coup de Grâce (consommable,
@@ -397,11 +399,28 @@ export class BrainrunService {
     // que lorsque le boss est vaincu (bossDefeated) ou que le joueur meurt.
     const roomQuestionsDone = !isBossRoom && newResponses.length === activeRoom.questionIds.length;
 
+    // Un Boss vaincu régénère intégralement les PV, pour repartir à plein sur l'acte suivant.
+    const healthPointAfterCombat = bossDefeated ? run.maxHealthPoint : Math.max(newHealthPoint, 0);
+    // Spécialisation : chance de récupérer 1 PV de plus à la fin d'un combat gagné (jamais utile
+    // sur un Boss vaincu, qui régénère déjà tous les PV) ; signalé sur la dernière réponse pour
+    // que le client puisse afficher un bref effet visuel avant le récap de fin de salle.
+    const combatCleared = !died && (bossDefeated || roomQuestionsDone);
+    const specializationHealTriggered =
+      combatCleared &&
+      effects.healChanceOnCombatEnd > 0 &&
+      healthPointAfterCombat < run.maxHealthPoint &&
+      Math.random() < effects.healChanceOnCombatEnd;
+    const finalHealthPoint = specializationHealTriggered
+      ? healthPointAfterCombat + 1
+      : healthPointAfterCombat;
+    if (specializationHealTriggered) {
+      newResponses[newResponses.length - 1]!.healthRegenerated = true;
+    }
+
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: {
-        // Un Boss vaincu régénère intégralement les PV, pour repartir à plein sur l'acte suivant.
-        healthPoint: bossDefeated ? run.maxHealthPoint : Math.max(newHealthPoint, 0),
+        healthPoint: finalHealthPoint,
         ...(shieldConsumed ? { shieldArmed: false } : {}),
         ...(extraLifeUsed ? { relics: run.relics.filter((r) => r !== "SECOND_CHANCE") } : {}),
         ...(reviveTokenUsed
@@ -466,6 +485,7 @@ export class BrainrunService {
           updatedUsedQuestionIds,
           userId,
           bossDef?.themes,
+          run.bannedThemes,
         );
         updatedQuestionIds = [...activeRoom.questionIds, nextQuestionId];
         await prisma.brainrunRun.update({
@@ -556,6 +576,13 @@ export class BrainrunService {
       if (!offer) {
         throw createError({ statusCode: 400, statusMessage: "Bonus non proposé." });
       }
+      if (
+        offer.kind === "CONSUMABLE" &&
+        this.usedConsumableSlots((run.consumables as ConsumableCounts) ?? {}) >=
+          this.maxConsumableSlots(run.relics)
+      ) {
+        throw createError({ statusCode: 409, statusMessage: "Inventaire de consommables plein." });
+      }
       await this.grantOffer(run.id, offer, userId);
     } else {
       // Lot de Consolation : de l'or pour compenser un bonus ignoré.
@@ -591,6 +618,13 @@ export class BrainrunService {
     const offer = offers[offerIndex];
     if (!offer) {
       throw createError({ statusCode: 400, statusMessage: "Offre invalide." });
+    }
+    if (
+      offer.kind === "CONSUMABLE" &&
+      this.usedConsumableSlots((run.consumables as ConsumableCounts) ?? {}) >=
+        this.maxConsumableSlots(run.relics)
+    ) {
+      throw createError({ statusCode: 409, statusMessage: "Inventaire de consommables plein." });
     }
 
     const price = offer.price ?? 0;
@@ -796,9 +830,24 @@ export class BrainrunService {
       });
       await this.finalizeRun(run.id, "LOST");
     } else {
+      // Résultat réellement appliqué (post-Bouclier/tirages aléatoires), affiché tel quel côté
+      // client à la place du récap générique une fois la salle CLEARED (cf. BrainrunEvent.vue).
+      const outcome: BrainrunEventOutcomeDTO = {
+        optionIndex,
+        hpDelta: hpReward - hpLoss,
+        goldDelta: resolved.goldDelta,
+        relicGranted: resolved.relicGranted,
+        relicLost: resolved.relicLost,
+        consumablesGranted: resolved.consumablesGranted,
+        shieldConsumed,
+      };
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
-        data: { status: "CLEARED", goldEarned: Math.max(0, resolved.goldDelta) },
+        data: {
+          status: "CLEARED",
+          goldEarned: Math.max(0, resolved.goldDelta),
+          eventOutcome: outcome,
+        },
       });
     }
     return this.getStateById(run.id);
@@ -893,8 +942,15 @@ export class BrainrunService {
         ...consumables,
         RANDOM_STASH: consumables.RANDOM_STASH! - 1,
       };
+      // Plafond d'emplacements : les tirages qui ne rentrent plus sont perdus (comme grantConsumable).
+      let roomAvailable = Math.max(
+        0,
+        this.maxConsumableSlots(run.relics) - this.usedConsumableSlots(updated),
+      );
       for (const grantedId of pickRandomStashConsumables()) {
+        if (roomAvailable <= 0) break;
         updated[grantedId] = (updated[grantedId] ?? 0) + 1;
+        roomAvailable -= 1;
       }
       await prisma.brainrunRun.update({ where: { id: run.id }, data: { consumables: updated } });
       return this.getStateById(run.id);
@@ -1006,6 +1062,24 @@ export class BrainrunService {
     return this.getStateById(run.id);
   }
 
+  /** Jette un exemplaire d'un consommable possédé, pour libérer un emplacement (cf.
+   * maxConsumableSlots) sans avoir à l'utiliser. */
+  async discardConsumable(
+    runId: string,
+    type: BrainrunConsumableId,
+    userId: string,
+  ): Promise<BrainrunStateDTO> {
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const consumables = (run.consumables as ConsumableCounts) ?? {};
+    if (!consumables[type] || consumables[type]! <= 0) {
+      throw createError({ statusCode: 400, statusMessage: "Consommable indisponible." });
+    }
+    const updated: ConsumableCounts = { ...consumables, [type]: consumables[type]! - 1 };
+    if (updated[type] === 0) delete updated[type];
+    await prisma.brainrunRun.update({ where: { id: run.id }, data: { consumables: updated } });
+    return this.getStateById(run.id);
+  }
+
   /**
    * Tire une question de remplacement pour "Nouvelle Pioche" : même palier de difficulté et
    * mêmes thèmes que la salle en cours (ennemi/boss), en excluant les questions déjà tirées
@@ -1013,7 +1087,7 @@ export class BrainrunService {
    * plutôt que d'échouer (même stratégie que getNextBossQuestionId).
    */
   private async getReplacementQuestionId(
-    run: { currentAct: number; usedQuestionIds: number[] },
+    run: { currentAct: number; usedQuestionIds: number[]; bannedThemes: string[] },
     activeRoom: {
       type: string | null;
       enemyId: string | null;
@@ -1037,6 +1111,8 @@ export class BrainrunService {
       excludeIds,
       userId,
       themes,
+      undefined,
+      run.bannedThemes,
     );
     if (id !== undefined) return id;
 
@@ -1151,8 +1227,21 @@ export class BrainrunService {
     return { autoHintId: questionData.response };
   }
 
+  /** Plafond d'emplacements de consommables (3 de base, +2 avec la relique Sac à Dos) : chaque
+   * exemplaire obtenu prend son propre emplacement, les identiques ne se stackent pas en un
+   * compteur illimité (cf. shared/brainrun.ts consumables). */
+  private maxConsumableSlots(relics: string[]): number {
+    return BRAINRUN_BASE_CONSUMABLE_SLOTS + getActiveRelicEffects(relics).bonusConsumableSlots;
+  }
+
+  private usedConsumableSlots(consumables: ConsumableCounts): number {
+    return Object.values(consumables).reduce((sum, count) => sum + count, 0);
+  }
+
   /** Lecture-puis-écriture (non atomique) sur le compteur JSON de consommables, comme le reste
-   * de l'état Brainrun non protégé contre le double-clic (cf. limites assumées du lot). */
+   * de l'état Brainrun non protégé contre le double-clic (cf. limites assumées du lot). Plafonne
+   * silencieusement à la capacité restante (cf. maxConsumableSlots) : l'excédent est perdu plutôt
+   * que de faire échouer l'action déjà engagée (Événement, Cargaison Surprise). */
   private async grantConsumable(
     runId: string,
     type: BrainrunConsumableId,
@@ -1160,7 +1249,13 @@ export class BrainrunService {
   ): Promise<void> {
     const run = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
     const consumables = (run.consumables as ConsumableCounts) ?? {};
-    consumables[type] = (consumables[type] ?? 0) + amount;
+    const roomAvailable = Math.max(
+      0,
+      this.maxConsumableSlots(run.relics) - this.usedConsumableSlots(consumables),
+    );
+    const grantedAmount = Math.min(amount, roomAvailable);
+    if (grantedAmount <= 0) return;
+    consumables[type] = (consumables[type] ?? 0) + grantedAmount;
     await prisma.brainrunRun.update({
       where: { id: runId },
       data: { consumables: consumables },
@@ -1384,6 +1479,7 @@ export class BrainrunService {
     excludeIds: number[],
     userId: string,
     themes?: string[],
+    bannedThemes?: string[],
   ): Promise<number> {
     const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[act]!.BOSS;
     const [id] = await questionService.getRandomIdsByDifficulty(
@@ -1393,6 +1489,8 @@ export class BrainrunService {
       excludeIds,
       userId,
       themes,
+      undefined,
+      bannedThemes,
     );
     if (id !== undefined) return id;
 
@@ -1524,6 +1622,7 @@ export class BrainrunService {
       endDate: run.endDate,
       relics: run.relics as BrainrunRunDTO["relics"],
       consumables: (run.consumables as ConsumableCounts) ?? {},
+      maxConsumables: this.maxConsumableSlots(run.relics),
       shieldArmed: run.shieldArmed,
       bannedThemes: run.bannedThemes,
       pendingThemeBanChoice: run.pendingThemeBanChoice,
@@ -1537,16 +1636,40 @@ export class BrainrunService {
   /**
    * Thèmes non bannis encore présents dans les pools d'ennemis/boss (les 3 actes confondus),
    * triés par ordre alphabétique. `culture_generale` n'est jamais bannissable (inclus
-   * systématiquement dans les boss, cf. shared/brainrunBosses.ts).
+   * systématiquement dans les boss, cf. shared/brainrunBosses.ts), tout comme les thèmes de
+   * computeUnsafeToBanThemes.
    */
   private computeAvailableThemesToBan(bannedThemes: string[]): string[] {
     const allThemes = [
       ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
       ...BRAINRUN_BOSSES.flatMap((b) => b.themes),
     ];
+    const unsafeThemes = this.computeUnsafeToBanThemes();
     return [...new Set(allThemes)]
-      .filter((theme) => theme !== "culture_generale" && !bannedThemes.includes(theme))
+      .filter(
+        (theme) =>
+          theme !== "culture_generale" && !bannedThemes.includes(theme) && !unsafeThemes.has(theme),
+      )
       .sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Thèmes qu'il ne faut jamais laisser bannir : un thème partagé par tous les boss d'un même
+   * acte (ex. "anime-manga", commun aux 2 boss de l'Acte 2) viderait entièrement le pool de boss
+   * de cet acte si banni, ce qui ferait retomber chooseNode sur le pool complet non filtré
+   * (cf. bossCandidates) — annulant silencieusement le ban pour ce combat précis.
+   */
+  private computeUnsafeToBanThemes(): Set<string> {
+    const acts = [...new Set(BRAINRUN_BOSSES.map((b) => b.act))];
+    const unsafe = new Set<string>();
+    for (const act of acts) {
+      const [first, ...rest] = getBrainrunBossesByAct(act);
+      if (!first) continue;
+      first.themes
+        .filter((theme) => rest.every((b) => b.themes.includes(theme)))
+        .forEach((theme) => unsafe.add(theme));
+    }
+    return unsafe;
   }
 
   private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {
@@ -1582,6 +1705,7 @@ export class BrainrunService {
       offersRequireChoice: room.offersRequireChoice,
       offersResolved: room.offersResolved,
       eventId: room.eventId,
+      eventOutcome: (room.eventOutcome as unknown as BrainrunEventOutcomeDTO | null) ?? null,
       consumableReveal:
         (room.consumableReveal as unknown as BrainrunRoomDTO["consumableReveal"]) ?? null,
     };

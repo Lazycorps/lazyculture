@@ -41,11 +41,17 @@
         <UButton
           size="sm"
           :color="offer.price === 0 ? 'success' : isAffordable(offer) ? 'primary' : 'neutral'"
-          :disabled="loading || !isAffordable(offer)"
+          :disabled="loading || !isAffordable(offer) || isBlockedByFullInventory(offer)"
           class="font-black font-display shrink-0 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed"
           @click="$emit('buy', index)"
         >
-          {{ offer.price === 0 ? "Prendre" : `${offer.price} or` }}
+          {{
+            isBlockedByFullInventory(offer)
+              ? "Inventaire plein"
+              : offer.price === 0
+                ? "Prendre"
+                : `${offer.price} or`
+          }}
         </UButton>
       </div>
     </div>
@@ -70,12 +76,19 @@ const props = defineProps<{
   offers: BrainrunOffer[];
   gold: number;
   loading: boolean;
+  /** true si l'inventaire de consommables est déjà plein : bloque l'achat des offres CONSUMABLE
+   * pour ne pas faire dépenser de l'or pour rien (cf. BrainrunService.buyShopItem). */
+  consumablesFull: boolean;
 }>();
 
 defineEmits<{
   buy: [index: number];
   leave: [];
 }>();
+
+function isBlockedByFullInventory(offer: BrainrunOffer): boolean {
+  return offer.kind === "CONSUMABLE" && props.consumablesFull;
+}
 
 const {
   offerName: genericOfferName,

@@ -417,6 +417,7 @@ model BrainrunRoom {
     offersRequireChoice Boolean     @default(false) // true seulement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu
     offersResolved      Boolean     @default(false)
     eventId             String? // clé dans le catalogue BRAINRUN_EVENTS (shared/brainrunItems.ts)
+    eventOutcome        Json? // BrainrunEventOutcomeDTO — résultat réellement appliqué de l'option d'Événement choisie (cf. resolveEvent), pour l'afficher au joueur une fois la salle CLEARED
     consumableReveal    Json? // { eliminatedIds?: number[]; hintId?: number } — effet 50/50 / Appel à un ami sur la question en cours
     createDate          DateTime    @default(now())
     updateDate          DateTime    @default(now())
