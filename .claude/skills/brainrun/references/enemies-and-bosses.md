@@ -8,7 +8,7 @@ Accès : `getBrainrunEnemiesByActAndTier(act, tier)`, `getBrainrunEnemyById(id)`
 
 ## Catalogue boss (`shared/brainrunBosses.ts`)
 
-`BRAINRUN_BOSSES: BrainrunBossDef[]` — 6 boss nommés, 2 par acte : `id`, `name`, `act`, `malus` (`BrainrunBossMalusId`), `themes` (toujours 4, `culture_generale` **systématiquement inclus**). Un seul boss par acte, tiré au hasard parmi les 2 candidats à l'entrée de la salle Boss.
+`BRAINRUN_BOSSES: BrainrunBossDef[]` — 6 boss nommés, 2 par acte : `id`, `name`, `act`, `malus` (`BrainrunBossMalusId`), `themes` (5-6 selon le boss depuis l'élargissement 2026-07-09, `culture_generale` **systématiquement inclus**). Un seul boss par acte, tiré au hasard parmi les 2 candidats à l'entrée de la salle Boss.
 
 Accès : `getBrainrunBossesByAct(act)`, `getBrainrunBossById(id)`.
 
@@ -22,6 +22,16 @@ Accès : `getBrainrunBossesByAct(act)`, `getBrainrunBossById(id)`.
 ## ⚠️ Piège de volume de questions (déjà rencontré en pratique)
 
 Avant d'ajouter un ennemi/boss ou de changer ses thèmes, vérifier le **volume réel de questions par thème et par difficulté** — voir la mémoire `project_question_bank_theme_difficulty_stats` (re-lancer la requête si la décision est à enjeu ou si le dernier snapshot date). Piège concret déjà rencontré : des thèmes "univers" de niche (`star_wars`, `lord_of_the_ring`, `nintendo`, `tintin`, `world_of_warcraft`, `disney`) ont des totaux qui semblent corrects en sommant par thème, mais s'effondrent quasiment à zéro sur l'**union dédupliquée** à une difficulté ≥4. Toujours calculer l'union dédupliquée à la bande de difficulté exacte visée, jamais sommer les totaux par thème indépendamment.
+
+## ⚠️ Piège des questions répétées en combat de boss (rencontré 2026-07-09)
+
+Le combat de boss n'a pas de limite de questions (`getNextBossQuestionId` pioche en boucle jusqu'à 0 PV) et `QuestionService.getRandomIdsByDifficulty` exclut d'abord les questions déjà **réussies par le joueur** (`Response: { none: { userId, success: true } }`) avant de retomber sur le pool complet. Pour un joueur qui a déjà beaucoup joué (typiquement en test/debug), ce filtre réduit vite le pool "inédit" — et d'autant plus vite que les thèmes du boss sont petits. Symptôme observé : les mêmes questions revenaient pour La Sorcière (`mythologie` = 31 questions dans la bande Acte2 [2,4]), Le Phoenix (`babylon_5` = 15 questions dans la bande Acte3 [3,5]) et Gérard (`inventions`=37/`football`=32), alors que Gilbert/Le Joker/François (thème le plus petit ≥54) ne posaient pas ce problème.
+
+Correctif appliqué : élargissement de tous les boss à 5-6 thèmes (au lieu de 4 fixes), en ajoutant pour chacun un thème à fort volume et/ou à pourcentage élevé de questions difficiles (%difficulté≥4), sans créer de nouveau thème partagé entre les 2 boss d'un même acte (voir piège suivant). Si le problème réapparaît malgré cet élargissement (croissance du nombre de runs/tests), ré-auditer le volume par thème (union dédupliquée sur la bande de difficulté exacte de l'acte) plutôt que d'ajouter des thèmes au hasard.
+
+## ⚠️ Piège du thème partagé entre les 2 boss d'un acte
+
+`BrainrunService.computeUnsafeToBanThemes` protège de la relique Purge Thématique tout thème présent dans **tous** les boss d'un même acte (le bannir viderait `unbannedBossPool` pour cet acte, ce qui ferait retomber `chooseNode` sur le pool complet non filtré — annulant silencieusement le ban pour ce combat). C'est déjà le cas pour `anime-manga` en Acte 2 (partagé par La Sorcière et François) — comportement voulu, pas un bug. En ajoutant un thème à un boss, vérifier si l'autre boss du même acte l'a aussi ; si ce n'est pas intentionnel, préférer un thème différent pour ne pas retirer silencieusement un thème de plus de la liste des thèmes bannissables de l'acte.
 
 ## Malus de boss (combat contre-la-montre)
 

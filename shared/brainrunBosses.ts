@@ -16,7 +16,7 @@ export type BrainrunBossDef = {
   name: string;
   act: 1 | 2 | 3;
   malus: BrainrunBossMalusId;
-  /** Slugs de `QuestionTheme` : 4 par boss, `culture_generale` inclus systématiquement. */
+  /** Slugs de `QuestionTheme` : 5-6 par boss, `culture_generale` inclus systématiquement. */
   themes: string[];
 };
 
@@ -26,42 +26,56 @@ export const BRAINRUN_BOSSES: BrainrunBossDef[] = [
     name: "Gilbert",
     act: 1,
     malus: "hidden_answer",
-    themes: ["culture_generale", "geo", "histoire", "orthographe"],
+    themes: ["culture_generale", "geo", "histoire", "orthographe", "inventions"],
   },
   {
     id: "act1_le_joker",
     name: "Le Joker",
     act: 1,
     malus: "swap_answers",
-    themes: ["culture_generale", "cinema", "series_cultes", "anime-manga"],
+    themes: ["culture_generale", "cinema", "series_cultes", "anime-manga", "sport"],
   },
   {
     id: "act2_la_sorciere",
     name: "La Sorcière",
     act: 2,
     malus: "mirror_answers",
-    themes: ["culture_generale", "mythologie", "series_cultes", "anime-manga"],
+    themes: [
+      "culture_generale",
+      "mythologie",
+      "series_cultes",
+      "anime-manga",
+      "harry_potter",
+      "inventions",
+    ],
   },
   {
     id: "act2_francois",
     name: "François",
     act: 2,
     malus: "scrambling_letters",
-    themes: ["culture_generale", "logique", "anime-manga", "geo"],
+    themes: ["culture_generale", "logique", "anime-manga", "geo", "sport"],
   },
   {
     id: "act3_le_phoenix",
     name: "Le Phoenix",
     act: 3,
     malus: "phoenix_revive",
-    themes: ["culture_generale", "geo", "sport", "babylon_5"],
+    themes: ["culture_generale", "geo", "sport", "babylon_5", "series_cultes", "mythologie"],
   },
   {
     id: "act3_gerard",
     name: "Gérard",
     act: 3,
     malus: "progressive_blur",
-    themes: ["culture_generale", "inventions", "football", "cinema"],
+    themes: [
+      "culture_generale",
+      "inventions",
+      "football",
+      "cinema",
+      "anime-manga",
+      "animaux_du_monde",
+    ],
   },
 ];
 
