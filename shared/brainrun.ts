@@ -170,6 +170,10 @@ export type BrainrunRunDTO = {
   /** Thèmes encore tirables (non bannis) parmi lesquels choisir ; non vide seulement quand
    * pendingThemeBanChoice est true. */
   availableThemesToBan: string[];
+  /** true dès qu'un outil de debug (set-stats/téléportation, dev uniquement) a touché cette run :
+   * elle ne rapportera ni XP, ni pièces, ni Points de Savoir, et ne compte pas dans les
+   * achievements (cf. references/debug-mode.md). */
+  isDebugRun: boolean;
 };
 
 /** Réponse de GET /api/brainrun/current : reflète intégralement l'état courant, dérivé côté serveur. */

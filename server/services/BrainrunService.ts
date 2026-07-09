@@ -43,6 +43,7 @@ import {
 } from "~~/server/utils/brainrunMetaHelper";
 import {
   BRAINRUN_ABSOLUTE_MAX_HP,
+  BRAINRUN_ACT_ROW_WIDTHS,
   BRAINRUN_BASE_CONSUMABLE_SLOTS,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
@@ -53,7 +54,9 @@ import {
   BRAINRUN_MAX_HP,
   BRAINRUN_QUESTIONS_PER_ROOM,
   BRAINRUN_START_HP,
+  BRAINRUN_TOTAL_ACTS,
 } from "~~/server/utils/brainrunConfig";
+import { assertDevOnly } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
 import {
   BRAINRUN_CHRONO_BOOST_MS,
@@ -134,14 +137,19 @@ export class BrainrunService {
   async abandonRun(userId: string): Promise<void> {
     const run = await prisma.brainrunRun.findFirst({ where: { userId, status: "IN_PROGRESS" } });
     if (!run) return;
-    const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
+    // Une run touchée par le debug (cf. debugSetStats/debugJumpToNode) ne rapporte pas de Points
+    // de Savoir et n'est pas comptée dans les achievements — même règle qu'à la fin normale d'une
+    // run (finalizeRun) : ce n'est pas une vraie partie.
+    const knowledgePointsEarned = run.isDebugRun ? 0 : goldToKnowledgePoints(run.gold);
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: { status: "ABANDONED", endDate: new Date(), knowledgePointsEarned },
     });
-    await grantKnowledgePoints(userId, knowledgePointsEarned);
+    if (!run.isDebugRun) {
+      await grantKnowledgePoints(userId, knowledgePointsEarned);
+    }
     const totalGames = await prisma.brainrunRun.count({
-      where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+      where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] }, isDebugRun: false },
     });
     await checkAndAwardAchievements(userId, "brainrunGames", totalGames);
   }
@@ -158,6 +166,20 @@ export class BrainrunService {
     if (!node) {
       throw createError({ statusCode: 400, statusMessage: "Nœud non accessible." });
     }
+    await this.resolveNodeChoice(run, node, col, userId);
+    return this.getStateById(run.id);
+  }
+
+  /** Résout un nœud choisi (candidat normal via chooseNode, ou nœud debug via debugJumpToNode) :
+   * active la salle spéciale ou tire ennemi/boss+questions pour un combat. `forcedCombatId`
+   * (debug uniquement) impose l'ennemi/boss au lieu du tirage aléatoire habituel. */
+  private async resolveNodeChoice(
+    run: BrainrunRunRow & { rooms: BrainrunRoomRow[] },
+    node: BrainrunRoomRow,
+    col: number,
+    userId: string,
+    forcedCombatId?: string,
+  ): Promise<void> {
     const choice = node.type as BrainrunRoomType;
     const effects = getActiveRelicEffects(run.relics);
 
@@ -219,19 +241,41 @@ export class BrainrunService {
       let combatThemes: string[] | undefined;
       if (combatType === "BOSS") {
         const bossPool = getBrainrunBossesByAct(run.currentAct);
-        const unbannedBossPool = bossPool.filter((b) => notBanned(b.themes));
-        const bossCandidates = unbannedBossPool.length > 0 ? unbannedBossPool : bossPool;
-        const boss = bossCandidates[Math.floor(Math.random() * bossCandidates.length)]!;
+        let boss;
+        if (forcedCombatId) {
+          // Debug uniquement (debugJumpToNode) : impose un boss du catalogue de l'acte courant
+          // plutôt que le tirage aléatoire habituel.
+          boss = bossPool.find((b) => b.id === forcedCombatId);
+          if (!boss) {
+            throw createError({ statusCode: 400, statusMessage: "Boss invalide pour cet acte." });
+          }
+        } else {
+          const unbannedBossPool = bossPool.filter((b) => notBanned(b.themes));
+          const bossCandidates = unbannedBossPool.length > 0 ? unbannedBossPool : bossPool;
+          boss = bossCandidates[Math.floor(Math.random() * bossCandidates.length)]!;
+        }
         bossId = boss.id;
         combatThemes = boss.themes;
       } else {
         const tier = combatType === "STANDARD" ? "CLASSIC" : "ELITE";
         const pool = getBrainrunEnemiesByActAndTier(run.currentAct, tier);
-        const unbannedPool = pool.filter((e) => notBanned(e.themes));
-        const available = unbannedPool.filter((e) => !run.usedEnemyIds.includes(e.id));
-        const candidates =
-          available.length > 0 ? available : unbannedPool.length > 0 ? unbannedPool : pool;
-        const enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
+        let enemy;
+        if (forcedCombatId) {
+          // Debug uniquement : impose un ennemi du catalogue de l'acte/tier courant.
+          enemy = pool.find((e) => e.id === forcedCombatId);
+          if (!enemy) {
+            throw createError({
+              statusCode: 400,
+              statusMessage: "Ennemi invalide pour cet acte/type.",
+            });
+          }
+        } else {
+          const unbannedPool = pool.filter((e) => notBanned(e.themes));
+          const available = unbannedPool.filter((e) => !run.usedEnemyIds.includes(e.id));
+          const candidates =
+            available.length > 0 ? available : unbannedPool.length > 0 ? unbannedPool : pool;
+          enemy = candidates[Math.floor(Math.random() * candidates.length)]!;
+        }
         enemyId = enemy.id;
         combatThemes = enemy.themes;
       }
@@ -279,8 +323,132 @@ export class BrainrunService {
         },
       });
     }
+  }
 
-    return this.getStateById(run.id);
+  /** Debug uniquement (assertDevOnly, `import.meta.dev`) : force PV/or de la run en cours sans
+   * passer par une salle. Les champs omis conservent leur valeur actuelle. PV plancher à 1 pour
+   * ne pas laisser la run dans un état "0 PV mais toujours IN_PROGRESS" que le client ne gère
+   * pas (la mort ne se déclenche normalement que dans submitAnswer). */
+  async debugSetStats(
+    runId: string,
+    userId: string,
+    patch: { healthPoint?: number; maxHealthPoint?: number; gold?: number },
+  ): Promise<BrainrunStateDTO> {
+    assertDevOnly();
+    const run = await this.getOwnedInProgressRun(runId, userId);
+
+    const maxHealthPoint =
+      patch.maxHealthPoint !== undefined
+        ? Math.max(1, Math.min(BRAINRUN_ABSOLUTE_MAX_HP, Math.round(patch.maxHealthPoint)))
+        : run.maxHealthPoint;
+    const healthPoint =
+      patch.healthPoint !== undefined
+        ? Math.max(1, Math.min(maxHealthPoint, Math.round(patch.healthPoint)))
+        : Math.min(run.healthPoint, maxHealthPoint);
+    const gold = patch.gold !== undefined ? Math.max(0, Math.round(patch.gold)) : run.gold;
+
+    await prisma.brainrunRun.update({
+      where: { id: runId },
+      // isDebugRun : marque la run une fois pour toutes (jamais réinitialisé) — bloque XP/pièces/
+      // Points de Savoir et l'incrémentation des achievements en fin de run, cf. finalizeRun/
+      // advanceAfterRoomClear/abandonRun.
+      data: { healthPoint, maxHealthPoint, gold, isDebugRun: true },
+    });
+    return this.getStateById(runId);
+  }
+
+  /** Debug uniquement : téléporte la run vers un nœud précis (doit être PENDING — pas de
+   * ré-résolution d'une salle déjà traitée), en forçant optionnellement son type et/ou
+   * l'ennemi/boss tiré pour le combat. Génère l'acte cible s'il n'est pas encore semé. */
+  async debugJumpToNode(
+    runId: string,
+    userId: string,
+    target: {
+      act: number;
+      row: number;
+      col: number;
+      roomType?: BrainrunRoomType;
+      forcedCombatId?: string;
+    },
+  ): Promise<BrainrunStateDTO> {
+    assertDevOnly();
+    const run = await this.getOwnedInProgressRun(runId, userId);
+
+    if (target.act < 1 || target.act > BRAINRUN_TOTAL_ACTS) {
+      throw createError({ statusCode: 400, statusMessage: "Acte invalide." });
+    }
+    const lastRow = BRAINRUN_ACT_ROW_WIDTHS.length;
+    if (target.row < 1 || target.row > lastRow) {
+      throw createError({ statusCode: 400, statusMessage: "Rangée invalide." });
+    }
+    const width = BRAINRUN_ACT_ROW_WIDTHS[target.row - 1]!;
+    if (target.col < 0 || target.col >= width) {
+      throw createError({ statusCode: 400, statusMessage: "Colonne invalide pour cette rangée." });
+    }
+    // La dernière rangée est toujours (et seulement) le Boss, cf. references/map.md — invariant
+    // dont dépend nextRowAfterClear pour détecter la fin d'acte/de run.
+    if (target.roomType === "BOSS" && target.row !== lastRow) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Seule la dernière rangée peut être Boss.",
+      });
+    }
+    if (target.roomType && target.roomType !== "BOSS" && target.row === lastRow) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "La dernière rangée doit rester de type Boss.",
+      });
+    }
+
+    const actChanged = target.act !== run.currentAct;
+    let actRooms = run.rooms.filter((r) => r.act === target.act);
+    if (actRooms.length === 0) {
+      const effects = getActiveRelicEffects(run.relics);
+      await this.seedActGraph(runId, target.act, effects.eventBonusChance);
+      actRooms = await prisma.brainrunRoom.findMany({ where: { runId, act: target.act } });
+    }
+    let node = actRooms.find((r) => r.row === target.row && r.col === target.col);
+    if (!node) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Nœud introuvable après génération de l'acte.",
+      });
+    }
+    if (node.status !== "PENDING") {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Cette salle a déjà été résolue, choisis un nœud non résolu.",
+      });
+    }
+
+    if (target.roomType && target.roomType !== node.type) {
+      await prisma.brainrunRoom.update({
+        where: { id: node.id },
+        data: { type: target.roomType },
+      });
+      node = { ...node, type: target.roomType };
+    }
+
+    await prisma.brainrunRun.update({
+      where: { id: runId },
+      data: {
+        currentAct: target.act,
+        currentRow: target.row,
+        // Le pool d'ennemis rencontrés ne s'applique qu'à l'acte en cours, cf. advanceAfterRoomClear.
+        ...(actChanged ? { usedEnemyIds: [] } : {}),
+        // Cf. debugSetStats : bloque XP/pièces/Points de Savoir/achievements en fin de run.
+        isDebugRun: true,
+      },
+    });
+
+    const jumpedRun = {
+      ...run,
+      currentAct: target.act,
+      currentRow: target.row,
+      usedEnemyIds: actChanged ? [] : run.usedEnemyIds,
+    };
+    await this.resolveNodeChoice(jumpedRun, node, target.col, userId, target.forcedCombatId);
+    return this.getStateById(runId);
   }
 
   async submitAnswer(
@@ -1335,16 +1503,17 @@ export class BrainrunService {
   }
 
   /** Nombre de runs terminées et acte/salle de la plus avancée, toutes runs (WON/LOST/ABANDONED)
-   * confondues — la run en cours (IN_PROGRESS) n'est comptée qu'une fois résolue. */
+   * confondues — la run en cours (IN_PROGRESS) n'est comptée qu'une fois résolue. Exclut les runs
+   * touchées par le debug (isDebugRun), qui ne doivent pas gonfler ces statistiques. */
   private async getRunStats(
     userId: string,
   ): Promise<Pick<BrainrunMetaProgressDTO, "totalRuns" | "bestRun">> {
     const [totalRuns, bestRun] = await Promise.all([
       prisma.brainrunRun.count({
-        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] }, isDebugRun: false },
       }),
       prisma.brainrunRun.findFirst({
-        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+        where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] }, isDebugRun: false },
         orderBy: [{ currentAct: "desc" }, { currentRow: "desc" }],
         select: { currentAct: true, currentRow: true },
       }),
@@ -1395,12 +1564,12 @@ export class BrainrunService {
     let coinsGranted = 0;
     if (outcome.act !== act) {
       // act = l'acte dont le Boss vient d'être nettoyé : palier de pièces correspondant
-      // (server/utils/brainrunConfig.ts BRAINRUN_COINS_PER_ACT), plafonné par jour.
+      // (server/utils/brainrunConfig.ts BRAINRUN_COINS_PER_ACT), plafonné par jour. Une run
+      // touchée par le debug (cf. debugSetStats/debugJumpToNode) n'en rapporte aucune.
       const currentRun = await prisma.brainrunRun.findUniqueOrThrow({ where: { id: runId } });
-      coinsGranted = await grantBrainrunActCoins(
-        currentRun.userId,
-        BRAINRUN_COINS_PER_ACT[act - 1]!,
-      );
+      coinsGranted = currentRun.isDebugRun
+        ? 0
+        : await grantBrainrunActCoins(currentRun.userId, BRAINRUN_COINS_PER_ACT[act - 1]!);
 
       const nextActSeeded = await prisma.brainrunRoom.findFirst({
         where: { runId, act: outcome.act },
@@ -1434,13 +1603,19 @@ export class BrainrunService {
     const clearedRooms = run.rooms
       .filter((r) => r.status === "CLEARED")
       .map((r) => ({ type: r.type as BrainrunRoomType }));
-    const xpEarned = calculBrainrunUserXP(clearedRooms, status === "WON");
-    const knowledgePointsEarned = goldToKnowledgePoints(run.gold);
+    // Une run touchée par le debug (cf. debugSetStats/debugJumpToNode) ne rapporte rien de
+    // persistant — ni XP, ni pièces, ni Points de Savoir, et ne compte pas dans les achievements
+    // (filtré via isDebugRun sur les comptages totalGames/totalWins ci-dessous) : c'est un outil
+    // de test, pas une vraie partie.
+    const xpEarned = run.isDebugRun ? 0 : calculBrainrunUserXP(clearedRooms, status === "WON");
+    const knowledgePointsEarned = run.isDebugRun ? 0 : goldToKnowledgePoints(run.gold);
     // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
     // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
     // complété).
     const coinsGranted =
-      status === "WON" ? await grantBrainrunActCoins(run.userId, BRAINRUN_COINS_PER_ACT[2]!) : 0;
+      !run.isDebugRun && status === "WON"
+        ? await grantBrainrunActCoins(run.userId, BRAINRUN_COINS_PER_ACT[2]!)
+        : 0;
 
     await prisma.brainrunRun.update({
       where: { id: runId },
@@ -1452,17 +1627,23 @@ export class BrainrunService {
         ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
       },
     });
-    await updateUserProgress(run.userId, xpEarned);
-    await grantKnowledgePoints(run.userId, knowledgePointsEarned);
+    if (!run.isDebugRun) {
+      await updateUserProgress(run.userId, xpEarned);
+      await grantKnowledgePoints(run.userId, knowledgePointsEarned);
+    }
 
     const totalGames = await prisma.brainrunRun.count({
-      where: { userId: run.userId, status: { in: ["WON", "LOST", "ABANDONED"] } },
+      where: {
+        userId: run.userId,
+        status: { in: ["WON", "LOST", "ABANDONED"] },
+        isDebugRun: false,
+      },
     });
     await checkAndAwardAchievements(run.userId, "brainrunGames", totalGames);
 
     if (status === "WON") {
       const totalWins = await prisma.brainrunRun.count({
-        where: { userId: run.userId, status: "WON" },
+        where: { userId: run.userId, status: "WON", isDebugRun: false },
       });
       await checkAndAwardAchievements(run.userId, "brainrunWins", totalWins);
     }
@@ -1630,6 +1811,7 @@ export class BrainrunService {
       // (pendingThemeBanChoice) et par la Bibliothèque (resolveRest) : toujours calculé, léger
       // (dérivé des catalogues statiques + bannedThemes) et sans effet de bord à exposer au repos.
       availableThemesToBan: this.computeAvailableThemesToBan(run.bannedThemes),
+      isDebugRun: run.isDebugRun,
     };
   }
 

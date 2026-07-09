@@ -1,5 +1,6 @@
 import type { BrainrunConsumableId } from "../brainrunItems";
 import type { BrainrunTalentId } from "../brainrunTalents";
+import type { BrainrunRoomType } from "../brainrun";
 
 export type BrainrunResponseDTO = {
   runId: string;
@@ -43,4 +44,24 @@ export type BrainrunConsumableUseDTO = {
 
 export type BrainrunTalentUnlockDTO = {
   talentId: BrainrunTalentId;
+};
+
+/** Debug uniquement (assertDevOnly côté serveur) : force PV/or de la run en cours, sans passer
+ * par une salle. Les champs omis conservent leur valeur actuelle. */
+export type BrainrunDebugSetStatsDTO = {
+  runId: string;
+  healthPoint?: number;
+  maxHealthPoint?: number;
+  gold?: number;
+};
+
+/** Debug uniquement : téléporte la run vers un nœud précis (must be PENDING), en forçant
+ * optionnellement son type et/ou l'ennemi/boss tiré pour le combat. */
+export type BrainrunDebugJumpDTO = {
+  runId: string;
+  act: number;
+  row: number;
+  col: number;
+  roomType?: BrainrunRoomType;
+  forcedCombatId?: string;
 };

@@ -20,6 +20,7 @@ Ne charge que les fichiers utiles à la demande — pas les 7 d'un coup.
 | `references/events-shop-library.md`      | Bibliothèque (REST), Librairie (SHOP), Événements                                                                               | ces 3 salles spéciales                                                          |
 | `references/items.md`                    | Reliques, consommables, agrégation d'effets, glossaire                                                                          | ajout/modif de relique ou consommable                                           |
 | `references/integrations-and-gotchas.md` | Dépendances externes (XP/pièces/achievements/questions), pièges connus, staleness de `BRAINRUN_ROADMAP.md`                      | avant de faire confiance à une source, ou pour vérifier une intégration externe |
+| `references/debug-mode.md`               | Outils de debug dev-only (forcer PV/or/acte/rangée/ennemi-boss), gate `import.meta.dev`                                         | ajout/modif d'un outil de debug/playtesting                                     |
 
 Si aucun fichier ne couvre le sujet, dis-le à l'utilisateur et propose de créer une nouvelle catégorie (étape 6) une fois le travail terminé plutôt que de deviner.
 

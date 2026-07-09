@@ -385,6 +385,7 @@ model BrainrunRun {
     xpEarned        Int?
     knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)
     coinsEarned     Int            @default(0) // Pièces (monnaie globale UserWallet) créditées cette run, uniquement aux Boss d'acte vaincus (cf. grantBrainrunActCoins)
+    isDebugRun      Boolean        @default(false) // true dès qu'un outil de debug (set-stats/téléportation, cf. BrainrunService.debugSetStats/debugJumpToNode) a touché cette run ; bloque XP/pièces/Points de Savoir et l'incrémentation des achievements en fin de run
     createDate      DateTime       @default(now())
     updateDate      DateTime       @default(now())
     endDate         DateTime?

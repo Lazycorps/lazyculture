@@ -52,6 +52,17 @@
         />
 
         <template v-else>
+          <BrainrunDebugPanel />
+
+          <!-- Rappel visible tant que la run a été touchée par le debug (cf. run.isDebugRun) :
+             aucun XP/pièce/Point de Savoir ne sera gagné, ne compte pas dans les achievements. -->
+          <p
+            v-if="run?.isDebugRun"
+            class="text-center text-[10px] font-black font-display uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full py-1 mb-2"
+          >
+            Run de debug — aucun gain persistant
+          </p>
+
           <!-- Game Header (Act/Room progress, HP hearts, gold) -->
           <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-2">

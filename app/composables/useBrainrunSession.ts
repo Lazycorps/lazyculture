@@ -3,6 +3,7 @@ import type { QuestionDTO } from "#shared/question";
 import type {
   BrainrunMapNodeDTO,
   BrainrunRoomDTO,
+  BrainrunRoomType,
   BrainrunRunDTO,
   BrainrunStateDTO,
 } from "#shared/brainrun";
@@ -238,6 +239,52 @@ export const useBrainrunSession = () => {
     reset();
   }
 
+  /** Debug uniquement (import.meta.dev, rejeté par le serveur sinon) : force PV/or de la run en
+   * cours. Les champs omis conservent leur valeur actuelle. */
+  async function debugSetStats(patch: {
+    healthPoint?: number;
+    maxHealthPoint?: number;
+    gold?: number;
+  }) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/debug/set-stats", {
+          method: "post",
+          body: { runId: run.value.id, ...patch },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /** Debug uniquement : téléporte vers un nœud précis (doit être PENDING), en forçant
+   * optionnellement son type et/ou l'ennemi/boss tiré pour le combat. */
+  async function debugJump(target: {
+    act: number;
+    row: number;
+    col: number;
+    roomType?: BrainrunRoomType;
+    forcedCombatId?: string;
+  }) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/debug/jump", {
+          method: "post",
+          body: { runId: run.value.id, ...target },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
   function reset() {
     run.value = null;
     currentRoom.value = null;
@@ -273,5 +320,7 @@ export const useBrainrunSession = () => {
     startNewRun,
     abandonRun,
     reset,
+    debugSetStats,
+    debugJump,
   };
 };
