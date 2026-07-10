@@ -72,6 +72,28 @@ plus de largeur, et une garantie stricte sur le nombre d'Élites rencontrées pa
    `enforceEliteRouteBounds`. C'est la fonction appelée par `BrainrunService.seedActGraph` pour
    peupler `BrainrunRoom` (un enregistrement par nœud) à la création d'un acte.
 
+## Ennemi/boss fixé à la génération (pas à l'entrée en salle)
+
+Depuis le 2026-07-09 (pour permettre la prévisualisation par la relique Prévoyance, cf. plus haut),
+l'ennemi/boss de chaque nœud `STANDARD`/`ELITE`/`BOSS` est fixé **une fois pour toutes à la
+génération de la carte**, dans `BrainrunService.seedActGraph`, juste après `generateActGraph` :
+
+- **`assignCombatIdentities(nodes, classicPool, elitePool, bossPool, random)`** (`brainrunLogic.ts`)
+  parcourt les nœuds et pioche via **`pickCombatCandidate(pool, excludeIds, random)`**, en excluant
+  au fur et à mesure les ids déjà assignés **du même tier** (Classique/Élite séparément) — garantit
+  qu'aucun ennemi n'apparaît deux fois sur la carte d'un acte tant que le pool du tier n'est pas
+  épuisé (retombe sur le pool complet sinon, même filet de sécurité qu'ailleurs). Le Boss (1 seul
+  nœud par acte) n'a pas besoin d'exclusion.
+- `BrainrunService.resolveNodeChoice` ne tire plus rien à l'entrée en salle : il lit
+  `node.enemyId`/`node.bossId` déjà persistés. `forcedCombatId` (debug uniquement, cf.
+  `debugJumpToNode`) reste le seul moyen de l'écraser explicitement.
+- Purge Thématique (bannissement de thème) **n'exclut plus l'ennemi lui-même** de la carte — elle
+  retire dynamiquement le thème banni du pool de thèmes utilisés pour les questions (et pour
+  l'affichage dans la modale Prévoyance) via **`effectiveThemes(themes, bannedThemes)`**
+  (`brainrunLogic.ts`), sans jamais changer l'identité déjà fixée. Voir `items.md` pour le détail.
+- `run.usedEnemyIds` (champ Prisma) a été supprimé : l'exclusion se fait maintenant une seule fois,
+  à la génération, plutôt que dynamiquement au fil de la run.
+
 ## Résolution du nœud Neutre
 
 Le joueur n'a jamais besoin de cliquer sur le nœud Neutre : `BrainrunService.seedActGraph` le marque
@@ -91,18 +113,31 @@ accessibles = toutes celles de la rangée 1 si aucun nœud `CLEARED` en amont (d
 `nextCols` de l'unique nœud `CLEARED` de la rangée précédente. Cette fonction n'a pas changé — elle
 s'applique aussi bien à la rangée 1 = Neutre (acte 1) qu'à la rangée 1 = étage 1 (actes 2/3).
 
-## Brouillard de guerre
+## Pas de brouillard de guerre
 
-Par défaut le joueur ne voit que le type des nœuds déjà résolus + ceux immédiatement accessibles
-(`BRAINRUN_MAP_BASE_VISION_ROWS` = 1). `computeVisibleCols` fait un parcours en largeur depuis les
-colonnes de départ sur `extraRows` rangées supplémentaires. Relique **Prévoyance** (`FORESIGHT`) :
-`BRAINRUN_FORESIGHT_BONUS_VISION_ROWS` = 2 rangées de vision en plus (cumulable si plusieurs
-exemplaires — non stackable en pratique aujourd'hui car ce n'est pas dans
-`BRAINRUN_STACKABLE_RELIC_IDS`, un seul exemplaire possible actuellement).
+Toutes les salles d'un acte affichent toujours leur type (`BrainrunMapNodeDTO.type` n'est jamais
+masqué/`null`, cf. `buildState` dans `BrainrunService.ts`) — retiré le 2026-07-09 (l'ancien système
+révélait seulement la rangée accessible + `extraRows` rangées supplémentaires via une relique).
 
-Le type d'un nœud non révélé est renvoyé au client comme `null` dans `BrainrunMapNodeDTO.type`
-(`buildState` dans `BrainrunService.ts`) — le masquage se fait côté serveur, jamais en filtrant côté
-client.
+## Relique Prévoyance (`FORESIGHT`) : prévisualisation d'ennemi
+
+Repensée le 2026-07-09 en même temps que le retrait du brouillard de guerre : elle ne touche plus la
+vision de la carte, elle permet de **cliquer n'importe quel nœud de combat** (Standard/Élite/Boss,
+où qu'il soit sur la carte de l'acte, accessible ou non) pour ouvrir une modale
+(`BrainrunNodePreviewModal.vue`) affichant les thèmes de son ennemi/boss, avec un bouton
+"Se déplacer" si le nœud fait partie des `candidateCols` actuels. Pas de modale sur une salle non-
+combat, ni du tout si la relique n'est pas possédée.
+
+- `BrainrunRelicEffects.hasForesight: boolean` (`brainrunLogic.ts`, `getActiveRelicEffects`) —
+  simple booléen, plus un effet numérique agrégé.
+- `BrainrunMapNodeDTO.themes: string[] | null` (`shared/brainrun.ts`) : calculé dans `buildState`
+  uniquement si `effects.hasForesight` et que le nœud est un type de combat ; sinon `null`. Les
+  thèmes exposés sont les thèmes **effectifs** (`effectiveThemes`, cf. section suivante), pas les
+  thèmes bruts du catalogue.
+- Côté client, `BrainrunMap.vue` intercepte le clic sur un nœud de combat quand `hasForesight` est
+  vrai (`canPreview(node)`) : émet `preview-node` (ouvre la modale) au lieu de `select-node` (qui
+  déplacerait directement), **même si le nœud est par ailleurs accessible** — le déplacement ne se
+  fait plus que via le bouton de la modale.
 
 ## Composant client
 

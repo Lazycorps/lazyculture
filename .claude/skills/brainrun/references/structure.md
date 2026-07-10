@@ -15,6 +15,7 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 - `20260705130000_brainrun_glossary` — `discoveredRelics`/`discoveredConsumables`
 - `20260705140000_brainrun_branching_map` — **a supprimé toutes les anciennes lignes `BrainrunRoom`** en remplaçant `sequence` par `row`+`col`+`nextCols` (pas de mapping sensé de l'ancien format) ; `BrainrunRun.currentSequence` → `currentRow`+`currentCol`. Les agrégats run-level (or, xpEarned) ont été préservés.
 - `20260705150000_brainrun_daily_act_coins` / `20260705160000_brainrun_run_coins_earned` — pièces `UserWallet` par palier d'acte
+- `20260709160000_brainrun_drop_used_enemy_ids` — supprime `BrainrunRun.usedEnemyIds` : l'ennemi/boss de chaque nœud est désormais fixé une fois pour toutes à la génération de la carte (`assignCombatIdentities`), l'exclusion n'a plus besoin d'être persistée au niveau de la run (cf. `map.md`)
 
 ## Constantes et types partagés (client + serveur)
 
@@ -31,7 +32,7 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 
 ## Logique pure (testable, sans accès DB)
 
-`server/utils/brainrunLogic.ts` (~740 lignes) — tout ce qui peut être calculé sans I/O : dégâts/pertes de PV, agrégation d'effets de reliques/talents (`getActiveRelicEffects`/`getActiveTalentEffects`), génération d'offres (`generateBonusOffers`/`generateShopOffers`), résolution d'événement (`resolveEventOption`), génération du graphe de carte (`generateActEdges`/`assignNodeTypes`/`generateActGraph`), calcul de visibilité (`computeVisibleCols`), conversion or→Points de Savoir. Testé par `brainrunLogic.test.ts` (776 lignes) — voir le piège de résolution d'alias `#shared` dans `integrations-and-gotchas.md`.
+`server/utils/brainrunLogic.ts` — tout ce qui peut être calculé sans I/O : dégâts/pertes de PV, agrégation d'effets de reliques/talents (`getActiveRelicEffects`/`getActiveTalentEffects`), génération d'offres (`generateBonusOffers`/`generateShopOffers`), résolution d'événement (`resolveEventOption`), génération du graphe de carte (`generateActEdges`/`assignNodeTypes`/`generateActGraph`/`enforceEliteRouteBounds`), assignation d'ennemi/boss par nœud (`assignCombatIdentities`/`pickCombatCandidate`), thèmes effectifs après bannissement (`effectiveThemes`), conversion or→Points de Savoir. Testé par `brainrunLogic.test.ts` — voir le piège de résolution d'alias `#shared` dans `integrations-and-gotchas.md`.
 
 ## Persistance du métagame
 

@@ -24,7 +24,7 @@
 3. `acknowledgeRoom()` — confirme le récap de fin de salle (`CLEARED`) et avance vers la rangée suivante via `advanceAfterRoomClear`. Bloqué tant qu'un bonus post-combat ou un choix de thème banni est en attente.
 4. Pour les salles spéciales, l'équivalent de l'étape 2 est `resolveRest`/`buyShopItem`+`leaveShop`/`resolveEvent` → détail dans `events-shop-library.md`.
 
-`advanceAfterRoomClear` : si la rangée nettoyée était la dernière de l'acte (le Boss), passe à l'acte suivant (réinitialise `usedEnemyIds`, crédite les pièces de palier, génère la carte du prochain acte si pas déjà fait) ; si c'était le Boss du 3e acte, `finalizeRun("WON")`.
+`advanceAfterRoomClear` : si la rangée nettoyée était la dernière de l'acte (le Boss), passe à l'acte suivant (crédite les pièces de palier, génère la carte du prochain acte si pas déjà fait — l'ennemi/boss de chaque nœud y est fixé dès cette génération, cf. `map.md`) ; si c'était le Boss du 3e acte, `finalizeRun("WON")`.
 
 ## Or, XP, difficulté
 

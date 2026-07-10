@@ -17,7 +17,7 @@ Passives, possédées pour le reste de la run, agrégées via **`getActiveRelicE
 | `HAGGLER`            | Marchandeur           | COMMON | -20% prix Librairie (`shopPriceMultiplier`)                                                                                     |
 | `RESTOCK`            | Fournisseur Fidèle    | RARE   | réassort auto en Librairie (`autoRestockShop`)                                                                                  |
 | `EVENT_MAGNET`       | Aimant à Événements   | RARE   | chance de convertir un futur combat en Événement (`eventBonusChance`)                                                           |
-| `FORESIGHT`          | Prévoyance            | COMMON | +2 rangées de vision sur la carte (`mapVisionRows`)                                                                             |
+| `FORESIGHT`          | Prévoyance            | COMMON | clic sur un nœud de combat (où qu'il soit) → modale des thèmes de l'ennemi (`hasForesight`) — voir `map.md`                     |
 | `CONSOLATION_PRIZE`  | Lot de Consolation    | COMMON | or en ignorant un bonus post-combat (`goldOnBonusSkip`)                                                                         |
 | `SIXTH_SENSE`        | Sixième Sens          | COMMON | 5% chance/question de révéler la bonne réponse après 8s (`autoHintChance`)                                                      |
 | `EXTRA_HEART`        | Cœur Supplémentaire   | RARE   | +1 PV max immédiat — **seule relique stackable** (`BRAINRUN_STACKABLE_RELIC_IDS`), plafonnée par `BRAINRUN_ABSOLUTE_MAX_HP` (8) |
@@ -29,6 +29,8 @@ Une mauvaise réponse fait toujours perdre **exactement 1 PV**, quelle que soit 
 ## Purge Thématique — flux en 2 temps (le seul cas non trivial)
 
 Contrairement aux autres reliques, elle ne rejoint `run.relics` **qu'après** que le joueur ait choisi le thème à bannir : `grantOffer`/`resolveEventOption` mettent `run.pendingThemeBanChoice = true` sans toucher `relics` ni `bannedThemes`. `acknowledgeRoom`/`leaveShop` refusent d'avancer tant que ce flag est vrai. `resolveThemeBan(theme)` valide le thème (doit être dans `computeAvailableThemesToBan`), pousse `THEME_PURGE` dans `relics` **et** le thème dans `bannedThemes` en une seule fois. Si tu ajoutes une autre relique qui demande un choix du joueur à l'obtention, réutiliser ce patron (`pendingXxxChoice` bloquant + résolution dédiée) plutôt que d'inventer un nouveau mécanisme.
+
+Depuis le 2026-07-09 (l'ennemi/boss de chaque nœud étant désormais fixé à la génération de la carte, cf. `map.md`), bannir un thème **ne change plus l'identité d'un ennemi déjà placé sur la carte** — elle retire dynamiquement ce thème du pool utilisé pour les questions (`effectiveThemes` dans `brainrunLogic.ts`), et de l'affichage dans la modale Prévoyance, sans jamais ré-assigner l'ennemi lui-même.
 
 ## Consommables (`BRAINRUN_CONSUMABLES`, 10 aujourd'hui)
 
