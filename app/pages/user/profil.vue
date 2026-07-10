@@ -154,6 +154,30 @@
                 <span class="font-medium leading-relaxed">{{ pushStatusMessage }}</span>
               </div>
             </div>
+
+            <!-- Validation automatique des réponses -->
+            <div class="pt-5 border-t border-white/5 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4
+                    class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display flex items-center"
+                  >
+                    <UIcon name="i-heroicons-bolt" class="mr-1.5 text-violet-400 text-sm" />
+                    Validation automatique des réponses
+                  </h4>
+                  <p class="text-[11px] text-gray-500 mt-1 max-w-md leading-relaxed">
+                    Valide instantanément votre réponse dès que vous cliquez dessus, sans passer par
+                    le bouton Valider.
+                  </p>
+                </div>
+                <USwitch
+                  v-model="autoValidateAnswer"
+                  :loading="loadingAutoValidateAnswer"
+                  :disabled="loadingAutoValidateAnswer"
+                  @update:model-value="updateAutoValidateAnswer"
+                />
+              </div>
+            </div>
           </div>
 
           <template #footer>
@@ -241,6 +265,8 @@ const xp = ref(0);
 const xpThreshold = ref(0);
 const xpMax = ref(0);
 const loadingUpdateUser = ref(false);
+const autoValidateAnswer = ref(false);
+const loadingAutoValidateAnswer = ref(false);
 
 const {
   isSupported: isPushSupported,
@@ -309,6 +335,7 @@ async function fetchUser() {
     xpMax.value = userConnected?.nextLevelTreshold ?? 100;
     brRank.value = userConnected?.brRank ?? null;
     showdownRank.value = userConnected?.showdownRank ?? null;
+    autoValidateAnswer.value = userConnected?.autoValidateAnswer ?? false;
 
     if (userConnected?.id) {
       await fetchHistory(userConnected.id);
@@ -364,6 +391,28 @@ async function updateUsername() {
     console.error("Failed to update username:", e);
   } finally {
     loadingUpdateUser.value = false;
+  }
+}
+
+async function updateAutoValidateAnswer(value: boolean) {
+  const previousValue = autoValidateAnswer.value;
+  autoValidateAnswer.value = value;
+  try {
+    loadingAutoValidateAnswer.value = true;
+    await authFetch<any>("/api/user/settings", {
+      method: "POST",
+      body: {
+        autoValidateAnswer: value,
+      },
+    });
+    if (userStore.user) {
+      userStore.user.autoValidateAnswer = value;
+    }
+  } catch (e) {
+    console.error("Failed to update autoValidateAnswer:", e);
+    autoValidateAnswer.value = previousValue;
+  } finally {
+    loadingAutoValidateAnswer.value = false;
   }
 }
 

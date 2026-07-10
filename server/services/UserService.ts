@@ -111,6 +111,28 @@ export class UserService {
     };
   }
 
+  async setAutoValidateAnswer(
+    userId: string,
+    email: string | undefined,
+    autoValidateAnswer: boolean,
+  ) {
+    const user = await prisma.user.upsert({
+      where: { id: userId },
+      update: { autoValidateAnswer },
+      create: {
+        id: userId,
+        name: "",
+        slug: "",
+        autoValidateAnswer,
+      },
+    });
+
+    return {
+      ...user,
+      email,
+    };
+  }
+
   async getProfile(targetId: string, viewerId?: string) {
     // Trouver l'utilisateur ciblé par son ID ou son Slug
     const user = await prisma.user.findFirst({

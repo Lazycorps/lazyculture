@@ -1,6 +1,12 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "#shared": fileURLToPath(new URL("./shared", import.meta.url)),
+    },
+  },
   staged: {
     "*": "vp check --fix",
   },

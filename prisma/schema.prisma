@@ -17,6 +17,7 @@ model User {
     createDate             DateTime                 @default(now())
     updateDate             DateTime                 @default(now())
     admin                  Boolean                  @default(false)
+    autoValidateAnswer     Boolean                  @default(false)
     Response               QuestionResponse[]
     UserProgress           UserProgress?
     Reporting              QuestionReporting[]

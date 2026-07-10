@@ -172,6 +172,7 @@ import QuestionReporting from "./QuestionReporting.vue";
 
 const props = defineProps<{ theme?: string }>();
 const achievementStore = useAchievementStore();
+const userStore = useUserStore();
 const showBottomNav = useState("showBottomNav", () => true);
 
 const firstLoading = ref(true);
@@ -263,8 +264,9 @@ onBeforeUnmount(() => {
 });
 
 function selectOption(id: any) {
-  if (responded.value) return;
+  if (responded.value || loading.value) return;
   selectedResponse.value = id;
+  if (userStore.autoValidateAnswer) validateResponse();
 }
 
 async function validateResponse() {

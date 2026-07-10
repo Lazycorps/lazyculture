@@ -138,6 +138,7 @@ const props = defineProps<{
 }>();
 
 const achievementStore = useAchievementStore();
+const userStore = useUserStore();
 const showBottomNav = useState("showBottomNav", () => true);
 const loading = ref(false);
 const loadingReporting = ref(false);
@@ -210,8 +211,9 @@ onBeforeUnmount(() => {
 });
 
 function selectOption(id: number) {
-  if (responded.value) return;
+  if (responded.value || loading.value) return;
   selectedResponse.value = id;
+  if (userStore.autoValidateAnswer) validateResponse();
 }
 
 async function validateResponse() {
