@@ -7,6 +7,7 @@ export interface DBUser {
   createDate: string;
   updateDate: string;
   email?: string;
+  admin?: boolean;
   nextLevelTreshold: number;
   UserProgress?: {
     levelId: number;
@@ -50,6 +51,7 @@ export const useUserStore = defineStore("user", {
   }),
   getters: {
     isLoggedIn: (state) => !!state.user,
+    isAdmin: (state) => !!state.user?.admin,
     userId: (state) => state.user?.id || "",
     username: (state) => state.user?.name || "",
     level: (state) => state.user?.UserProgress?.levelId || 1,

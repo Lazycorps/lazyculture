@@ -46,8 +46,9 @@ export type BrainrunTalentUnlockDTO = {
   talentId: BrainrunTalentId;
 };
 
-/** Debug uniquement (assertDevOnly côté serveur) : force PV/or de la run en cours, sans passer
- * par une salle. Les champs omis conservent leur valeur actuelle. */
+/** Debug uniquement (assertDebugAccess côté serveur : dev libre, admin requis en prod) : force
+ * PV/or de la run en cours, sans passer par une salle. Les champs omis conservent leur valeur
+ * actuelle. */
 export type BrainrunDebugSetStatsDTO = {
   runId: string;
   healthPoint?: number;

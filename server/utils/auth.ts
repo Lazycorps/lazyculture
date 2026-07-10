@@ -50,16 +50,13 @@ export async function assertAdmin(userId: string): Promise<PrismaUser> {
 }
 
 /**
- * Autorise les outils de debug (ex. téléportation Brainrun) uniquement en environnement de
- * développement (`import.meta.dev`, jamais vrai dans un build de production). Lève une 403 sinon.
+ * Autorise les outils de debug (ex. téléportation Brainrun) : toujours autorisé en développement
+ * (`import.meta.dev`), sinon réservé aux administrateurs (y compris en production). Lève une 403
+ * si l'utilisateur connecté n'est pas admin hors dev.
  */
-export function assertDevOnly(): void {
-  if (!import.meta.dev) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: "Fonctionnalité de debug indisponible hors développement",
-    });
-  }
+export async function assertDebugAccess(userId: string): Promise<void> {
+  if (import.meta.dev) return;
+  await assertAdmin(userId);
 }
 
 /**

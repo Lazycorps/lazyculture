@@ -1,14 +1,16 @@
-# Mode debug (dev uniquement)
+# Mode debug (dev + admin en prod)
 
-Ajouté le 2026-07-09. Outil de playtesting pour atteindre rapidement une situation précise (PV,
-or, acte/rangée, ennemi/boss donné) sans devoir la provoquer en jouant normalement. Gate d'accès :
-`import.meta.dev` côté serveur ET côté client — jamais actif dans un build de production, pas de
-vérification de rôle admin (repo local, pas d'exposition publique).
+Ajouté le 2026-07-09, ouvert aux admins en prod le 2026-07-10. Outil de playtesting pour atteindre
+rapidement une situation précise (PV, or, acte/rangée, ennemi/boss donné) sans devoir la provoquer
+en jouant normalement. Gate d'accès : toujours autorisé en développement (`import.meta.dev`),
+réservé aux administrateurs (`User.admin`) en production, côté serveur ET côté client.
 
 ## Gate serveur
 
-`assertDevOnly()` (`server/utils/auth.ts`) lève une 403 si `!import.meta.dev`. Appelée en tout
-premier dans `BrainrunService.debugSetStats`/`debugJumpToNode`, avant même `getOwnedInProgressRun`.
+`assertDebugAccess(userId)` (`server/utils/auth.ts`) retourne immédiatement si `import.meta.dev`,
+sinon délègue à `assertAdmin(userId)` (lève une 403 si l'utilisateur n'est pas admin). Appelée en
+tout premier dans `BrainrunService.debugSetStats`/`debugJumpToNode`, avant même
+`getOwnedInProgressRun`.
 
 ## Traçabilité `BrainrunRun.isDebugRun` — aucun gain persistant
 
@@ -58,16 +60,16 @@ Téléporte vers un nœud précis, qui doit être `PENDING` (refuse un nœud dé
    normale, mais **aucun octroi de pièces/XP** contrairement à une vraie transition d'acte
    (`advanceAfterRoomClear`) : sauter un acte via debug ne doit pas fausser l'économie.
 4. Si `roomType` diffère du type déjà assigné au nœud, l'écrase directement en base (bypass des
-   quotas de `assignNodeTypes`, acceptable pour un seul nœud ciblé manuellement).
-5. Met à jour `currentAct`/`currentRow` (+ reset `usedEnemyIds` si l'acte change, même règle que
-   `advanceAfterRoomClear`), puis délègue la résolution du nœud à `resolveNodeChoice` — la même
-   méthode privée que `chooseNode` utilise pour un choix normal (extraite de `chooseNode` lors de
-   l'ajout du debug, pour ne pas dupliquer la logique de tirage ennemi/boss + questions).
-6. `forcedCombatId` (optionnel) : si fourni, impose cet id au lieu du tirage aléatoire —
-   `getBrainrunBossesByAct`/`getBrainrunEnemiesByActAndTier` de l'acte **cible** (pas l'acte
-   d'origine) pour trouver l'entrée ; 400 si l'id n'existe pas dans ce pool (ex. id d'un ennemi
-   d'acte 1 alors que la cible est l'acte 2). Ignoré si le nœud n'est pas un type de combat
-   (STANDARD/ELITE/BOSS).
+   quotas de `assignNodeTypes`, acceptable pour un seul nœud ciblé manuellement). Depuis que
+   l'ennemi/boss est fixé à la génération (cf. `map.md`/`enemies-and-bosses.md`), un changement de
+   type ré-assigne aussi `enemyId`/`bossId` pour rester cohérent avec le nouveau type (sauf si
+   `forcedCombatId` est fourni, auquel cas c'est `resolveNodeChoice` qui s'en charge juste après).
+5. Met à jour `currentAct`/`currentRow`, puis délègue la résolution du nœud à `resolveNodeChoice` —
+   la même méthode privée que `chooseNode` utilise pour un choix normal (extraite de `chooseNode`
+   lors de l'ajout du debug, pour ne pas dupliquer la logique de questions).
+6. `forcedCombatId` (optionnel) : si fourni, impose cet id (au lieu de l'ennemi/boss déjà fixé sur
+   le nœud) — `getBrainrunBossById`/`getBrainrunEnemyById` pour trouver l'entrée ; 400 si l'id
+   n'existe pas. Ignoré si le nœud n'est pas un type de combat (STANDARD/ELITE/BOSS).
 
 ## API / client
 
@@ -76,14 +78,19 @@ DTOs `BrainrunDebugSetStatsDTO`/`BrainrunDebugJumpDTO` dans `shared/DTO/brainrun
 Côté client : `useBrainrunSession().debugSetStats`/`debugJump`, consommés uniquement par
 `app/components/brainrun/BrainrunDebugPanel.vue` — panneau replié par défaut (bouton "🐛 Debug"),
 rendu dans `app/pages/brainrun/index.vue` seulement pour l'écran de run (`v-else` après le lobby),
-gardé par `isDev = import.meta.dev` en plus de la gate serveur (défense en profondeur, pas
-strictement nécessaire puisque le serveur rejette de toute façon hors dev).
+gardé par la prop `isAdmin` (passée depuis `userStore.isAdmin`, elle-même dérivée du champ
+`User.admin` renvoyé par `/api/user/current`) combinée à `import.meta.dev` — `canDebug =
+import.meta.dev || isAdmin` — en plus de la gate serveur (défense en profondeur : le serveur
+rejette de toute façon si ni dev ni admin).
 
 ## Pièges
 
 - Ne jamais réutiliser `resolveNodeChoice` avec un `forcedCombatId` en dehors d'un contexte debug :
-  la méthode ne revérifie pas `import.meta.dev` elle-même, seuls ses deux appelants publics le font
-  (`chooseNode` ne passe jamais de `forcedCombatId`, `debugJumpToNode` le fait après `assertDevOnly()`).
+  la méthode ne revérifie pas les droits elle-même, seuls ses deux appelants publics le font
+  (`chooseNode` ne passe jamais de `forcedCombatId`, `debugJumpToNode` le fait après
+  `assertDebugAccess()`).
+- `assertDebugAccess` fait un aller-retour DB (`prisma.user.findUnique` via `assertAdmin`) hors dev
+  — attendu vu la fréquence d'appel (actions manuelles de playtesting), pas un chemin chaud.
 - Sauter directement à un acte avancé ne génère **que** cet acte, pas les actes intermédiaires
   sautés — cohérent avec le fait qu'ils ne sont jamais visités, mais leur `BrainrunRoom` n'existera
   jamais pour cette run si on ne les traverse pas normalement.

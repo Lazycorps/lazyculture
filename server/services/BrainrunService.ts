@@ -58,7 +58,7 @@ import {
   BRAINRUN_TOTAL_ACTS,
   getBrainrunActRowWidths,
 } from "~~/server/utils/brainrunConfig";
-import { assertDevOnly } from "~~/server/utils/auth";
+import { assertDebugAccess } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
 import {
   BRAINRUN_CHRONO_BOOST_MS,
@@ -317,16 +317,16 @@ export class BrainrunService {
     }
   }
 
-  /** Debug uniquement (assertDevOnly, `import.meta.dev`) : force PV/or de la run en cours sans
-   * passer par une salle. Les champs omis conservent leur valeur actuelle. PV plancher à 1 pour
-   * ne pas laisser la run dans un état "0 PV mais toujours IN_PROGRESS" que le client ne gère
-   * pas (la mort ne se déclenche normalement que dans submitAnswer). */
+  /** Debug uniquement (assertDebugAccess : dev libre, admin requis en prod) : force PV/or de la
+   * run en cours sans passer par une salle. Les champs omis conservent leur valeur actuelle. PV
+   * plancher à 1 pour ne pas laisser la run dans un état "0 PV mais toujours IN_PROGRESS" que le
+   * client ne gère pas (la mort ne se déclenche normalement que dans submitAnswer). */
   async debugSetStats(
     runId: string,
     userId: string,
     patch: { healthPoint?: number; maxHealthPoint?: number; gold?: number },
   ): Promise<BrainrunStateDTO> {
-    assertDevOnly();
+    await assertDebugAccess(userId);
     const run = await this.getOwnedInProgressRun(runId, userId);
 
     const maxHealthPoint =
@@ -363,7 +363,7 @@ export class BrainrunService {
       forcedCombatId?: string;
     },
   ): Promise<BrainrunStateDTO> {
-    assertDevOnly();
+    await assertDebugAccess(userId);
     const run = await this.getOwnedInProgressRun(runId, userId);
 
     if (target.act < 1 || target.act > BRAINRUN_TOTAL_ACTS) {

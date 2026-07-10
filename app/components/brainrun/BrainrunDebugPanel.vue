@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isDev" class="mb-2">
+  <div v-if="canDebug" class="mb-2">
     <button
       type="button"
       class="flex items-center gap-1 text-[10px] font-black font-display uppercase tracking-wider text-gray-500 hover:text-gray-300"
@@ -123,10 +123,11 @@ import {
 import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
 import { getBrainrunBossesByAct } from "#shared/brainrunBosses";
 
-/** Panneau visible uniquement en développement (import.meta.dev, rejeté par le serveur sinon) :
- * force PV/or/téléportation pour tester une situation précise sans devoir la provoquer en jouant
- * normalement. Cf. references/debug-mode.md. */
-const isDev = import.meta.dev;
+/** Panneau visible en développement, ou en production pour les administrateurs (rejeté par le
+ * serveur sinon, cf. assertDebugAccess) : force PV/or/téléportation pour tester une situation
+ * précise sans devoir la provoquer en jouant normalement. Cf. references/debug-mode.md. */
+const props = defineProps<{ isAdmin?: boolean }>();
+const canDebug = computed(() => import.meta.dev || !!props.isAdmin);
 const brainrun = useBrainrunSession();
 const run = brainrun.run;
 const loading = brainrun.loading;

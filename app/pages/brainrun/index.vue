@@ -52,7 +52,7 @@
         />
 
         <template v-else>
-          <BrainrunDebugPanel />
+          <BrainrunDebugPanel :is-admin="userStore.isAdmin" />
 
           <!-- Rappel visible tant que la run a été touchée par le debug (cf. run.isDebugRun) :
              aucun XP/pièce/Point de Savoir ne sera gagné, ne compte pas dans les achievements. -->
