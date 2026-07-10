@@ -33,6 +33,12 @@ export const BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER = 2.5;
  * apparue ; le tirage lui-même est déjà décidé côté serveur (cf. consumableReveal.autoHintId),
  * ce délai ne pilote que l'affichage client. */
 export const BRAINRUN_SIXTH_SENSE_DELAY_MS = 8_000;
+/** Malus de boss "Alain" (memory_recall) : décompte de mémorisation forcée de la toute première
+ * question d'un combat contre lui (pas de réponses affichées, pas de chrono contre-la-montre, ne
+ * peut infliger ni subir aucun dégât) — cf. references/enemies-and-bosses.md. 5 tics de 1,5s. */
+export const BRAINRUN_ALAIN_INTRO_TICKS = 5;
+export const BRAINRUN_ALAIN_INTRO_TICK_MS = 1_500;
+export const BRAINRUN_ALAIN_INTRO_MS = BRAINRUN_ALAIN_INTRO_TICKS * BRAINRUN_ALAIN_INTRO_TICK_MS;
 
 /**
  * Dégâts qui seraient infligés au boss si la réponse actuelle était correcte, en fonction du
@@ -46,7 +52,10 @@ export function brainrunPotentialBossDamage(elapsedMs: number, bonusTimeMs: numb
   const totalMs = BRAINRUN_BOSS_QUESTION_TIME_MS + bonusTimeMs;
   if (elapsedMs >= totalMs) return 0;
   const maxDamage = BRAINRUN_BOSS_BASE_DAMAGE * BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER;
-  return Math.max(0, Math.round(maxDamage * (1 - elapsedMs / totalMs)));
+  // Math.ceil (pas round) : tant qu'il reste ne serait-ce que 1ms avant l'expiration, la réponse
+  // doit encore infliger au moins 1 point de dégâts — seul le timeout réel (elapsedMs >= totalMs,
+  // cf. ci-dessus) doit ramener à 0.
+  return Math.max(0, Math.ceil(maxDamage * (1 - elapsedMs / totalMs)));
 }
 
 export type BrainrunRoomType =
@@ -73,6 +82,18 @@ export type BrainrunMapNodeDTO = {
    * relique Prévoyance (`FORESIGHT`) et que ce nœud est un combat (Standard/Élite/Boss) ; sinon
    * `null` (pas de relique, ou salle non-combat) — alimente la modale de prévisualisation. */
   themes: string[] | null;
+};
+
+/** Question déjà tirée pour la salle de Boss en cours mais dont les propositions ne sont pas
+ * encore visibles (malus "memory_recall" d'Alain, cf. references/enemies-and-bosses.md) :
+ * uniquement de quoi afficher l'énoncé, jamais les propositions ni la bonne réponse — le joueur
+ * doit s'en souvenir pour l'étape suivante, un payload contenant les propositions permettrait de
+ * tricher en lisant le réseau plutôt qu'en mémorisant. */
+export type BrainrunQuestionPreviewDTO = {
+  id: number;
+  libelle: string;
+  img: string;
+  themes: string[];
 };
 
 export type BrainrunRoomResponse = {
@@ -199,6 +220,11 @@ export type BrainrunStateDTO = {
   currentRoom: BrainrunRoomDTO | null;
   /** Question à afficher si la salle active est en cours de résolution (type déjà choisi). */
   currentQuestion: QuestionDTO | null;
+  /** Question suivante déjà tirée mais pas encore répondable (malus "memory_recall" d'Alain
+   * uniquement) : énoncé seul, à mémoriser avant que ses propositions n'apparaissent à l'étape
+   * suivante. null pour tout autre boss/salle, ou si aucune question suivante n'a encore été
+   * tirée (cf. BrainrunService.buildState). */
+  previewQuestion: BrainrunQuestionPreviewDTO | null;
   /** true si le joueur doit choisir un nœud parmi candidateCols sur currentRow. */
   awaitingChoice: boolean;
   /** Tous les nœuds de l'acte en cours (position/tracé toujours visibles, type masqué à null

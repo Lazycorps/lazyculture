@@ -1,15 +1,18 @@
 /** Catalogue des boss Brainrun (salle 7 de chaque acte), défini en code comme
  * `shared/brainrunEnemies.ts` : identité (nom, thèmes) et malus de combat, partagés
- * client/serveur sans dupliquer ces données en base. 2 boss par acte, tirés au hasard
- * à l'entrée de la salle (cf. BrainrunService.chooseOption). */
+ * client/serveur sans dupliquer ces données en base. 3 boss par acte, tirés au hasard
+ * à la génération de l'acte (cf. BrainrunService.seedActGraph / assignCombatIdentities). */
 
 export type BrainrunBossMalusId =
   | "hidden_answer" // Gilbert : une réponse masquée ("???"), toujours cliquable
   | "swap_answers" // Le Joker : 2 réponses échangent leur position périodiquement
+  | "damage_resist" // The Rock : encaisse 2x moins de dégâts
   | "mirror_answers" // La Sorcière : réponses affichées en miroir
   | "scrambling_letters" // François : lettres qui changent puis reviennent
+  | "speed_reduction" // Flash : le temps de réponse rétrécit à chaque question (jusqu'à -50%)
   | "phoenix_revive" // Le Phoenix : revient à 50% puis 25% PV après une mise à 0
-  | "progressive_blur"; // Gérard : flou qui se dissipe jusqu'à net à 3s restantes
+  | "progressive_blur" // Gérard : flou qui se dissipe jusqu'à net à 3s restantes
+  | "memory_recall"; // Alain : les réponses affichées sont toujours celles de la question précédente
 
 export type BrainrunBossDef = {
   id: string;
@@ -36,6 +39,13 @@ export const BRAINRUN_BOSSES: BrainrunBossDef[] = [
     themes: ["culture_generale", "cinema", "series_cultes", "anime-manga", "sport"],
   },
   {
+    id: "act1_the_rock",
+    name: "The Rock",
+    act: 1,
+    malus: "damage_resist",
+    themes: ["culture_generale", "sport", "football", "voiture", "cinema"],
+  },
+  {
     id: "act2_la_sorciere",
     name: "La Sorcière",
     act: 2,
@@ -57,6 +67,13 @@ export const BRAINRUN_BOSSES: BrainrunBossDef[] = [
     themes: ["culture_generale", "logique", "anime-manga", "geo", "sport"],
   },
   {
+    id: "act2_flash",
+    name: "Flash",
+    act: 2,
+    malus: "speed_reduction",
+    themes: ["culture_generale", "video-games", "espace", "logique", "drapeaux-du-monde"],
+  },
+  {
     id: "act3_le_phoenix",
     name: "Le Phoenix",
     act: 3,
@@ -76,6 +93,13 @@ export const BRAINRUN_BOSSES: BrainrunBossDef[] = [
       "anime-manga",
       "animaux_du_monde",
     ],
+  },
+  {
+    id: "act3_alain",
+    name: "Alain",
+    act: 3,
+    malus: "memory_recall",
+    themes: ["culture_generale", "mythologie", "geo", "histoire", "cinema"],
   },
 ];
 

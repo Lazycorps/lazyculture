@@ -26,6 +26,8 @@ import {
   BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
   BRAINRUN_EVENT_MAGNET_CHANCE,
+  BRAINRUN_FLASH_MAX_TIME_REDUCTION_RATIO,
+  BRAINRUN_FLASH_TIME_REDUCTION_STEP_RATIO,
   BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_HAGGLER_MULTIPLIER,
   BRAINRUN_KP_PER_GOLD,
@@ -34,6 +36,7 @@ import {
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
+  BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
   BRAINRUN_SIXTH_SENSE_CHANCE,
   BRAINRUN_SPECIALIZATION_HEAL_CHANCE,
   BRAINRUN_TOTAL_ACTS,
@@ -42,6 +45,7 @@ import {
   getBrainrunActRowWidths,
 } from "./brainrunConfig";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
+import type { BrainrunBossMalusId } from "#shared/brainrunBosses";
 
 export function shouldEndRunOnDamage(healthPointAfter: number): boolean {
   return healthPointAfter <= 0;
@@ -176,6 +180,56 @@ export function applyRelicsToBossDamage(baseDamage: number, effects: BrainrunRel
 
 export function bossQuestionTimeMsWithRelics(effects: BrainrunRelicEffects): number {
   return BRAINRUN_BOSS_QUESTION_TIME_MS + effects.bossTimeBonusMs;
+}
+
+/** Malus "The Rock" (damage_resist) : le boss encaisse 2x moins de dégâts, composé en tout
+ * dernier (après reliques/talents/consommables) pour que le reste du kit offensif du joueur
+ * reste utile normalement, juste divisé par 2. Consommable Antidote (malusCancelled) l'annule
+ * pour la question en cours. */
+export function applyBossMalusToDamage(
+  damage: number,
+  malus: BrainrunBossMalusId | undefined,
+  malusCancelled: boolean = false,
+): number {
+  if (malus !== "damage_resist" || malusCancelled || damage <= 0) return damage;
+  return Math.round(damage * BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER);
+}
+
+/** Malus "Flash" (speed_reduction) : réduit le temps de réponse de 10% du temps initial par
+ * question déjà répondue dans ce combat de boss (cumulatif, plafonné à -50%) — exprimé comme un
+ * bonus de temps négatif, composable avec bossTimeBonusMs/chronoBonusMs via le même total.
+ * Consommable Antidote (malusCancelled) l'annule pour la question en cours. */
+export function flashMalusBonusTimeMs(
+  malus: BrainrunBossMalusId | undefined,
+  questionsAnsweredInFight: number,
+  malusCancelled: boolean = false,
+): number {
+  if (malus !== "speed_reduction" || malusCancelled) return 0;
+  const ratio = Math.min(
+    BRAINRUN_FLASH_MAX_TIME_REDUCTION_RATIO,
+    BRAINRUN_FLASH_TIME_REDUCTION_STEP_RATIO * questionsAnsweredInFight,
+  );
+  const reductionMs = Math.round(BRAINRUN_BOSS_QUESTION_TIME_MS * ratio);
+  return reductionMs === 0 ? 0 : -reductionMs;
+}
+
+/** Malus "Alain" (memory_recall) : vrai tant que la question à valider (index responsesCount de
+ * questionIds) n'a pas encore eu de "suivante" tirée pour lui servir de tampon — c'est-à-dire
+ * tant que son propre énoncé n'a jamais été montré au joueur. Deux cas concrets :
+ * - la toute première question d'un combat contre lui (aucune question précédente n'a pu la
+ *   prévisualiser) ;
+ * - juste après une réponse validée avec le consommable Antidote actif (reveal.malusCancelled) :
+ *   l'écran a alors montré l'énoncé de la question qu'on validait à la place de celui de la
+ *   suivante (cf. BrainrunService.submitAnswer, requiredLead), qui n'a donc jamais été affichée.
+ * Dans les deux cas, un décompte de mémorisation forcée (BRAINRUN_ALAIN_INTRO_MS) affiche cet
+ * énoncé seul, sans réponses ni chrono contre-la-montre, avant que le déroulé normal (décalé
+ * d'une question) ne (re)démarre — cf. BrainrunService.prepareNextBossQuestion. */
+export function isAlainMemoryIntro(
+  malus: BrainrunBossMalusId | undefined,
+  responsesCount: number,
+  questionIdsCount: number,
+): boolean {
+  return malus === "memory_recall" && questionIdsCount - responsesCount <= 1;
 }
 
 /** Le Bouclier annule la prochaine perte de PV, qu'elle vienne du combat ou d'un Événement. */

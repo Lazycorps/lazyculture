@@ -2,177 +2,221 @@
   <div
     ref="containerRef"
     class="relative w-full flex flex-col justify-center select-none min-h-0 transition-all duration-300"
-    :style="{ paddingBottom: `${actionBarHeight + 12}px` }"
-    v-if="localQuestion"
+    :style="{ paddingBottom: isAlainIntroPhase ? undefined : `${actionBarHeight + 12}px` }"
+    v-if="localQuestion || isAlainIntroPhase"
     @pointerdown="pauseSwap"
     @pointerup="resumeSwap"
     @pointercancel="resumeSwap"
   >
-    <!-- Progression dans la salle (Standard/Elite uniquement : questionIds a un total fixe,
-         contrairement au Boss qui en génère à la volée tant qu'il n'est pas à 0 PV). -->
-    <p
-      v-if="!isBossRoom && questionTotal > 0"
-      class="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider font-display mb-2"
-    >
-      Question {{ questionIndex }}/{{ questionTotal }}
-    </p>
-
-    <QuestionDisplay
-      v-if="localQuestion"
-      ref="questionDisplay"
-      :libelle="localQuestion.data.libelle"
-      :img="localQuestion.data.img"
-      :themes="localQuestion.themes"
-      :propositions="displayPropositions"
-      :disabled="responded"
-      :selectedOptionId="selectedResponse"
-      :correctOptionId="greenResponse"
-      :incorrectOptionId="redResponse"
-      :showCorrectIncorrectColors="responded"
-      :showReporting="true"
-      :questionId="localQuestion.id"
-      :eliminatedIds="eliminatedIds"
-      :hintId="revealedHintId"
-      :answerBlurPx="answerBlurPx"
-      :mirrorAnswers="mirrorAnswers"
-      @selectOption="selectOption"
-    />
-
-    <!-- Consommables : 50/50, Appel à un ami, Bouclier — usage unique pendant la question. -->
-    <div
-      v-if="!responded && availableConsumables.length > 0"
-      class="flex justify-center flex-wrap gap-2 mt-3"
-    >
-      <div v-for="consumable in availableConsumables" :key="consumable.id" class="relative">
-        <button
-          type="button"
-          :disabled="consumableLoading"
-          :title="consumable.description"
-          class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs font-bold font-display text-gray-300 disabled:opacity-40 transition-colors"
-          @pointerdown="longPress.onPointerDown(consumable.id, $event)"
-          @pointerup="longPress.onPointerUp(consumable.id)"
-          @pointerleave="longPress.onPointerLeave(consumable.id)"
-          @pointercancel="longPress.onPointerLeave(consumable.id)"
-          @contextmenu.prevent
-          @click="handleConsumableClick(consumable.id)"
-        >
-          <UIcon :name="consumable.icon" class="text-sm text-amber-400" />
-          {{ consumable.name }}
-          <span class="text-gray-500">×{{ consumable.count }}</span>
-        </button>
-        <div
-          v-if="longPress.activeId.value === consumable.id"
-          class="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
-        >
-          <p class="text-[11px] font-black font-display text-white tracking-wide">
-            {{ consumable.name }}
-          </p>
-          <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
-            {{ consumable.description }}
-          </p>
-        </div>
+    <!-- Malus "Alain" : lecture forcée de la 1re question du combat, sans réponses ni chrono
+         contre-la-montre — décompte de mémorisation avant que le déroulé normal ne démarre. -->
+    <div v-if="isAlainIntroPhase" class="text-center py-6 px-3 space-y-5">
+      <p class="text-[11px] font-black text-amber-400 uppercase tracking-wider font-display">
+        Retenez bien cette question !
+      </p>
+      <QuestionDisplay
+        :libelle="previewQuestion?.libelle ?? ''"
+        :img="previewQuestion?.img ?? ''"
+        :themes="previewQuestion?.themes ?? []"
+        :propositions="[]"
+        :disabled="true"
+        :showReporting="false"
+        :questionId="previewQuestion?.id ?? 0"
+      />
+      <div class="flex flex-col items-center gap-1 pt-1">
+        <span class="text-4xl font-black font-display text-amber-400 tabular-nums animate-pulse">
+          {{ alainTicksRemaining }}
+        </span>
+        <span class="text-[10px] text-gray-500 uppercase tracking-wider font-display">
+          Mémorisez...
+        </span>
       </div>
     </div>
 
-    <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
-    <div
-      ref="actionBarRef"
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300"
-      :class="[
-        revealed
-          ? showComment
-            ? 'p-3 md:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]'
-            : 'p-2.5 md:p-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
-          : 'p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
-        revealed
-          ? isCorrect
-            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
-            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
-          : 'bg-slate-950/80 border-white/10',
-      ]"
-    >
-      <div class="max-w-xl mx-auto w-full flex flex-col">
-        <div class="w-full">
-          <div v-if="revealed" class="flex items-start space-x-2.5 md:space-x-3 mb-2 md:mb-3">
-            <div
-              class="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-sm md:text-base flex-shrink-0"
-              :class="
-                isCorrect
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
-                  : 'bg-rose-500/20 text-rose-400 border border-rose-400/30'
-              "
-            >
-              <UIcon v-if="isCorrect" name="i-heroicons-check-circle" />
-              <UIcon v-else name="i-heroicons-exclamation-triangle" />
-            </div>
-            <div class="space-y-0.5 min-w-0 flex-1">
-              <h4
-                class="font-black font-display text-sm tracking-wide flex items-center justify-between"
-                :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
-              >
-                <span>{{ isCorrect ? "Bravo !" : "Incorrect" }}</span>
-                <UButton
-                  variant="ghost"
-                  :color="isCorrect ? 'success' : 'error'"
-                  size="xs"
-                  class="p-1 -mr-1"
-                  :icon="showComment ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                  @click="toggleComment"
-                />
-              </h4>
+    <template v-else>
+      <!-- Progression dans la salle (Standard/Elite uniquement : questionIds a un total fixe,
+           contrairement au Boss qui en génère à la volée tant qu'il n'est pas à 0 PV). -->
+      <p
+        v-if="!isBossRoom && questionTotal > 0"
+        class="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider font-display mb-2"
+      >
+        Question {{ questionIndex }}/{{ questionTotal }}
+      </p>
+
+      <!-- Malus "Alain" (hors décompte) : l'énoncé affiché ci-dessous est celui de la question
+           SUIVANTE (à mémoriser à son tour) — les réponses cliquables restent celles de la
+           question précédente, cf. mainLibelle/showsPreviewAsMainQuestion. -->
+      <p
+        v-if="showsPreviewAsMainQuestion"
+        class="text-center text-[10px] font-bold text-amber-400/80 uppercase tracking-wider font-display mb-1"
+      >
+        Répondez à la question précédente
+      </p>
+
+      <QuestionDisplay
+        v-if="localQuestion"
+        ref="questionDisplay"
+        :libelle="mainLibelle"
+        :img="mainImg"
+        :themes="mainThemes"
+        :propositions="displayPropositions"
+        :disabled="responded"
+        :selectedOptionId="selectedResponse"
+        :correctOptionId="greenResponse"
+        :incorrectOptionId="redResponse"
+        :showCorrectIncorrectColors="responded"
+        :showReporting="true"
+        :questionId="localQuestion.id"
+        :eliminatedIds="eliminatedIds"
+        :hintId="revealedHintId"
+        :answerBlurPx="answerBlurPx"
+        :mirrorAnswers="mirrorAnswers"
+        @selectOption="selectOption"
+      />
+
+      <!-- Consommables : 50/50, Appel à un ami, Bouclier — usage unique pendant la question. -->
+      <div
+        v-if="!responded && availableConsumables.length > 0"
+        class="flex justify-center flex-wrap gap-2 mt-3"
+      >
+        <div v-for="consumable in availableConsumables" :key="consumable.id" class="relative">
+          <button
+            type="button"
+            :disabled="consumableLoading"
+            :title="consumable.description"
+            class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 text-xs font-bold font-display text-gray-300 disabled:opacity-40 transition-colors"
+            @pointerdown="longPress.onPointerDown(consumable.id, $event)"
+            @pointerup="longPress.onPointerUp(consumable.id)"
+            @pointerleave="longPress.onPointerLeave(consumable.id)"
+            @pointercancel="longPress.onPointerLeave(consumable.id)"
+            @contextmenu.prevent
+            @click="handleConsumableClick(consumable.id)"
+          >
+            <UIcon :name="consumable.icon" class="text-sm text-amber-400" />
+            {{ consumable.name }}
+            <span class="text-gray-500">×{{ consumable.count }}</span>
+          </button>
+          <div
+            v-if="longPress.activeId.value === consumable.id"
+            class="absolute z-20 top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-slate-900 border border-amber-500/30 rounded-xl p-2.5 shadow-xl text-left pointer-events-none"
+          >
+            <p class="text-[11px] font-black font-display text-white tracking-wide">
+              {{ consumable.name }}
+            </p>
+            <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
+              {{ consumable.description }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
+      <div
+        ref="actionBarRef"
+        class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300"
+        :class="[
+          revealed
+            ? showComment
+              ? 'p-3 md:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]'
+              : 'p-2.5 md:p-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
+            : 'p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+          revealed
+            ? isCorrect
+              ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
+              : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
+            : 'bg-slate-950/80 border-white/10',
+        ]"
+      >
+        <div class="max-w-xl mx-auto w-full flex flex-col">
+          <div class="w-full">
+            <div v-if="revealed" class="flex items-start space-x-2.5 md:space-x-3 mb-2 md:mb-3">
               <div
-                v-show="showComment"
-                class="max-h-[20dvh] md:max-h-28 overflow-y-auto pr-2 custom-scrollbar select-text"
+                class="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-sm md:text-base flex-shrink-0"
+                :class="
+                  isCorrect
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30'
+                    : 'bg-rose-500/20 text-rose-400 border border-rose-400/30'
+                "
               >
-                <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
-                  {{
-                    commentaire ||
-                    (isCorrect ? "C'est exact !" : "Dommage ! Ouvrez l'œil pour la suite.")
-                  }}
-                </p>
+                <UIcon v-if="isCorrect" name="i-heroicons-check-circle" />
+                <UIcon v-else name="i-heroicons-exclamation-triangle" />
+              </div>
+              <div class="space-y-0.5 min-w-0 flex-1">
+                <h4
+                  class="font-black font-display text-sm tracking-wide flex items-center justify-between"
+                  :class="isCorrect ? 'text-emerald-400' : 'text-rose-400'"
+                >
+                  <span>{{ isCorrect ? "Bravo !" : "Incorrect" }}</span>
+                  <UButton
+                    variant="ghost"
+                    :color="isCorrect ? 'success' : 'error'"
+                    size="xs"
+                    class="p-1 -mr-1"
+                    :icon="showComment ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                    @click="toggleComment"
+                  />
+                </h4>
+                <div
+                  v-show="showComment"
+                  class="max-h-[20dvh] md:max-h-28 overflow-y-auto pr-2 custom-scrollbar select-text"
+                >
+                  <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
+                    {{
+                      commentaire ||
+                      (isCorrect ? "C'est exact !" : "Dommage ! Ouvrez l'œil pour la suite.")
+                    }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="w-full flex justify-center">
-          <UButton
-            v-if="!responded"
-            size="lg"
-            class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
-            :color="selectedResponse != null ? 'primary' : 'neutral'"
-            :disabled="selectedResponse == null || loading"
-            :loading="loading"
-            @click="validateResponse"
-          >
-            Valider
-          </UButton>
-          <UButton
-            v-else
-            :size="showComment ? 'lg' : 'md'"
-            class="w-full font-black font-display uppercase tracking-widest justify-center shadow-lg transition-all duration-300"
-            :class="showComment ? 'py-2.5 md:py-3.5' : 'py-2 md:py-2.5 text-xs md:text-sm'"
-            :color="revealed ? (isCorrect ? 'success' : 'error') : 'neutral'"
-            :loading="!revealed"
-            :disabled="!revealed"
-            @click="nextQuestion"
-          >
-            Continuer
-          </UButton>
+          <div class="w-full flex justify-center">
+            <UButton
+              v-if="!responded"
+              size="lg"
+              class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
+              :color="selectedResponse != null ? 'primary' : 'neutral'"
+              :disabled="selectedResponse == null || loading"
+              :loading="loading"
+              @click="validateResponse"
+            >
+              Valider
+            </UButton>
+            <UButton
+              v-else
+              :size="showComment ? 'lg' : 'md'"
+              class="w-full font-black font-display uppercase tracking-widest justify-center shadow-lg transition-all duration-300"
+              :class="showComment ? 'py-2.5 md:py-3.5' : 'py-2 md:py-2.5 text-xs md:text-sm'"
+              :color="revealed ? (isCorrect ? 'success' : 'error') : 'neutral'"
+              :loading="!revealed"
+              :disabled="!revealed"
+              @click="nextQuestion"
+            >
+              Continuer
+            </UButton>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { QuestionDTO } from "#shared/question";
-import { BRAINRUN_BOSS_QUESTION_TIME_MS, BRAINRUN_SIXTH_SENSE_DELAY_MS } from "#shared/brainrun";
+import {
+  BRAINRUN_ALAIN_INTRO_TICK_MS,
+  BRAINRUN_BOSS_QUESTION_TIME_MS,
+  BRAINRUN_SIXTH_SENSE_DELAY_MS,
+  type BrainrunQuestionPreviewDTO,
+} from "#shared/brainrun";
 import { BRAINRUN_CONSUMABLES, type BrainrunConsumableId } from "#shared/brainrunItems";
 import { getBrainrunBossById } from "#shared/brainrunBosses";
 
 const props = defineProps<{
   question: QuestionDTO | null;
+  /** Malus "Alain" (memory_recall) uniquement : question suivante déjà tirée, énoncé seul. */
+  previewQuestion?: BrainrunQuestionPreviewDTO | null;
 }>();
 
 const emit = defineEmits<{
@@ -180,6 +224,7 @@ const emit = defineEmits<{
 }>();
 
 const brainrun = useBrainrunSession();
+const userStore = useUserStore();
 const showBottomNav = useState("showBottomNav", () => true);
 // Signale à la page parente de garder cet écran affiché tant que le feedback de la
 // dernière question d'une salle est visible, même si l'état serveur (currentQuestion/
@@ -206,6 +251,10 @@ const remainingMs = useState("brainrun-boss-remaining-ms", () => BRAINRUN_BOSS_Q
 let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
 
 const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
+// Malus "Alain" (memory_recall) : décompte de mémorisation forcée de la 1re question du combat,
+// sans réponses ni chrono contre-la-montre — dérivé de l'état serveur (currentQuestion null tant
+// que rien n'est validable), cf. useBrainrunSession.
+const isAlainIntroPhase = brainrun.isAlainMemoryIntro;
 
 // 50/50 / Appel à un ami / Sablier Fêlé / Coup de Grâce / Antidote : effet calculé et persisté
 // côté serveur pour la question en cours (le client a déjà data.response/propositions, mais
@@ -290,12 +339,18 @@ function stopBossTimer() {
 function startBossTimerIfNeeded() {
   stopBossTimer();
   // Pas de question à afficher (salle terminée, écran de récap/fin à venir) : rien à chronométrer.
-  if (!isBossRoom.value || !localQuestion.value) return;
+  // Le décompte de mémorisation d'Alain (isAlainIntroPhase) n'a pas de localQuestion — il utilise
+  // le même questionDeadline/remainingMs, décompté différemment (cf. handleAlainIntroTimeout).
+  if (!isBossRoom.value || (!localQuestion.value && !isAlainIntroPhase.value)) return;
   updateRemainingMs();
   bossTimerInterval = setInterval(() => {
     updateRemainingMs();
     if (remainingMs.value <= 0 && !responded.value) {
-      handleBossTimeout();
+      if (isAlainIntroPhase.value) {
+        handleAlainIntroTimeout();
+      } else {
+        handleBossTimeout();
+      }
     }
   }, 200);
 }
@@ -319,6 +374,12 @@ function startAutoHintTimerIfNeeded() {
 // question suivante dès la réponse au serveur (submitAnswer renvoie l'état complet
 // en un seul aller-retour). Le prop ne doit être appliqué qu'une fois "Continuer" cliqué.
 const localQuestion = ref<QuestionDTO | null>(props.question);
+// Même principe de gel que localQuestion, pour le malus "memory_recall" d'Alain : le libellé de
+// la question suivante (affiché à la place de celui de localQuestion, cf. mainLibelle plus bas)
+// ne doit pas changer sous les yeux du joueur pendant qu'il lit encore le feedback de la
+// question qu'il vient de valider — sinon le texte affiché ne correspondrait plus aux boutons
+// de réponse (ceux de localQuestion, gelés eux aussi) pendant cette fenêtre.
+const localPreviewQuestion = ref<BrainrunQuestionPreviewDTO | null>(props.previewQuestion ?? null);
 
 watch(
   () => props.question,
@@ -330,6 +391,15 @@ watch(
     if (!responded.value && newQuestion?.id !== localQuestion.value?.id) {
       localQuestion.value = newQuestion;
       startAutoHintTimerIfNeeded();
+    }
+  },
+);
+
+watch(
+  () => props.previewQuestion,
+  (newPreview) => {
+    if (!responded.value) {
+      localPreviewQuestion.value = newPreview ?? null;
     }
   },
 );
@@ -350,6 +420,37 @@ const questionIndex = computed(() => {
 // (consommable) l'annule pour la question en cours.
 const activeBossMalus = computed(() =>
   malusCancelled.value ? undefined : getBrainrunBossById(brainrun.currentRoom.value?.bossId)?.malus,
+);
+
+// Malus "Alain" (memory_recall), hors décompte de mémorisation : l'énoncé affiché est celui de
+// la question suivante (localPreviewQuestion, à mémoriser), les propositions cliquables restent
+// celles de localQuestion (la question précédente, qu'on valide réellement) — cf. la légende
+// "Répondez à la question précédente" dans le template.
+const showsPreviewAsMainQuestion = computed(
+  () => activeBossMalus.value === "memory_recall" && !isAlainIntroPhase.value,
+);
+const mainLibelle = computed(() =>
+  showsPreviewAsMainQuestion.value
+    ? (localPreviewQuestion.value?.libelle ?? "")
+    : (localQuestion.value?.data.libelle ?? ""),
+);
+const mainImg = computed(() =>
+  showsPreviewAsMainQuestion.value
+    ? (localPreviewQuestion.value?.img ?? "")
+    : (localQuestion.value?.data.img ?? ""),
+);
+const mainThemes = computed(() =>
+  showsPreviewAsMainQuestion.value
+    ? (localPreviewQuestion.value?.themes ?? [])
+    : (localQuestion.value?.themes ?? []),
+);
+
+// Nombre de tics restants (5 → 1) du décompte de mémorisation d'Alain, dérivé du même
+// remainingMs que le chrono contre-la-montre normal (questionDeadline sert les deux usages selon
+// la phase, cf. BrainrunService.toRoomDTO) — plancher à 1 pour ne jamais afficher "0" avant que
+// le timer ne déclenche la transition (cf. handleAlainIntroTimeout).
+const alainTicksRemaining = computed(() =>
+  Math.max(1, Math.ceil(remainingMs.value / BRAINRUN_ALAIN_INTRO_TICK_MS)),
 );
 
 // Signale à la page parente (barre de PV du boss) qu'une résurrection du Phoenix est en cours,
@@ -423,6 +524,7 @@ const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap 
 function selectOption(id: number) {
   if (responded.value) return;
   selectedResponse.value = id;
+  if (userStore.autoValidateAnswer) validateResponse();
 }
 
 async function validateResponse() {
@@ -497,6 +599,27 @@ async function handleBossTimeout() {
   }
 }
 
+// Malus "Alain" : décompte de mémorisation de la 1re question écoulé — tire la 2e question côté
+// serveur (cf. BrainrunService.prepareNextBossQuestion) et démarre alors le vrai chrono
+// contre-la-montre pour valider la 1re. Pas de submitAnswer ici : rien n'a été répondu.
+let alainIntroAdvancing = false;
+async function handleAlainIntroTimeout() {
+  if (alainIntroAdvancing) return;
+  alainIntroAdvancing = true;
+  stopBossTimer();
+  try {
+    await brainrun.readyNextBossQuestion();
+    localQuestion.value = brainrun.currentQuestion.value;
+    localPreviewQuestion.value = brainrun.previewQuestion.value;
+    startAutoHintTimerIfNeeded();
+    startBossTimerIfNeeded();
+  } catch (e) {
+    console.error("Failed to advance Alain's memory intro:", e);
+  } finally {
+    alainIntroAdvancing = false;
+  }
+}
+
 async function nextQuestion() {
   // Levé dès le clic : si une question suivante existe, currentQuestion reste de toute
   // façon truthy côté parent ; sinon (salle terminée), c'est ce flag qui autorisait
@@ -512,10 +635,13 @@ async function nextQuestion() {
 
   // Démarre le chrono de la question de boss suivante seulement maintenant que le joueur
   // a fini de lire le feedback précédent (cf. commentaire côté serveur dans submitAnswer).
+  // previewQuestion (sans currentQuestion) couvre le cas Alain où la réponse qu'on vient de
+  // valider utilisait l'Antidote : le serveur est déjà en attente d'un décompte de mémorisation
+  // pour la question suivante (isAlainMemoryIntro) plutôt que d'un chrono contre-la-montre normal.
   if (
     isBossRoom.value &&
     !brainrun.currentRoom.value?.questionDeadline &&
-    brainrun.currentQuestion.value
+    (brainrun.currentQuestion.value || brainrun.previewQuestion.value)
   ) {
     // 0 PV juste avant cet appel puis > 0 juste après : c'est la résurrection différée du
     // Phoenix qui vient de se déclencher côté serveur (cf. BrainrunService.prepareNextBossQuestion).
@@ -532,8 +658,10 @@ async function nextQuestion() {
     // brainrun.currentQuestion est la même ref partagée que le prop "question" du parent :
     // on la lit directement pour éviter de dépendre du timing de propagation du prop après cet await.
     localQuestion.value = brainrun.currentQuestion.value;
+    localPreviewQuestion.value = brainrun.previewQuestion.value;
   } else {
     localQuestion.value = props.question;
+    localPreviewQuestion.value = props.previewQuestion ?? null;
   }
   emit("advanced");
 

@@ -142,6 +142,14 @@ export const BRAINRUN_SIXTH_SENSE_CHANCE = 0.05;
 export const BRAINRUN_HAGGLER_MULTIPLIER = 0.8;
 /** Plafond absolu de Pv max atteignable (relique Cœur Supplémentaire, cumulable). */
 export const BRAINRUN_ABSOLUTE_MAX_HP = 8;
+/** Malus de boss "The Rock" (damage_resist) : multiplicateur appliqué aux dégâts infligés au
+ * boss, en tout dernier (après reliques/talents/consommables) — encaisse 2x moins. */
+export const BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER = 0.5;
+/** Malus de boss "Flash" (speed_reduction) : réduction du temps de réponse, en fraction du temps
+ * initial (BRAINRUN_BOSS_QUESTION_TIME_MS), par question déjà répondue dans ce combat — cumulative,
+ * plafonnée à BRAINRUN_FLASH_MAX_TIME_REDUCTION_RATIO. */
+export const BRAINRUN_FLASH_TIME_REDUCTION_STEP_RATIO = 0.1;
+export const BRAINRUN_FLASH_MAX_TIME_REDUCTION_RATIO = 0.5;
 /** Probabilité de récupérer 1 PV en fin de combat gagné (relique Spécialisation). */
 export const BRAINRUN_SPECIALIZATION_HEAL_CHANCE = 0.2;
 /** Emplacements de consommables de base, et bonus accordé par la relique Sac à Dos. */

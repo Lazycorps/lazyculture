@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
 import {
+  applyBossMalusToDamage,
   applyRelicsToBossDamage,
   applyRelicsToGold,
   assignCombatIdentities,
@@ -10,7 +11,9 @@ import {
   consumeShieldIfArmed,
   effectiveThemes,
   enforceEliteRouteBounds,
+  flashMalusBonusTimeMs,
   generateActEdges,
+  isAlainMemoryIntro,
   generateActGraph,
   generateBonusOffers,
   generateShopOffers,
@@ -35,11 +38,13 @@ import {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
+  BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_MAX_ELITE_PER_ROUTE,
   BRAINRUN_MIN_EVENT_OFFERS,
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
+  BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
   getBrainrunActRowWidths,
 } from "./brainrunConfig";
 import {
@@ -101,6 +106,81 @@ describe("brainrunBossDamage", () => {
     expect(brainrunBossDamage(BRAINRUN_BOSS_QUESTION_TIME_MS - 1, true)).toBeLessThan(
       maxDamage / 2,
     );
+  });
+});
+
+describe("applyBossMalusToDamage", () => {
+  it("halves the damage for The Rock (damage_resist), rounded", () => {
+    expect(applyBossMalusToDamage(50, "damage_resist")).toBe(
+      Math.round(50 * BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER),
+    );
+    expect(applyBossMalusToDamage(21, "damage_resist")).toBe(
+      Math.round(21 * BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER),
+    );
+  });
+
+  it("leaves damage untouched for a miss, another malus, or no boss", () => {
+    expect(applyBossMalusToDamage(0, "damage_resist")).toBe(0);
+    expect(applyBossMalusToDamage(50, "swap_answers")).toBe(50);
+    expect(applyBossMalusToDamage(50, undefined)).toBe(50);
+  });
+
+  it("is cancelled by the Antidote consumable (malusCancelled)", () => {
+    expect(applyBossMalusToDamage(50, "damage_resist", true)).toBe(50);
+  });
+});
+
+describe("flashMalusBonusTimeMs", () => {
+  it("gives no reduction on Flash's very first boss question", () => {
+    expect(flashMalusBonusTimeMs("speed_reduction", 0)).toBe(0);
+  });
+
+  it("reduces the time budget by 10% of the initial time per question already answered", () => {
+    expect(flashMalusBonusTimeMs("speed_reduction", 1)).toBe(
+      -Math.round(BRAINRUN_BOSS_QUESTION_TIME_MS * 0.1),
+    );
+    expect(flashMalusBonusTimeMs("speed_reduction", 3)).toBe(
+      -Math.round(BRAINRUN_BOSS_QUESTION_TIME_MS * 0.3),
+    );
+  });
+
+  it("caps the reduction at 50%, however many questions have been answered", () => {
+    expect(flashMalusBonusTimeMs("speed_reduction", 5)).toBe(
+      -Math.round(BRAINRUN_BOSS_QUESTION_TIME_MS * 0.5),
+    );
+    expect(flashMalusBonusTimeMs("speed_reduction", 20)).toBe(
+      -Math.round(BRAINRUN_BOSS_QUESTION_TIME_MS * 0.5),
+    );
+  });
+
+  it("gives no reduction for another malus, no boss, or once cancelled by Antidote", () => {
+    expect(flashMalusBonusTimeMs("progressive_blur", 5)).toBe(0);
+    expect(flashMalusBonusTimeMs(undefined, 5)).toBe(0);
+    expect(flashMalusBonusTimeMs("speed_reduction", 5, true)).toBe(0);
+  });
+});
+
+describe("isAlainMemoryIntro", () => {
+  it("is true for Alain's very first boss question (no responses, no lookahead drawn yet)", () => {
+    expect(isAlainMemoryIntro("memory_recall", 0, 1)).toBe(true);
+  });
+
+  it("is true again after Antidote skipped a preview reveal (lead back down to 1)", () => {
+    // Cf. BrainrunService.submitAnswer (requiredLead) : une réponse validée avec l'Antidote actif
+    // ne tire pas la question d'avance habituelle, donc questionIds.length - responsesCount
+    // retombe à 1 comme à la toute première question, quel que soit le nombre de réponses déjà
+    // données dans ce combat.
+    expect(isAlainMemoryIntro("memory_recall", 4, 5)).toBe(true);
+  });
+
+  it("is false once a 2-question lead exists, however many responses so far (normal cycle)", () => {
+    expect(isAlainMemoryIntro("memory_recall", 0, 2)).toBe(false);
+    expect(isAlainMemoryIntro("memory_recall", 1, 3)).toBe(false);
+  });
+
+  it("is false for another malus or no boss", () => {
+    expect(isAlainMemoryIntro("progressive_blur", 0, 1)).toBe(false);
+    expect(isAlainMemoryIntro(undefined, 0, 1)).toBe(false);
   });
 });
 
@@ -686,18 +766,25 @@ describe("generateBonusOffers", () => {
     }
   });
 
-  it("never offers an already-owned relic", () => {
+  it("never offers an already-owned relic, except the stackable Cœur Supplémentaire", () => {
     const owned: string[] = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
     for (let i = 0; i < 50; i++) {
       const offers = generateBonusOffers(owned);
-      const relicOffers = offers.filter((o) => o.kind === "RELIC");
+      const relicOffers = offers.filter((o) => o.kind === "RELIC" && o.id !== "EXTRA_HEART");
       relicOffers.forEach((o) => expect(owned).not.toContain(o.id));
     }
   });
 
-  it("falls back to consumables once every relic is owned", () => {
+  it("falls back to consumables (and the stackable Cœur Supplémentaire) once every relic is owned", () => {
     const offers = generateBonusOffers(ALL_RELIC_IDS);
-    expect(offers.every((o) => o.kind === "CONSUMABLE" || o.kind === "GOLD")).toBe(true);
+    expect(
+      offers.every(
+        (o) =>
+          o.kind === "CONSUMABLE" ||
+          o.kind === "GOLD" ||
+          (o.kind === "RELIC" && o.id === "EXTRA_HEART"),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -712,16 +799,28 @@ describe("generateShopOffers", () => {
     relicOffers.forEach((o) => expect(o.price).toBeGreaterThan(0));
   });
 
-  it("replaces relic slots with free gold offers once every relic is owned", () => {
+  it("replaces relic slots with free gold offers once every relic is owned, except one slot kept for the stackable Cœur Supplémentaire", () => {
     const offers = generateShopOffers(ALL_RELIC_IDS);
+    const relicOffers = offers.filter((o) => o.kind === "RELIC");
     const goldOffers = offers.filter((o) => o.kind === "GOLD");
-    expect(goldOffers).toHaveLength(BRAINRUN_SHOP_RELIC_OFFER_COUNT);
+    expect(relicOffers).toHaveLength(1);
+    expect(relicOffers[0]!.id).toBe("EXTRA_HEART");
+    expect(goldOffers).toHaveLength(BRAINRUN_SHOP_RELIC_OFFER_COUNT - 1);
     goldOffers.forEach((o) => expect(o.price).toBe(0));
   });
 
   it("applies the price multiplier to both relic and consumable offers (relique Marchandeur)", () => {
-    const full = generateShopOffers([], Math.random, 0, 1);
-    const discounted = generateShopOffers([], Math.random, 0, 0.8);
+    // PRNG déterministe et partagée entre les deux tirages : sinon les offres piochées (et donc
+    // leurs prix de base) diffèrent d'un appel à l'autre et la comparaison n'a plus de sens.
+    function seededRandom(seed: number): () => number {
+      let state = seed;
+      return () => {
+        state = (state * 1103515245 + 12345) & 0x7fffffff;
+        return state / 0x7fffffff;
+      };
+    }
+    const full = generateShopOffers([], seededRandom(42), 0, 1);
+    const discounted = generateShopOffers([], seededRandom(42), 0, 0.8);
     full.forEach((o, i) => {
       if (o.price === undefined || o.price === 0) return;
       expect(discounted[i]!.price).toBe(Math.round(o.price * 0.8));
@@ -769,14 +868,16 @@ describe("generateShopReplacementOffer", () => {
     const owned = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
     const replacement = generateShopReplacementOffer("RELIC", owned);
     const replacementWasAlreadyOwned =
-      replacement.kind === "RELIC" && (owned as string[]).includes(replacement.id);
+      replacement.kind === "RELIC" &&
+      replacement.id !== "EXTRA_HEART" &&
+      (owned as string[]).includes(replacement.id);
     expect(replacementWasAlreadyOwned).toBe(false);
   });
 
-  it("falls back to a free gold offer once every relic is owned", () => {
+  it("returns the stackable Cœur Supplémentaire once every other relic is owned", () => {
     const replacement = generateShopReplacementOffer("RELIC", ALL_RELIC_IDS);
-    expect(replacement.kind).toBe("GOLD");
-    expect(replacement.price).toBe(0);
+    expect(replacement.kind).toBe("RELIC");
+    expect((replacement as { id?: string }).id).toBe("EXTRA_HEART");
   });
 
   it("replaces a bought consumable with another consumable", () => {
@@ -811,16 +912,18 @@ describe("resolveEventOption", () => {
       { ownedRelics: owned },
     );
     expect(result.relicGranted).not.toBeNull();
-    expect(owned).not.toContain(result.relicGranted);
+    // Cœur Supplémentaire est cumulable : le seul cas où il peut légitimement apparaître dans owned.
+    if (result.relicGranted !== "EXTRA_HEART") {
+      expect(owned).not.toContain(result.relicGranted);
+    }
   });
 
-  it("compensates with gold when the relic pool is exhausted", () => {
+  it("grants the stackable Cœur Supplémentaire when every other relic is owned", () => {
     const result = resolveEventOption(
       { label: "test", reward: { relic: "RANDOM" } },
       { ownedRelics: ALL_RELIC_IDS },
     );
-    expect(result.relicGranted).toBeNull();
-    expect(result.goldDelta).toBeGreaterThan(0);
+    expect(result.relicGranted).toBe("EXTRA_HEART");
   });
 
   it("passes through granted consumables untouched", () => {

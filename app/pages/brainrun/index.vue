@@ -117,18 +117,28 @@
               <div v-for="relic in ownedRelics" :key="relic.id" class="relative">
                 <button
                   type="button"
-                  :title="`${relic.name} — ${relic.description}`"
+                  :title="
+                    relic.count > 1
+                      ? `${relic.name} x${relic.count} — ${relic.description}`
+                      : `${relic.name} — ${relic.description}`
+                  "
                   class="w-7 h-7 rounded-full bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 text-sm"
                   @click.stop="openedRelicId = openedRelicId === relic.id ? null : relic.id"
                 >
                   <UIcon :name="relic.icon" />
                 </button>
+                <span
+                  v-if="relic.count > 1"
+                  class="absolute -bottom-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-violet-500 border border-slate-950 flex items-center justify-center text-[9px] font-black font-display leading-none text-white"
+                >
+                  {{ relic.count }}
+                </span>
                 <div
                   v-if="openedRelicId === relic.id"
                   class="absolute z-20 top-full left-0 mt-2 w-48 bg-slate-900 border border-violet-500/30 rounded-xl p-2.5 shadow-xl text-left"
                 >
                   <p class="text-[11px] font-black font-display text-white tracking-wide">
-                    {{ relic.name }}
+                    {{ relic.name }}<span v-if="relic.count > 1"> x{{ relic.count }}</span>
                   </p>
                   <p class="text-[10px] text-gray-400 leading-snug mt-0.5">
                     {{ relic.description }}
@@ -214,7 +224,7 @@
                 {{ bossHealthPoint }}/{{ bossMaxHealthPoint }}
               </span>
               <span
-                v-if="currentRoom?.status === 'ACTIVE'"
+                v-if="currentRoom?.status === 'ACTIVE' && !isAlainMemoryIntro"
                 class="flex items-center gap-0.5 text-xs font-black font-display shrink-0 tabular-nums"
                 :class="potentialDamage > 0 ? 'text-amber-400' : 'text-rose-400 animate-pulse'"
               >
@@ -411,10 +421,12 @@
                 @done="handleCombatIntroDone"
               />
 
-              <!-- Question en cours -->
+              <!-- Question en cours (previewQuestion : malus "memory_recall" d'Alain, lecture
+                   forcée de la 1re question du combat, sans currentQuestion à répondre). -->
               <BrainrunQuestionRunner
-                v-else-if="currentQuestion || holdOnFeedback"
+                v-else-if="currentQuestion || holdOnFeedback || previewQuestion"
                 :question="currentQuestion"
+                :preview-question="previewQuestion"
               />
 
               <!-- Récap de fin de salle (or gagné, PV perdus) -->
@@ -655,6 +667,8 @@ if (user.value) {
 const run = brainrun.run;
 const roomsPerAct = computed(() => getBrainrunRoomsPerAct(run.value?.currentAct ?? 1));
 const currentQuestion = brainrun.currentQuestion;
+const previewQuestion = brainrun.previewQuestion;
+const isAlainMemoryIntro = brainrun.isAlainMemoryIntro;
 const currentRoom = brainrun.currentRoom;
 const awaitingChoice = brainrun.awaitingChoice;
 const mapNodes = brainrun.mapNodes;
@@ -761,9 +775,18 @@ const roomRecap = computed(() => {
   };
 });
 
-const ownedRelics = computed(() =>
-  (run.value?.relics ?? []).map((id) => BRAINRUN_RELICS[id as BrainrunRelicId]),
-);
+// Un seul affichage par relique, même pour un exemplaire cumulé plusieurs fois (Cœur
+// Supplémentaire) : un compteur "xN" est superposé plutôt que de répéter l'icône.
+const ownedRelics = computed(() => {
+  const counts = new Map<BrainrunRelicId, number>();
+  for (const id of (run.value?.relics ?? []) as BrainrunRelicId[]) {
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([id, count]) => ({
+    ...BRAINRUN_RELICS[id],
+    count,
+  }));
+});
 
 // Infobulle relique/consommable ouverte par tap ; refermée par un tap sur elle-même ou ailleurs
 // dans la carte. Les reliques n'ont pas d'action au clic ; un emplacement de consommable occupé

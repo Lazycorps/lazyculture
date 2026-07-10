@@ -2,6 +2,7 @@ import { computed } from "vue";
 import type { QuestionDTO } from "#shared/question";
 import type {
   BrainrunMapNodeDTO,
+  BrainrunQuestionPreviewDTO,
   BrainrunRoomDTO,
   BrainrunRoomType,
   BrainrunRunDTO,
@@ -14,6 +15,12 @@ export const useBrainrunSession = () => {
   const run = useState<BrainrunRunDTO | null>("brainrun-run", () => null);
   const currentRoom = useState<BrainrunRoomDTO | null>("brainrun-room", () => null);
   const currentQuestion = useState<QuestionDTO | null>("brainrun-question", () => null);
+  // Malus "Alain" (memory_recall) uniquement : question déjà tirée mais pas encore répondable,
+  // énoncé seul (cf. shared/brainrun.ts BrainrunQuestionPreviewDTO) — null pour tout autre boss.
+  const previewQuestion = useState<BrainrunQuestionPreviewDTO | null>(
+    "brainrun-preview-question",
+    () => null,
+  );
   const awaitingChoice = useState<boolean>("brainrun-awaiting-choice", () => false);
   const mapNodes = useState<BrainrunMapNodeDTO[]>("brainrun-map-nodes", () => []);
   const candidateCols = useState<number[] | null>("brainrun-candidate-cols", () => null);
@@ -21,11 +28,19 @@ export const useBrainrunSession = () => {
 
   const isRunActive = computed(() => run.value?.status === "IN_PROGRESS");
   const isRunEnded = computed(() => !!run.value && run.value.status !== "IN_PROGRESS");
+  // Décompte de mémorisation forcée de la 1re question d'un combat contre Alain (cf.
+  // references/enemies-and-bosses.md) : pas de currentQuestion tant qu'il n'y a rien à valider,
+  // seul previewQuestion (l'énoncé) est exposé — dérivé de l'état serveur plutôt qu'un flag
+  // séparé, même principe que combatIntroType dans app/pages/brainrun/index.vue.
+  const isAlainMemoryIntro = computed(
+    () => currentRoom.value?.type === "BOSS" && !currentQuestion.value && !!previewQuestion.value,
+  );
 
   function applyState(state: BrainrunStateDTO) {
     run.value = state.run;
     currentRoom.value = state.currentRoom;
     currentQuestion.value = state.currentQuestion;
+    previewQuestion.value = state.previewQuestion;
     awaitingChoice.value = state.awaitingChoice;
     mapNodes.value = state.mapNodes;
     candidateCols.value = state.candidateCols;
@@ -289,6 +304,7 @@ export const useBrainrunSession = () => {
     run.value = null;
     currentRoom.value = null;
     currentQuestion.value = null;
+    previewQuestion.value = null;
     awaitingChoice.value = false;
     mapNodes.value = [];
     candidateCols.value = null;
@@ -298,12 +314,14 @@ export const useBrainrunSession = () => {
     run,
     currentRoom,
     currentQuestion,
+    previewQuestion,
     awaitingChoice,
     mapNodes,
     candidateCols,
     loading,
     isRunActive,
     isRunEnded,
+    isAlainMemoryIntro,
     fetchCurrent,
     submitAnswer,
     chooseNode,

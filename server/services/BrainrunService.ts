@@ -8,6 +8,7 @@ import {
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import {
+  applyBossMalusToDamage,
   applyRelicsToBossDamage,
   applyRelicsToGold,
   assignCombatIdentities,
@@ -16,6 +17,7 @@ import {
   calculBrainrunUserXP,
   consumeShieldIfArmed,
   effectiveThemes,
+  flashMalusBonusTimeMs,
   generateActGraph,
   generateBonusOffers,
   generateShopOffers,
@@ -25,6 +27,7 @@ import {
   getCandidateCols,
   goldToKnowledgePoints,
   instantRoomHealthDelta,
+  isAlainMemoryIntro,
   isBossAnswerTimedOut,
   maybeConvertNodeToEvent,
   nextRowAfterClear,
@@ -80,10 +83,12 @@ import {
   getBrainrunBossById,
 } from "#shared/brainrunBosses";
 import type { BrainrunTalentId } from "#shared/brainrunTalents";
+import { BRAINRUN_ALAIN_INTRO_MS } from "#shared/brainrun";
 import type {
   BrainrunEventOutcomeDTO,
   BrainrunMapNodeDTO,
   BrainrunMetaProgressDTO,
+  BrainrunQuestionPreviewDTO,
   BrainrunRoomDTO,
   BrainrunRoomResponse,
   BrainrunRoomStatus,
@@ -479,13 +484,23 @@ export class BrainrunService {
     }
 
     const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
+    const isBossRoom = activeRoom.type === "BOSS";
+    const bossDef = isBossRoom ? getBrainrunBossById(activeRoom.bossId) : undefined;
+    // Malus "Alain" (memory_recall) : la toute 1re question d'un combat contre lui est en lecture
+    // forcée (cf. prepareNextBossQuestion) — pas encore de propositions envoyées au client pour
+    // elle, donc rien de légitime à valider tant que la 2e question n'a pas été tirée.
+    if (isAlainMemoryIntro(bossDef?.malus, responses.length, activeRoom.questionIds.length)) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Question en cours de mémorisation, rien à valider pour l'instant.",
+      });
+    }
     const expectedQuestionId = activeRoom.questionIds[responses.length];
     if (expectedQuestionId !== questionId) {
       throw createError({ statusCode: 400, statusMessage: "Cette question n'est pas attendue." });
     }
 
     const question = await prisma.question.findFirstOrThrow({ where: { id: questionId } });
-    const isBossRoom = activeRoom.type === "BOSS";
     const effects = getActiveRelicEffects(run.relics);
     const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
     const reveal = ((activeRoom.consumableReveal as ConsumableReveal | null) ??
@@ -494,8 +509,11 @@ export class BrainrunService {
       ? Date.now() - activeRoom.questionStartedAt.getTime()
       : 0;
     // Bonus de temps total : relique Chronomètre Brisé (permanent) + Sablier Fêlé (consommable,
-    // une seule question).
-    const bonusTimeMs = effects.bossTimeBonusMs + (reveal.chronoBonusMs ?? 0);
+    // une seule question) + malus Flash (négatif, rétrécit le temps imparti au fil du combat).
+    const bonusTimeMs =
+      effects.bossTimeBonusMs +
+      (reveal.chronoBonusMs ?? 0) +
+      flashMalusBonusTimeMs(bossDef?.malus, responses.length, reveal.malusCancelled);
     // Contre-la-montre : passé le délai imparti, la réponse est forcée en échec, quelle que
     // soit la proposition envoyée par le client.
     const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
@@ -514,11 +532,12 @@ export class BrainrunService {
           );
           const withTalent =
             relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
-          return withTalent > 0 ? withTalent + (reveal.damageBonus ?? 0) : 0;
+          const withConsumable = withTalent > 0 ? withTalent + (reveal.damageBonus ?? 0) : 0;
+          // Malus The Rock : appliqué en tout dernier, sur le total déjà bonifié.
+          return applyBossMalusToDamage(withConsumable, bossDef?.malus, reveal.malusCancelled);
         })()
       : 0;
     const questionData = question.data as any;
-    const bossDef = isBossRoom ? getBrainrunBossById(activeRoom.bossId) : undefined;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
       {
@@ -648,10 +667,19 @@ export class BrainrunService {
       // une fois que le joueur a vu le récap (or gagné / PV perdus) et résolu le bonus éventuel.
     } else {
       // Boss non vaincu : si la réserve de questions déjà tirées est épuisée, on en tire
-      // une nouvelle à la volée (pas de limite de questions pour un combat de boss).
+      // une nouvelle à la volée (pas de limite de questions pour un combat de boss). Alain
+      // (memory_recall) a besoin d'une question d'avance supplémentaire en temps normal : celle
+      // qu'on est en train de valider (comme les autres boss) + celle déjà affichée à mémoriser
+      // pour l'étape suivante (cf. isAlainMemoryIntro / prepareNextBossQuestion) — SAUF si
+      // l'Antidote (reveal.malusCancelled) vient d'annuler le malus sur la réponse qu'on traite
+      // ici : l'écran a alors montré l'énoncé de CETTE question plutôt que celui de la suivante,
+      // qui n'a donc jamais été affichée au joueur. On ne la tire pas d'avance dans ce cas : le
+      // prochain calcul d'état retombera sur isAlainMemoryIntro (lead redescendu à 1) et lui
+      // donnera son propre décompte de mémorisation avant de devenir validable à son tour.
+      const requiredLead = bossDef?.malus === "memory_recall" ? (reveal.malusCancelled ? 1 : 2) : 1;
       let updatedQuestionIds = activeRoom.questionIds;
       let updatedUsedQuestionIds: number[] | undefined;
-      if (isBossRoom && newResponses.length === activeRoom.questionIds.length) {
+      if (isBossRoom && activeRoom.questionIds.length - newResponses.length < requiredLead) {
         updatedUsedQuestionIds = [...run.usedQuestionIds, ...activeRoom.questionIds];
         const nextQuestionId = await this.getNextBossQuestionId(
           run.currentAct,
@@ -1478,6 +1506,42 @@ export class BrainrunService {
             : {}),
         },
       });
+      return this.getStateById(run.id);
+    }
+
+    // Malus "Alain" (memory_recall) : le bloc ci-dessus a déjà démarré, lors d'un appel
+    // précédent, le décompte de mémorisation forcée de la 1re question (questionStartedAt
+    // posé, encore aucune 2e question tirée). Une fois ce délai écoulé, on tire la 2e question
+    // et on démarre alors seulement le vrai chrono contre-la-montre pour valider la 1re — jamais
+    // avant, le serveur ne fait pas confiance à l'horloge du client pour ce délai non plus.
+    const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
+    if (isAlainMemoryIntro(bossDef?.malus, responses.length, activeRoom.questionIds.length)) {
+      const elapsedMs = Date.now() - activeRoom.questionStartedAt.getTime();
+      if (elapsedMs >= BRAINRUN_ALAIN_INTRO_MS) {
+        // Exclut la 1re question (déjà tirée sur ce nœud) du tirage de la 2e, comme submitAnswer
+        // le fait pour toute question déjà en jeu sur ce combat avant d'en tirer une nouvelle.
+        const usedQuestionIdsForDraw = [...run.usedQuestionIds, ...activeRoom.questionIds];
+        const nextQuestionId = await this.getNextBossQuestionId(
+          run.currentAct,
+          usedQuestionIdsForDraw,
+          userId,
+          bossDef?.themes,
+          run.bannedThemes,
+        );
+        await prisma.brainrunRoom.update({
+          where: { id: activeRoom.id },
+          data: {
+            questionIds: [...activeRoom.questionIds, nextQuestionId],
+            questionStartedAt: new Date(),
+          },
+        });
+        await prisma.brainrunRun.update({
+          where: { id: run.id },
+          data: { usedQuestionIds: usedQuestionIdsForDraw },
+        });
+      }
+      // Rappel prématuré (elapsedMs < BRAINRUN_ALAIN_INTRO_MS, ex. horloge client en avance) :
+      // rien à faire, l'état est déjà correct, le client retentera à l'échéance réelle.
     }
 
     return this.getStateById(run.id);
@@ -1766,18 +1830,49 @@ export class BrainrunService {
     const actRooms = run.rooms.filter((r) => r.act === run.currentAct);
 
     let currentQuestion = null;
+    let previewQuestion: BrainrunQuestionPreviewDTO | null = null;
     let activeRoom: BrainrunRoomRow | null = null;
     if (!awaitingChoice) {
       activeRoom = this.getActiveNode(run);
       if (activeRoom.status === "ACTIVE") {
         const responses = (activeRoom.responses as unknown as BrainrunRoomResponse[]) ?? [];
-        const nextQuestionId = activeRoom.questionIds[responses.length];
-        if (nextQuestionId !== undefined) {
-          const question = await questionService.getById(nextQuestionId);
+        const bossDef =
+          activeRoom.type === "BOSS" ? getBrainrunBossById(activeRoom.bossId) : undefined;
+        const alainIntro = isAlainMemoryIntro(
+          bossDef?.malus,
+          responses.length,
+          activeRoom.questionIds.length,
+        );
+        // Malus "Alain" (memory_recall) : tant qu'on est dans la lecture forcée de la 1re
+        // question (alainIntro), rien à valider — currentQuestion reste null, seul son énoncé
+        // est exposé via previewQuestion, ci-dessous. Passé ce cap, currentQuestion redevient la
+        // question à valider comme pour tout autre boss (celle de l'étape précédente pour Alain).
+        const validateQuestionId = alainIntro
+          ? undefined
+          : activeRoom.questionIds[responses.length];
+        if (validateQuestionId !== undefined) {
+          const question = await questionService.getById(validateQuestionId);
           if (question) {
             const questionData = question.data as unknown as QuestionDataDTO;
             questionData.propositions = questionService.shuffleArray(questionData.propositions);
             currentQuestion = sanitizeQuestionForClient({ ...question, data: questionData });
+          }
+        }
+
+        if (bossDef?.malus === "memory_recall") {
+          const previewIndex = alainIntro ? responses.length : responses.length + 1;
+          const previewQuestionId = activeRoom.questionIds[previewIndex];
+          if (previewQuestionId !== undefined) {
+            const preview = await questionService.getById(previewQuestionId);
+            if (preview) {
+              const previewData = preview.data as unknown as QuestionDataDTO;
+              previewQuestion = {
+                id: preview.id,
+                libelle: previewData.libelle,
+                img: previewData.img,
+                themes: preview.themes,
+              };
+            }
           }
         }
       }
@@ -1810,6 +1905,7 @@ export class BrainrunService {
       run: this.toRunDTO(run),
       currentRoom: activeRoom ? this.toRoomDTO(activeRoom, effects) : null,
       currentQuestion,
+      previewQuestion,
       awaitingChoice,
       mapNodes,
       candidateCols,
@@ -1887,12 +1983,22 @@ export class BrainrunService {
 
   private toRoomDTO(room: BrainrunRoomRow, effects: BrainrunRelicEffects): BrainrunRoomDTO {
     const reveal = (room.consumableReveal as ConsumableReveal | null) ?? {};
+    const responses = (room.responses as unknown as BrainrunRoomResponse[]) ?? [];
+    const bossDef = room.type === "BOSS" ? getBrainrunBossById(room.bossId) : undefined;
+    const alainIntro = isAlainMemoryIntro(
+      bossDef?.malus,
+      responses.length,
+      room.questionIds.length,
+    );
     const questionDeadline =
       room.type === "BOSS" && room.status === "ACTIVE" && room.questionStartedAt
         ? new Date(
             room.questionStartedAt.getTime() +
-              bossQuestionTimeMsWithRelics(effects) +
-              (reveal.chronoBonusMs ?? 0),
+              (alainIntro
+                ? BRAINRUN_ALAIN_INTRO_MS
+                : bossQuestionTimeMsWithRelics(effects) +
+                  (reveal.chronoBonusMs ?? 0) +
+                  flashMalusBonusTimeMs(bossDef?.malus, responses.length, reveal.malusCancelled)),
           )
         : null;
 
@@ -1908,7 +2014,7 @@ export class BrainrunService {
       enemyId: room.enemyId,
       bossId: room.bossId,
       questionIds: room.questionIds,
-      responses: (room.responses as unknown as BrainrunRoomResponse[]) ?? [],
+      responses,
       goldEarned: room.goldEarned,
       bossHealthPoint: room.bossHealthPoint,
       bossMaxHealthPoint: room.bossMaxHealthPoint,
