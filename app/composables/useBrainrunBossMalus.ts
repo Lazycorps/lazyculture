@@ -21,7 +21,9 @@ export function useBrainrunBossMalus(options: {
   malus: Ref<BrainrunBossMalusId | undefined>;
   propositions: Ref<Proposition[]>;
   remainingMs: Ref<number>;
-  /** Réponse révélée (correct/incorrect déjà connu) : démasque la réponse de Gilbert. */
+  /** Réponse révélée (correct/incorrect déjà connu) : désactive tout effet de malus affectant
+   * l'affichage des réponses (masquage, swap, mélange de lettres, flou, miroir), pour que le
+   * joueur voie les réponses réelles pendant le feedback. */
   revealed?: Ref<boolean>;
 }) {
   const { malus, propositions, remainingMs, revealed } = options;
@@ -93,12 +95,21 @@ export function useBrainrunBossMalus(options: {
   }
 
   watch([malus, propositions], setupForCurrentQuestion, { immediate: true });
+  // La réponse est validée : couper les timers pour figer les propositions affichées, en plus
+  // du gating ci-dessous sur displayPropositions/answerBlurPx/mirrorAnswers.
+  watch(
+    () => revealed?.value,
+    (isRevealed) => {
+      if (isRevealed) clearTimers();
+    },
+  );
   onBeforeUnmount(clearTimers);
 
   const displayPropositions = computed<Proposition[]>(() => {
+    if (revealed?.value) return propositions.value;
     const base = malus.value === "swap_answers" ? swapOrder.value : propositions.value;
     return base.map((p) => {
-      if (malus.value === "hidden_answer" && p.id === hiddenId.value && !revealed?.value) {
+      if (malus.value === "hidden_answer" && p.id === hiddenId.value) {
         return { ...p, value: "???" };
       }
       if (malus.value === "scrambling_letters" && scrambledValues.value[p.id]) {
@@ -109,14 +120,14 @@ export function useBrainrunBossMalus(options: {
   });
 
   const answerBlurPx = computed(() => {
-    if (malus.value !== "progressive_blur") return 0;
+    if (revealed?.value || malus.value !== "progressive_blur") return 0;
     if (remainingMs.value <= BLUR_CLEAR_AT_MS) return 0;
     const progress =
       (remainingMs.value - BLUR_CLEAR_AT_MS) / (BRAINRUN_BOSS_QUESTION_TIME_MS - BLUR_CLEAR_AT_MS);
     return Math.max(0, Math.min(MAX_BLUR_PX, MAX_BLUR_PX * progress));
   });
 
-  const mirrorAnswers = computed(() => malus.value === "mirror_answers");
+  const mirrorAnswers = computed(() => !revealed?.value && malus.value === "mirror_answers");
 
   return {
     displayPropositions,

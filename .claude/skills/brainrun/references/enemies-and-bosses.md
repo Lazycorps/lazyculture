@@ -8,16 +8,19 @@ Accès : `getBrainrunEnemiesByActAndTier(act, tier)`, `getBrainrunEnemyById(id)`
 
 ## Catalogue boss (`shared/brainrunBosses.ts`)
 
-`BRAINRUN_BOSSES: BrainrunBossDef[]` — 6 boss nommés, 2 par acte : `id`, `name`, `act`, `malus` (`BrainrunBossMalusId`), `themes` (5-6 selon le boss depuis l'élargissement 2026-07-09, `culture_generale` **systématiquement inclus**). Un seul boss par acte, tiré au hasard parmi les 2 candidats à l'entrée de la salle Boss.
+`BRAINRUN_BOSSES: BrainrunBossDef[]` — 6 boss nommés, 2 par acte : `id`, `name`, `act`, `malus` (`BrainrunBossMalusId`), `themes` (5-6 selon le boss depuis l'élargissement 2026-07-09, `culture_generale` **systématiquement inclus**). Un seul boss par acte, tiré au hasard parmi les 2 candidats de l'acte.
 
 Accès : `getBrainrunBossesByAct(act)`, `getBrainrunBossById(id)`.
 
-## Logique de tirage (dans `BrainrunService.chooseNode`)
+## Logique de tirage — fixée à la génération de la carte, pas à l'entrée en salle
 
-- **Standard/Elite** : tire dans le pool de l'acte+tier, en excluant les ennemis déjà rencontrés dans l'acte en cours (`run.usedEnemyIds`, réinitialisé à chaque changement d'acte — chaque acte a son propre roster). Si le pool filtré est vide (run très longue), retombe sur le pool non filtré plutôt que de bloquer.
-- **Boss** : tire parmi les 2 boss de l'acte (pas de logique d'exclusion, une seule salle Boss par acte).
-- **Purge Thématique** (relique) : avant tout ça, filtre les candidats dont un thème est banni (`run.bannedThemes`) — si l'exclusion viderait tout le pool, retombe sur le pool non filtré (même filet de sécurité que ci-dessus).
-- Les questions de la salle sont ensuite tirées via `QuestionService.getRandomIdsByDifficulty` avec les thèmes de l'ennemi/boss retenu, la plage de difficulté de l'acte, et l'override spécifique à `culture_generale` (voir `rules-and-progression.md`).
+Depuis le 2026-07-09 (pour permettre la prévisualisation par la relique Prévoyance, cf. `map.md`), l'ennemi/boss de chaque nœud est tiré **une fois, à la génération de l'acte** (`BrainrunService.seedActGraph` → `assignCombatIdentities`/`pickCombatCandidate` dans `brainrunLogic.ts`), pas en entrant dans la salle comme avant :
+
+- **Standard/Elite** : tire dans le pool de l'acte+tier, en excluant les ennemis déjà assignés **sur cette carte** au même tier (exclusion locale à la génération, plus de champ `run.usedEnemyIds` persistant). Si le pool filtré est vide, retombe sur le pool complet plutôt que de bloquer.
+- **Boss** : tire parmi les 2 boss de l'acte (pas d'exclusion utile, une seule salle Boss par acte).
+- `BrainrunService.resolveNodeChoice` ne tire plus rien : il lit `node.enemyId`/`node.bossId` déjà persistés. `forcedCombatId` (debug uniquement, `debugJumpToNode`) reste le seul moyen de l'écraser.
+- **Purge Thématique** (relique) n'intervient plus sur ce tirage — elle ne change jamais l'ennemi/boss déjà fixé sur un nœud. Elle retire dynamiquement le thème banni du pool de thèmes utilisé pour les questions via `effectiveThemes(themes, bannedThemes)` (retombe sur les thèmes non filtrés si ça viderait la liste) — voir `items.md`.
+- Les questions de la salle sont ensuite tirées via `QuestionService.getRandomIdsByDifficulty` avec les thèmes **effectifs** de l'ennemi/boss retenu, la plage de difficulté de l'acte, et l'override spécifique à `culture_generale` (voir `rules-and-progression.md`).
 
 ## ⚠️ Piège de volume de questions (déjà rencontré en pratique)
 
@@ -45,6 +48,8 @@ Correctif appliqué : élargissement de tous les boss à 5-6 thèmes (au lieu de
 | `scrambling_letters` | François (acte 2)    | Lettres mélangées 1s sur 5 (`SCRAMBLE_INTERVAL_MS`/`SCRAMBLE_RATIO`), reviennent après 700ms |
 | `phoenix_revive`     | Le Phoenix (acte 3)  | Ressuscite à 50% puis 25% PV — voir mécanique dédiée ci-dessous                              |
 | `progressive_blur`   | Gérard (acte 3)      | Flou qui se dissipe jusqu'à net à 3s restantes (`BLUR_CLEAR_AT_MS`)                          |
+
+Les 5 malus impactant l'affichage des réponses (tous sauf `phoenix_revive`) sont désactivés dès que la réponse est validée (`revealed` passé à `useBrainrunBossMalus`) : plus de masquage/swap/miroir/mélange/flou pendant le feedback, pour que le joueur voie les réponses réelles. `setupForCurrentQuestion` (tirage de la proposition masquée par Gilbert, redémarrage des timers de swap/scramble) ne doit se redéclencher que sur un **changement réel de question** — `BrainrunQuestionRunner.vue` compare `question.id`, pas la référence d'objet, car chaque round-trip serveur (y compris l'usage d'un consommable qui ne change pas de question, ex. 50/50) renvoie un nouvel objet `currentQuestion` ; comparer par référence re-tirait au hasard une nouvelle réponse masquée à chaque consommable utilisé, révélant l'ancienne (bug corrigé le 2026-07-10).
 
 ## Mécanique de combat contre-la-montre
 

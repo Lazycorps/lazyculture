@@ -323,7 +323,11 @@ const localQuestion = ref<QuestionDTO | null>(props.question);
 watch(
   () => props.question,
   (newQuestion) => {
-    if (!responded.value) {
+    // Chaque round-trip serveur (y compris l'usage d'un consommable comme 50/50, qui ne
+    // change pas de question) renvoie un nouvel objet currentQuestion — comparer par id
+    // évite de réinitialiser localQuestion (et donc le setup du malus de boss, cf.
+    // useBrainrunBossMalus) alors qu'il s'agit toujours de la même question.
+    if (!responded.value && newQuestion?.id !== localQuestion.value?.id) {
       localQuestion.value = newQuestion;
       startAutoHintTimerIfNeeded();
     }
