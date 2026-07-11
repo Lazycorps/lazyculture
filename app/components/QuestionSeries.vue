@@ -110,7 +110,7 @@
           </UButton>
           <!-- Continue Button -->
           <UButton
-            v-else
+            v-if="responded"
             :size="showComment ? 'lg' : 'md'"
             class="w-full font-black font-display uppercase tracking-widest justify-center shadow-lg transition-all duration-300"
             :class="showComment ? 'py-2.5 md:py-3.5' : 'py-2 md:py-2.5 text-xs md:text-sm'"
