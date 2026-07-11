@@ -46,7 +46,7 @@ C'est l'étape la plus facile à sauter et la plus coûteuse à sauter. Avant d'
 - Compose par-dessus les fonctions pures existantes (`applyRelicsToGold`, `applyRelicsToBossDamage`, etc.) plutôt que de dupliquer leur logique ailleurs.
 - Respecte la séparation en couches : logique pure et testable dans `server/utils/brainrunLogic.ts`, orchestration DB dans `server/services/BrainrunService.ts`, catalogues de contenu dans `shared/brainrun*.ts`, constantes d'équilibrage dans `server/utils/brainrunConfig.ts` (ou `shared/brainrun.ts` si le client en a aussi besoin).
 - Respecte les conventions générales du `CLAUDE.md` du projet (alias `~~/`, copy/commentaires en français, logique métier déléguée aux services).
-- Lance `vp check` et `vp test` avant de considérer le travail fini. Le fichier `brainrunLogic.test.ts` a un souci connu de résolution d'alias `#shared` dans certains environnements sandbox (voir `references/integrations-and-gotchas.md`) — ne pas le confondre avec une vraie régression.
+- Lance `vp check` et `vp test` avant de considérer le travail fini.
 
 ## 5. Relire et refactorer après implémentation
 

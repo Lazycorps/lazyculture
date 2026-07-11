@@ -425,9 +425,13 @@ const activeBossMalus = computed(() =>
 // Malus "Alain" (memory_recall), hors décompte de mémorisation : l'énoncé affiché est celui de
 // la question suivante (localPreviewQuestion, à mémoriser), les propositions cliquables restent
 // celles de localQuestion (la question précédente, qu'on valide réellement) — cf. la légende
-// "Répondez à la question précédente" dans le template.
+// "Répondez à la question précédente" dans le template. Dès que la réponse est validée (revealed),
+// on réaffiche plutôt l'énoncé de localQuestion elle-même (celle qu'on vient de valider, feedback
+// coloré à l'appui) : sinon le joueur aurait un temps illimité pour mémoriser l'énoncé suivant en
+// lisant tranquillement le feedback avant de cliquer "Continuer", ce qui viderait le malus de son
+// sens (cf. references/enemies-and-bosses.md).
 const showsPreviewAsMainQuestion = computed(
-  () => activeBossMalus.value === "memory_recall" && !isAlainIntroPhase.value,
+  () => activeBossMalus.value === "memory_recall" && !isAlainIntroPhase.value && !revealed.value,
 );
 const mainLibelle = computed(() =>
   showsPreviewAsMainQuestion.value

@@ -19,20 +19,20 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 
 ## Constantes et types partagés (client + serveur)
 
-- `shared/brainrun.ts` — constantes visibles côté client (nombre d'actes/rangées, chrono boss, dégâts boss), types `BrainrunRoomType`/`BrainrunRoomStatus`/`BrainrunRunStatus`, tous les DTO (`BrainrunRunDTO`, `BrainrunRoomDTO`, `BrainrunStateDTO`, `BrainrunMapNodeDTO`, `BrainrunMetaProgressDTO`), la fonction `brainrunPotentialBossDamage` (partagée pour que le client puisse prévisualiser les dégâts sans attendre le serveur).
+- `shared/brainrun.ts` — constantes visibles côté client (nombre d'actes/rangées, chrono boss, dégâts boss, décompte de mémorisation d'Alain `BRAINRUN_ALAIN_INTRO_*`), types `BrainrunRoomType`/`BrainrunRoomStatus`/`BrainrunRunStatus`, tous les DTO (`BrainrunRunDTO`, `BrainrunRoomDTO`, `BrainrunStateDTO`, `BrainrunMapNodeDTO`, `BrainrunMetaProgressDTO`, `BrainrunQuestionPreviewDTO` — malus "memory_recall" uniquement), la fonction `brainrunPotentialBossDamage` (partagée pour que le client puisse prévisualiser les dégâts sans attendre le serveur).
 - `server/utils/brainrunConfig.ts` — toutes les constantes d'équilibrage serveur-only (PV/or/XP de base, plages de difficulté par acte, forme de la carte, quotas, probabilités des reliques). **C'est le premier fichier à ouvrir pour ajuster une valeur numérique.**
 - `shared/DTO/brainrunResponseDTO.ts` — DTO des payloads entrants des endpoints (`BrainrunResponseDTO`, `BrainrunChoiceDTO`, `BrainrunBonusChoiceDTO`, `BrainrunShopBuyDTO`, `BrainrunEventChoiceDTO`, `BrainrunRestChoiceDTO`, `BrainrunConsumableUseDTO`, `BrainrunTalentUnlockDTO`).
 
 ## Catalogues de contenu (shared, définis en code)
 
 - `shared/brainrunEnemies.ts` — `BRAINRUN_ENEMIES` (ennemis Classiques/Élites par acte + thèmes)
-- `shared/brainrunBosses.ts` — `BRAINRUN_BOSSES` (6 boss nommés, malus, thèmes)
+- `shared/brainrunBosses.ts` — `BRAINRUN_BOSSES` (9 boss nommés, 3 par acte, malus, thèmes)
 - `shared/brainrunItems.ts` — `BRAINRUN_RELICS`, `BRAINRUN_CONSUMABLES`, `BRAINRUN_EVENTS`, types d'offre (`BrainrunOffer`)
 - `shared/brainrunTalents.ts` — `BRAINRUN_TALENTS` (métagame)
 
 ## Logique pure (testable, sans accès DB)
 
-`server/utils/brainrunLogic.ts` — tout ce qui peut être calculé sans I/O : dégâts/pertes de PV, agrégation d'effets de reliques/talents (`getActiveRelicEffects`/`getActiveTalentEffects`), génération d'offres (`generateBonusOffers`/`generateShopOffers`), résolution d'événement (`resolveEventOption`), génération du graphe de carte (`generateActEdges`/`assignNodeTypes`/`generateActGraph`/`enforceEliteRouteBounds`), assignation d'ennemi/boss par nœud (`assignCombatIdentities`/`pickCombatCandidate`), thèmes effectifs après bannissement (`effectiveThemes`), conversion or→Points de Savoir. Testé par `brainrunLogic.test.ts` — voir le piège de résolution d'alias `#shared` dans `integrations-and-gotchas.md`.
+`server/utils/brainrunLogic.ts` — tout ce qui peut être calculé sans I/O : dégâts/pertes de PV, malus numériques de boss (`applyBossMalusToDamage`/`flashMalusBonusTimeMs`/`isAlainMemoryIntro`), agrégation d'effets de reliques/talents (`getActiveRelicEffects`/`getActiveTalentEffects`), génération d'offres (`generateBonusOffers`/`generateShopOffers`), résolution d'événement (`resolveEventOption`), génération du graphe de carte (`generateActEdges`/`assignNodeTypes`/`generateActGraph`/`enforceEliteRouteBounds`), assignation d'ennemi/boss par nœud (`assignCombatIdentities`/`pickCombatCandidate`), thèmes effectifs après bannissement (`effectiveThemes`), conversion or→Points de Savoir. Testé par `brainrunLogic.test.ts`.
 
 ## Persistance du métagame
 
@@ -40,7 +40,7 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 
 ## Orchestration serveur (DB + logique pure)
 
-`server/services/BrainrunService.ts` (~1600 lignes) — seul point d'entrée pour les routes API. Méthodes clés : `getOrStartRun`/`startNewRun`/`abandonRun`, `chooseNode` (résout le type de salle choisi, tire ennemi/boss/questions), `submitAnswer` (résout une réponse, gère mort/victoire de salle), `acknowledgeRoom`/`resolveBonus` (récap post-combat), `buyShopItem`/`leaveShop`, `resolveRest`, `resolveEvent`/`resolveThemeBan`, `useConsumable`, `prepareNextBossQuestion`, `unlockTalent`. Construit les DTO exposés au client (`buildState`/`toRunDTO`/`toRoomDTO`).
+`server/services/BrainrunService.ts` (~2000 lignes) — seul point d'entrée pour les routes API. Méthodes clés : `getOrStartRun`/`startNewRun`/`abandonRun`, `chooseNode` (résout le type de salle choisi, tire ennemi/boss/questions), `submitAnswer` (résout une réponse, gère mort/victoire de salle), `acknowledgeRoom`/`resolveBonus` (récap post-combat), `buyShopItem`/`leaveShop`, `resolveRest`, `resolveEvent`/`resolveThemeBan`, `useConsumable`, `prepareNextBossQuestion` (chrono boss normal + décompte de mémorisation d'Alain), `unlockTalent`. Construit les DTO exposés au client (`buildState`/`toRunDTO`/`toRoomDTO`).
 
 ## Routes API (fines, délèguent tout au service)
 
@@ -50,16 +50,16 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 
 - `app/composables/useBrainrunSession.ts` — état de session côté client, wrappe tous les appels API ci-dessus.
 - `app/composables/useBrainrunMeta.ts` — métagame (lobby/talents).
-- `app/composables/useBrainrunBossMalus.ts` — effets d'affichage des 6 malus de boss (renvoi `enemies-and-bosses.md`).
+- `app/composables/useBrainrunBossMalus.ts` — effets d'affichage des 6 malus de boss purement visuels (masquage/swap/miroir/mélange/flou) ; `damage_resist`/`speed_reduction` (numériques) et `memory_recall` (flux de questions, géré dans `BrainrunQuestionRunner.vue`) n'y ont pas de cas dédié — renvoi `enemies-and-bosses.md`.
 - `app/composables/useBrainrunOfferDisplay.ts` — nom/description/icône/rareté d'une offre (relique/consommable/or), utilisé par Boutique et bonus post-combat.
 - `app/composables/useBrainrunRoomTypeDisplay.ts` — libellés/icônes des types de salle (**c'est ici que "Bibliothèque"/"Librairie" sont définis**, pas dans le code serveur).
 - `app/composables/useBrainrunLongPress.ts` — utilitaire d'interaction (appui long), non spécifique au métier.
 
 ## Composants et pages
 
-`app/components/brainrun/` : `BrainrunLobby.vue` (point d'entrée), `BrainrunMap.vue` (carte à embranchements), `BrainrunCombatIntro.vue` (transition d'entrée en combat), `BrainrunQuestionRunner.vue` (~560 lignes, moteur de question générique + UI spécifique boss), `BrainrunShop.vue`, `BrainrunEvent.vue`, `BrainrunBonusSelect.vue` (bonus post Elite/Boss), `BrainrunGlossaryModal.vue` (encyclopédie des reliques/consommables découverts), `BrainrunHelpModal.vue`.
+`app/components/brainrun/` : `BrainrunLobby.vue` (point d'entrée), `BrainrunMap.vue` (carte à embranchements), `BrainrunCombatIntro.vue` (transition d'entrée en combat), `BrainrunQuestionRunner.vue` (~700 lignes, moteur de question générique + UI spécifique boss, y compris l'écran de mémorisation d'Alain), `BrainrunShop.vue`, `BrainrunEvent.vue`, `BrainrunBonusSelect.vue` (bonus post Elite/Boss), `BrainrunGlossaryModal.vue` (encyclopédie des reliques/consommables découverts), `BrainrunHelpModal.vue`.
 
-`app/pages/brainrun/index.vue` (~800 lignes) — machine à états des écrans (lobby → carte → combat/salle spéciale → récap → fin de run). `app/pages/brainrun/talents.vue` — arbre de talents.
+`app/pages/brainrun/index.vue` (~900 lignes) — machine à états des écrans (lobby → carte → combat/salle spéciale → récap → fin de run). `app/pages/brainrun/talents.vue` — arbre de talents.
 
 ## Documentation existante (à traiter avec prudence)
 

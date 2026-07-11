@@ -17,9 +17,9 @@ Ce fichier à la racine du repo documente l'historique des 4 phases de développ
 
 Quasiment toutes les constantes numériques (`brainrunConfig.ts`, prix/probabilités de `brainrunItems.ts`) sont explicitement documentées en commentaire comme "valeurs de départ, non équilibrées par des tests de jeu réels". Un ajustement de valeur demandé par l'utilisateur n'a donc pas besoin d'être justifié par un historique d'équilibrage préexistant — ce sont des points de départ assumés, pas des valeurs calibrées à respecter scrupuleusement.
 
-## Souci de test connu : alias `#shared`
+## Souci de test connu : alias `#shared` — FIXÉ le 2026-07-10
 
-`server/utils/brainrunLogic.test.ts` peut échouer au chargement du module dans certains environnements sandbox à cause d'un problème de résolution de l'alias `#shared` — problème pré-existant, reproductible même sur du code d'avant les changements en cours, **pas une régression introduite par ta modification**. Voir aussi la mémoire `project_known_test_issue_shared_alias`. Si `vp test brainrunLogic` échoue spécifiquement sur une erreur de résolution de module (pas une assertion qui échoue), ne pas chercher à corriger le code métier pour ça — vérifier plutôt que `vp test` (suite complète) passe, et signaler le point à l'utilisateur pour confirmation en local.
+`server/utils/brainrunLogic.test.ts` pouvait échouer au chargement du module (`Cannot find module '#shared/brainrun'`) dans certains environnements sandbox faute de résolution de l'alias `#shared` par Vitest. Corrigé en ajoutant explicitement l'alias à `vite.config.ts` (`resolve.alias["#shared"] → ./shared`). Si l'erreur réapparaît malgré ça, vérifier que `vite.config.ts` n'a pas régressé avant de soupçonner autre chose — voir aussi la mémoire `project_known_test_issue_shared_alias`.
 
 ## Concurrence — ce qui est protégé et ce qui ne l'est pas
 
