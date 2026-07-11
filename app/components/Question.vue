@@ -137,7 +137,7 @@
         <div class="w-full flex justify-center">
           <!-- Validate Button -->
           <UButton
-            v-if="!responded"
+            v-if="!responded && !userStore.autoValidateAnswer"
             size="lg"
             class="w-full font-black font-display uppercase tracking-widest py-2.5 md:py-3.5 justify-center shadow-lg"
             :color="selectedResponse != null ? 'primary' : 'neutral'"
