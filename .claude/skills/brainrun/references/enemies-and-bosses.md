@@ -58,7 +58,7 @@ Les 5 malus impactant l'affichage des réponses (`hidden_answer`/`swap_answers`/
 
 ### The Rock (`damage_resist`)
 
-`applyBossMalusToDamage` (`server/utils/brainrunLogic.ts`) multiplie le total de dégâts déjà bonifié (reliques + talent + Coup de Grâce) par `BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER` = 0.5, arrondi — appliqué en tout dernier dans `BrainrunService.submitAnswer`, pour que le reste du kit offensif du joueur reste utile normalement, juste divisé par 2.
+`applyBossMalusToDamage` (`server/utils/brainrunLogic.ts`) multiplie le total de dégâts déjà bonifié (reliques + talent + Coup de Grâce) par `BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER` = 0.5, arrondi — appliqué en tout dernier dans `BrainrunService.submitAnswer`, pour que le reste du kit offensif du joueur reste utile normalement, juste divisé par 2. Le plancher de dégâts du talent ultime **Coup Assuré** (Dégâts, `talents.md`) s'applique **avant** ce malus, sur la base décroissante brute — The Rock encaisse donc bien un minimum de 10 dégâts (20 × 0.5), jamais 20.
 
 ### Flash (`speed_reduction`)
 
@@ -89,6 +89,7 @@ Le malus de flux le plus complexe du système : à chaque étape, l'énoncé aff
 - Réponse incorrecte = 0 dégât. Timeout (`isBossAnswerTimedOut`) = échec forcé côté serveur **quelle que soit la réponse envoyée par le client** — ne jamais faire confiance à une réponse client après le délai.
 - Le chrono ne démarre qu'après l'appel explicite `prepareNextBossQuestion` (une fois que le joueur a fini de lire le feedback de la question précédente) — ne pas décompter le temps de lecture à l'insu du joueur.
 - Pas de limite de questions : `getNextBossQuestionId` en tire une nouvelle à la volée tant que le boss n'est pas à 0 PV exactement. Filet de sécurité si le vivier de questions inédites du palier est épuisé (run très longue) : retombe sur des questions déjà vues plutôt que de bloquer le combat.
+- Talent **Premier Souffle** (Dégâts, `talents.md`) : supprime le timeout forcé sur la **1re réponse soumise** du combat (`responses.length === 0` au moment du calcul, pas "la 1re question littérale") — les dégâts potentiels peuvent quand même descendre à 0 si le joueur traîne, seul le forçage en échec disparaît. Fonctionne nativement avec Alain (memory_recall) sans cas spécial : sa phase de mémorisation n'incrémente jamais `responses.length`.
 
 ## Résurrection du Phoenix (`phoenix_revive`)
 

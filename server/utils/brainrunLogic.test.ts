@@ -3,16 +3,18 @@ import {
   applyBossMalusToDamage,
   applyRelicsToBossDamage,
   applyRelicsToGold,
+  applyTalentsToGold,
   assignCombatIdentities,
   assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   calculBrainrunUserXP,
-  consumeShieldIfArmed,
+  consumeShieldCharge,
   effectiveThemes,
   enforceEliteRouteBounds,
   flashMalusBonusTimeMs,
   generateActEdges,
+  grantShieldCharge,
   isAlainMemoryIntro,
   generateActGraph,
   generateBonusOffers,
@@ -29,6 +31,8 @@ import {
   pickCombatCandidate,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
+  pickRandomCommonRelic,
+  pickRandomConsumable,
   pickRandomStashConsumables,
   resolveEventOption,
   shouldEndRunOnDamage,
@@ -673,29 +677,71 @@ describe("goldToKnowledgePoints", () => {
 
 describe("getActiveTalentEffects", () => {
   it("returns neutral effects when no talent is unlocked", () => {
-    expect(getActiveTalentEffects([])).toEqual({
-      bonusStartHp: 0,
-      bonusStartGold: 0,
-      rareRelicWeightBonus: 0,
-      bonusBossDamagePerHit: 0,
-    });
+    const effects = getActiveTalentEffects([]);
+    expect(effects.bonusStartHp).toBe(0);
+    expect(effects.bonusStartGold).toBe(0);
+    expect(effects.rareRelicWeightBonus).toBe(0);
+    expect(effects.bonusBossDamagePerHit).toBe(0);
+    expect(effects.bonusBossTimeMs).toBe(0);
+    expect(effects.hasShieldOnActStart).toBe(false);
+    expect(effects.hasShieldOnBossStart).toBe(false);
+    expect(effects.bonusBossDamageAtLowHp).toBe(0);
+    expect(effects.bonusBossTimeAtLowHpMs).toBe(0);
+    expect(effects.hasUltimateRevive).toBe(false);
+    expect(effects.bossHpReductionPct).toBe(0);
+    expect(effects.hasFirstAnswerNoTimeout).toBe(false);
+    expect(effects.bossDamageFloor).toBe(0);
+    expect(effects.startsWithRandomConsumable).toBe(false);
+    expect(effects.startsWithRandomCommonRelic).toBe(false);
+    expect(effects.goldGainPct).toBe(0);
+    expect(effects.hasEliteExtraOffer).toBe(false);
+    expect(effects.knowledgePointsGainPct).toBe(0);
   });
 
-  it("aggregates every talent's effect", () => {
+  it("aggregates independent talents from different branches", () => {
     const effects = getActiveTalentEffects([
-      "TOUGH_START",
-      "RARE_FINDER",
-      "STARTING_CAPITAL",
-      "BOSS_STRIKE",
+      "VALIANT_HEART", // START_HP +1
+      "SHARP_EYE", // RELIC_RARITY_BOOST +2
+      "NEST_EGG", // START_GOLD +20
+      "REINFORCED_STRIKE", // BOSS_DAMAGE_BASE_BONUS 5
     ]);
     expect(effects.bonusStartHp).toBe(1);
     expect(effects.rareRelicWeightBonus).toBe(2);
     expect(effects.bonusStartGold).toBe(20);
-    expect(effects.bonusBossDamagePerHit).toBe(3);
+    expect(effects.bonusBossDamagePerHit).toBe(5);
   });
 
   it("ignores unknown ids", () => {
     expect(getActiveTalentEffects(["NOT_A_TALENT"]).bonusStartHp).toBe(0);
+  });
+
+  it("aggregates cumulative START_HP from both Résistance root nodes", () => {
+    expect(getActiveTalentEffects(["VALIANT_HEART", "VITALITY"]).bonusStartHp).toBe(2);
+  });
+
+  it("takes the MAX (not the sum) for the 'total, non-cumulative' boss damage pair", () => {
+    expect(getActiveTalentEffects(["REINFORCED_STRIKE"]).bonusBossDamagePerHit).toBe(5);
+    expect(
+      getActiveTalentEffects(["REINFORCED_STRIKE", "DECISIVE_STRIKE"]).bonusBossDamagePerHit,
+    ).toBe(10);
+    // Ordre inversé : même résultat, la fonction ne doit pas dépendre de l'ordre des ids.
+    expect(
+      getActiveTalentEffects(["DECISIVE_STRIKE", "REINFORCED_STRIKE"]).bonusBossDamagePerHit,
+    ).toBe(10);
+  });
+
+  it("takes the MAX (not the sum) for the 'total, non-cumulative' boss time pair", () => {
+    expect(getActiveTalentEffects(["SHARP_REFLEXES"]).bonusBossTimeMs).toBe(3_000);
+    expect(getActiveTalentEffects(["SHARP_REFLEXES", "EXTENDED_RESPITE"]).bonusBossTimeMs).toBe(
+      5_000,
+    );
+  });
+
+  it("sets the ultimate revive/damage-floor/elite-offer flags", () => {
+    expect(getActiveTalentEffects(["SECOND_WIND"]).hasUltimateRevive).toBe(true);
+    expect(getActiveTalentEffects(["GUARANTEED_STRIKE"]).bossDamageFloor).toBe(20);
+    expect(getActiveTalentEffects(["GENEROSITY"]).hasEliteExtraOffer).toBe(true);
+    expect(getActiveTalentEffects(["FIRST_BREATH"]).hasFirstAnswerNoTimeout).toBe(true);
   });
 });
 
@@ -745,17 +791,85 @@ describe("isBossAnswerTimedOut with a relic bonus", () => {
   });
 });
 
-describe("consumeShieldIfArmed", () => {
-  it("cancels the loss and consumes the shield when armed and a loss occurred", () => {
-    expect(consumeShieldIfArmed(true, 2)).toEqual({ hpLoss: 0, shieldConsumed: true });
+describe("consumeShieldCharge", () => {
+  it("cancels the loss and consumes 1 charge when at least 1 is active", () => {
+    expect(consumeShieldCharge(2, 1)).toEqual({ hpLoss: 0, shieldChargesRemaining: 1 });
   });
 
-  it("leaves the loss untouched when not armed", () => {
-    expect(consumeShieldIfArmed(false, 2)).toEqual({ hpLoss: 2, shieldConsumed: false });
+  it("leaves the loss untouched when no charge is active", () => {
+    expect(consumeShieldCharge(0, 1)).toEqual({ hpLoss: 1, shieldChargesRemaining: 0 });
   });
 
-  it("doesn't consume the shield when there was no loss to cancel", () => {
-    expect(consumeShieldIfArmed(true, 0)).toEqual({ hpLoss: 0, shieldConsumed: false });
+  it("doesn't consume a charge when there was no loss to cancel", () => {
+    expect(consumeShieldCharge(2, 0)).toEqual({ hpLoss: 0, shieldChargesRemaining: 2 });
+  });
+});
+
+describe("grantShieldCharge", () => {
+  it("adds 1 charge when below the current HP count", () => {
+    expect(grantShieldCharge(0, 3)).toBe(1);
+    expect(grantShieldCharge(1, 3)).toBe(2);
+  });
+
+  it("caps at the current HP count : a charge beyond that is simply lost", () => {
+    expect(grantShieldCharge(3, 3)).toBe(3);
+    expect(grantShieldCharge(2, 2)).toBe(2);
+  });
+
+  it("never goes negative for a 0-HP edge case", () => {
+    expect(grantShieldCharge(0, 0)).toBe(0);
+  });
+});
+
+describe("applyTalentsToGold", () => {
+  it("applies the talent's gold % bonus", () => {
+    const effects = getActiveTalentEffects(["BUSINESS_SENSE"]); // GOLD_GAIN_PCT 10
+    expect(applyTalentsToGold(100, effects)).toBe(110);
+  });
+
+  it("leaves gold untouched with no relevant talent", () => {
+    const effects = getActiveTalentEffects([]);
+    expect(applyTalentsToGold(100, effects)).toBe(100);
+  });
+
+  it("leaves a zero gain untouched", () => {
+    const effects = getActiveTalentEffects(["BUSINESS_SENSE"]);
+    expect(applyTalentsToGold(0, effects)).toBe(0);
+  });
+});
+
+describe("boss damage floor (Coup Assuré) composed with The Rock's damage_resist", () => {
+  it("floors the base damage before relics, and The Rock still halves the floored total", () => {
+    const talentEffects = getActiveTalentEffects(["GUARANTEED_STRIKE"]); // bossDamageFloor 20
+    const lowBaseDamage = 5; // réponse tardive : bien sous le plancher de 20
+    const floored = Math.max(lowBaseDamage, talentEffects.bossDamageFloor);
+    expect(floored).toBe(20);
+    const withRock = applyBossMalusToDamage(floored, "damage_resist");
+    expect(withRock).toBe(Math.round(20 * BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER)); // 10
+  });
+
+  it("never floors a missed answer (damage already 0)", () => {
+    const talentEffects = getActiveTalentEffects(["GUARANTEED_STRIKE"]);
+    const baseDamage = 0;
+    const floored =
+      baseDamage > 0 ? Math.max(baseDamage, talentEffects.bossDamageFloor) : baseDamage;
+    expect(floored).toBe(0);
+  });
+});
+
+describe("pickRandomConsumable / pickRandomCommonRelic", () => {
+  it("always returns a valid consumable id", () => {
+    for (let i = 0; i < 20; i++) {
+      const id = pickRandomConsumable();
+      expect(BRAINRUN_CONSUMABLES[id]).toBeDefined();
+    }
+  });
+
+  it("always returns a COMMON relic id", () => {
+    for (let i = 0; i < 20; i++) {
+      const id = pickRandomCommonRelic();
+      expect(BRAINRUN_RELICS[id]?.rarity).toBe("COMMON");
+    }
   });
 });
 
@@ -763,6 +877,14 @@ describe("generateBonusOffers", () => {
   it("always returns exactly BRAINRUN_BONUS_OFFER_COUNT offers", () => {
     for (let i = 0; i < 50; i++) {
       expect(generateBonusOffers([])).toHaveLength(BRAINRUN_BONUS_OFFER_COUNT);
+    }
+  });
+
+  it("honors an explicit count (talent Générosité : +1 sur les Élites)", () => {
+    for (let i = 0; i < 20; i++) {
+      expect(generateBonusOffers([], Math.random, 0, BRAINRUN_BONUS_OFFER_COUNT + 1)).toHaveLength(
+        BRAINRUN_BONUS_OFFER_COUNT + 1,
+      );
     }
   });
 

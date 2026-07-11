@@ -89,7 +89,10 @@
               </div>
               <!-- Grille 4 colonnes : tient sur une ligne jusqu'à 4 Pv max (cas courant), passe
                    automatiquement sur une 2e ligne au-delà (jusqu'à 8, relique Cœur Supplémentaire) —
-                   pas de logique conditionnelle, la grille gère seule le retour à la ligne. -->
+                   pas de logique conditionnelle, la grille gère seule le retour à la ligne. Les
+                   cœurs protégés par une charge de Bouclier (consommable ou talents Bouclier
+                   d'Acte/du Boss) sont les PV pleins les plus proches d'être perdus (les plus
+                   hauts parmi les pleins) — halo bleu + cœur bleu plutôt que rouge. -->
               <div class="grid grid-cols-4 gap-0.5 ml-1">
                 <UIcon
                   v-for="hp in run?.maxHealthPoint ?? 3"
@@ -99,7 +102,9 @@
                   :class="
                     hp > (run?.healthPoint ?? 0)
                       ? 'text-slate-700'
-                      : 'text-rose-500 animate-heart-pulse'
+                      : hp > (run?.healthPoint ?? 0) - (run?.shieldCharges ?? 0)
+                        ? 'text-sky-400 animate-heart-pulse drop-shadow-[0_0_4px_rgba(56,189,248,0.8)]'
+                        : 'text-rose-500 animate-heart-pulse'
                   "
                 />
               </div>
@@ -590,7 +595,10 @@
                 </div>
                 <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-center">
                   <p class="text-xl font-black font-display text-violet-400">
-                    +{{ run.knowledgePointsEarned ?? 0 }}
+                    +{{ run.knowledgePointsEarned ?? 0
+                    }}<span v-if="run.knowledgePointsBonus > 0" class="text-sm text-violet-300">
+                      (+{{ run.knowledgePointsBonus }})</span
+                    >
                   </p>
                   <p
                     class="text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-0.5"

@@ -283,7 +283,6 @@ const malusCancelled = computed(
 const consumableLoading = ref(false);
 const availableConsumables = computed(() => {
   const consumables = brainrun.run.value?.consumables ?? {};
-  const shieldArmed = brainrun.run.value?.shieldArmed ?? false;
   const run = brainrun.run.value;
   // Ordre d'acquisition (pas l'ordre du catalogue), cf. ownedConsumables dans
   // app/pages/brainrun/index.vue.
@@ -292,7 +291,8 @@ const availableConsumables = computed(() => {
       if ((consumables[id] ?? 0) <= 0) return false;
       // Dernier Souffle ne se déclenche qu'automatiquement, jamais depuis cette barre.
       if (id === "REVIVE_TOKEN") return false;
-      if (id === "SHIELD") return !shieldArmed;
+      // Bouclier : plus de restriction "déjà armé" — chaque charge protège 1 cœur de plus,
+      // plafonnée aux PV actuels (cf. grantShieldCharge) ; on laisse le joueur en empiler.
       if (id === "FIFTY_FIFTY") return eliminatedIds.value.length === 0;
       if (id === "PHONE_A_FRIEND") return hintId.value === null;
       if (id === "HEAL_POTION") return !!run && run.healthPoint < run.maxHealthPoint;

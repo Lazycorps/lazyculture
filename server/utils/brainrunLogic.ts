@@ -173,6 +173,12 @@ export function applyRelicsToGold(baseGold: number, effects: BrainrunRelicEffect
   return Math.round(baseGold * effects.goldMultiplier) + effects.flatGoldBonusPerRoom;
 }
 
+/** Composé après applyRelicsToGold : bonus d'or en % des talents (Sens du Commerce). */
+export function applyTalentsToGold(baseGold: number, talentEffects: BrainrunTalentEffects): number {
+  if (baseGold <= 0 || talentEffects.goldGainPct === 0) return baseGold;
+  return Math.round(baseGold * (1 + talentEffects.goldGainPct / 100));
+}
+
 /** Composé par-dessus brainrunBossDamage (inchangée) : pas de bonus sur un coup raté. */
 export function applyRelicsToBossDamage(baseDamage: number, effects: BrainrunRelicEffects): number {
   return baseDamage > 0 ? baseDamage + effects.bossDamageBonusPerHit : 0;
@@ -232,13 +238,24 @@ export function isAlainMemoryIntro(
   return malus === "memory_recall" && questionIdsCount - responsesCount <= 1;
 }
 
-/** Le Bouclier annule la prochaine perte de PV, qu'elle vienne du combat ou d'un Événement. */
-export function consumeShieldIfArmed(
-  shieldArmed: boolean,
+/** Le Bouclier annule la prochaine perte de PV, qu'elle vienne du combat ou d'un Événement ;
+ * consomme 1 charge parmi celles actives (consommable Bouclier ou talents Bouclier d'Acte/du
+ * Boss, toutes partagent le même compteur). */
+export function consumeShieldCharge(
+  shieldCharges: number,
   hpLoss: number,
-): { hpLoss: number; shieldConsumed: boolean } {
-  if (shieldArmed && hpLoss > 0) return { hpLoss: 0, shieldConsumed: true };
-  return { hpLoss, shieldConsumed: false };
+): { hpLoss: number; shieldChargesRemaining: number } {
+  if (shieldCharges > 0 && hpLoss > 0) {
+    return { hpLoss: 0, shieldChargesRemaining: shieldCharges - 1 };
+  }
+  return { hpLoss, shieldChargesRemaining: shieldCharges };
+}
+
+/** Octroie 1 charge de Bouclier, plafonnée au nombre de PV actuels : une charge au-delà du
+ * nombre de cœurs ne peut protéger personne, elle est donc immédiatement perdue plutôt que
+ * stockée pour rien. Partagé par le consommable Bouclier et les talents Bouclier d'Acte/du Boss. */
+export function grantShieldCharge(currentCharges: number, healthPoint: number): number {
+  return Math.min(currentCharges + 1, Math.max(healthPoint, 0));
 }
 
 /** Conversion de l'or de fin de run en Points de Savoir (monnaie meta persistante), arrondie
@@ -247,12 +264,29 @@ export function goldToKnowledgePoints(gold: number): number {
   return Math.max(0, Math.floor(gold * BRAINRUN_KP_PER_GOLD));
 }
 
-/** Effets agrégés des talents permanents débloqués ; valeurs neutres si aucun talent. */
+/** Effets agrégés des talents permanents débloqués ; valeurs neutres si aucun talent.
+ * `bonusBossDamagePerHit`/`bonusBossTimeMs` sont agrégés par MAX (pas par somme) : Frappe
+ * Décisive/Répit Prolongé sont des valeurs "totales" qui remplacent Frappe Renforcée/Réflexes
+ * Affûtés plutôt que de s'y additionner (cf. shared/brainrunTalents.ts). */
 export type BrainrunTalentEffects = {
   bonusStartHp: number;
   bonusStartGold: number;
   rareRelicWeightBonus: number;
   bonusBossDamagePerHit: number;
+  bonusBossTimeMs: number;
+  hasShieldOnActStart: boolean;
+  hasShieldOnBossStart: boolean;
+  bonusBossDamageAtLowHp: number;
+  bonusBossTimeAtLowHpMs: number;
+  hasUltimateRevive: boolean;
+  bossHpReductionPct: number;
+  hasFirstAnswerNoTimeout: boolean;
+  bossDamageFloor: number;
+  startsWithRandomConsumable: boolean;
+  startsWithRandomCommonRelic: boolean;
+  goldGainPct: number;
+  hasEliteExtraOffer: boolean;
+  knowledgePointsGainPct: number;
 };
 
 const NEUTRAL_TALENT_EFFECTS: BrainrunTalentEffects = {
@@ -260,6 +294,20 @@ const NEUTRAL_TALENT_EFFECTS: BrainrunTalentEffects = {
   bonusStartGold: 0,
   rareRelicWeightBonus: 0,
   bonusBossDamagePerHit: 0,
+  bonusBossTimeMs: 0,
+  hasShieldOnActStart: false,
+  hasShieldOnBossStart: false,
+  bonusBossDamageAtLowHp: 0,
+  bonusBossTimeAtLowHpMs: 0,
+  hasUltimateRevive: false,
+  bossHpReductionPct: 0,
+  hasFirstAnswerNoTimeout: false,
+  bossDamageFloor: 0,
+  startsWithRandomConsumable: false,
+  startsWithRandomCommonRelic: false,
+  goldGainPct: 0,
+  hasEliteExtraOffer: false,
+  knowledgePointsGainPct: 0,
 };
 
 export function getActiveTalentEffects(talentIds: string[]): BrainrunTalentEffects {
@@ -273,10 +321,47 @@ export function getActiveTalentEffects(talentIds: string[]): BrainrunTalentEffec
         return { ...effects, bonusStartGold: effects.bonusStartGold + talent.value };
       case "RELIC_RARITY_BOOST":
         return { ...effects, rareRelicWeightBonus: effects.rareRelicWeightBonus + talent.value };
-      case "BOSS_DAMAGE":
+      case "BOSS_DAMAGE_BASE_BONUS":
         return {
           ...effects,
-          bonusBossDamagePerHit: effects.bonusBossDamagePerHit + talent.value,
+          bonusBossDamagePerHit: Math.max(effects.bonusBossDamagePerHit, talent.value),
+        };
+      case "BOSS_TIME_BONUS":
+        return { ...effects, bonusBossTimeMs: Math.max(effects.bonusBossTimeMs, talent.value) };
+      case "SHIELD_ON_ACT_START":
+        return { ...effects, hasShieldOnActStart: true };
+      case "SHIELD_ON_BOSS_START":
+        return { ...effects, hasShieldOnBossStart: true };
+      case "BOSS_DAMAGE_AT_LOW_HP":
+        return {
+          ...effects,
+          bonusBossDamageAtLowHp: effects.bonusBossDamageAtLowHp + talent.value,
+        };
+      case "BOSS_TIME_AT_LOW_HP":
+        return {
+          ...effects,
+          bonusBossTimeAtLowHpMs: effects.bonusBossTimeAtLowHpMs + talent.value,
+        };
+      case "ULTIMATE_REVIVE_2HP":
+        return { ...effects, hasUltimateRevive: true };
+      case "BOSS_HP_REDUCTION_PCT":
+        return { ...effects, bossHpReductionPct: effects.bossHpReductionPct + talent.value };
+      case "BOSS_FIRST_ANSWER_NO_TIMEOUT":
+        return { ...effects, hasFirstAnswerNoTimeout: true };
+      case "BOSS_MIN_DAMAGE_FLOOR":
+        return { ...effects, bossDamageFloor: Math.max(effects.bossDamageFloor, talent.value) };
+      case "START_RANDOM_CONSUMABLE":
+        return { ...effects, startsWithRandomConsumable: true };
+      case "START_RANDOM_COMMON_RELIC":
+        return { ...effects, startsWithRandomCommonRelic: true };
+      case "GOLD_GAIN_PCT":
+        return { ...effects, goldGainPct: effects.goldGainPct + talent.value };
+      case "ELITE_BONUS_OFFER_EXTRA":
+        return { ...effects, hasEliteExtraOffer: true };
+      case "KNOWLEDGE_POINTS_GAIN_PCT":
+        return {
+          ...effects,
+          knowledgePointsGainPct: effects.knowledgePointsGainPct + talent.value,
         };
       default:
         return effects;
@@ -321,21 +406,19 @@ function pickUnownedRelics(
 }
 
 /**
- * Options du bonus proposé après une salle Elite/Boss nettoyée : toujours BRAINRUN_BONUS_OFFER_COUNT
- * options (jamais moins), priorité aux reliques non possédées (pondérées par rareté), complétées
- * par des consommables si le pool de reliques est épuisé.
+ * Options du bonus proposé après une salle Elite/Boss nettoyée : toujours `count` options
+ * (BRAINRUN_BONUS_OFFER_COUNT par défaut, jamais moins — le talent Générosité porte ce compte à
+ * BRAINRUN_BONUS_OFFER_COUNT + 1 pour les seules salles Élite), priorité aux reliques non
+ * possédées (pondérées par rareté), complétées par des consommables si le pool de reliques est
+ * épuisé.
  */
 export function generateBonusOffers(
   ownedRelics: string[],
   random: () => number = Math.random,
   rareWeightBonus: number = 0,
+  count: number = BRAINRUN_BONUS_OFFER_COUNT,
 ): BrainrunOffer[] {
-  const relics = pickUnownedRelics(
-    ownedRelics,
-    BRAINRUN_BONUS_OFFER_COUNT,
-    random,
-    rareWeightBonus,
-  );
+  const relics = pickUnownedRelics(ownedRelics, count, random, rareWeightBonus);
   const offers: BrainrunOffer[] = relics.map((id) => ({
     kind: "RELIC",
     id,
@@ -343,7 +426,7 @@ export function generateBonusOffers(
   }));
 
   const consumableIds = Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[];
-  while (offers.length < BRAINRUN_BONUS_OFFER_COUNT && consumableIds.length > 0) {
+  while (offers.length < count && consumableIds.length > 0) {
     const id = weightedRandomPick(
       consumableIds,
       (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
@@ -351,10 +434,30 @@ export function generateBonusOffers(
     );
     offers.push({ kind: "CONSUMABLE", id });
   }
-  while (offers.length < BRAINRUN_BONUS_OFFER_COUNT) {
+  while (offers.length < count) {
     offers.push({ kind: "GOLD", id: "GOLD", amount: BRAINRUN_GOLD_FALLBACK_OFFER_AMOUNT });
   }
   return offers;
+}
+
+/** Talent Kit de Départ : tire 1 consommable aléatoire pondéré par rareté, comme les autres pools
+ * de consommables aléatoires (bonus post-combat, Cargaison Surprise) — peut inclure Dernier
+ * Souffle, ce n'est pas un cas spécial ici non plus. */
+export function pickRandomConsumable(random: () => number = Math.random): BrainrunConsumableId {
+  const consumableIds = Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[];
+  return weightedRandomPick(
+    consumableIds,
+    (cid) => BRAINRUN_RARITY_WEIGHT[BRAINRUN_CONSUMABLES[cid].rarity],
+    random,
+  );
+}
+
+/** Talent Premier Trésor : tire 1 relique Commune aléatoire pour démarrer la run avec. */
+export function pickRandomCommonRelic(random: () => number = Math.random): BrainrunRelicId {
+  const commonRelicIds = (Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[]).filter(
+    (id) => BRAINRUN_RELICS[id].rarity === "COMMON",
+  );
+  return commonRelicIds[Math.floor(random() * commonRelicIds.length)] as BrainrunRelicId;
 }
 
 /**

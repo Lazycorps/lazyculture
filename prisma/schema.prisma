@@ -379,11 +379,13 @@ model BrainrunRun {
     usedQuestionIds Int[]          @default([]) // anti-répétition sur toute la run
     relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
     consumables     Json           @default("{}") // Record<consumableId, count>
-    shieldArmed     Boolean        @default(false) // consommable Bouclier actif : annule la prochaine perte de PV
+    shieldCharges   Int            @default(0) // charges de Bouclier actives : chacune annule 1 perte de PV, partagées entre le consommable Bouclier et les talents Bouclier d'Acte/du Boss ; expirent (remises à 0) à la fin de chaque combat, utilisées ou non
+    talentReviveUsed Boolean       @default(false) // talent ultime Second Souffle (Résistance) : résurrection à 2 PV, une seule fois par run
     bannedThemes    String[]       @default([]) // thèmes bannis par la relique Purge Thématique, retirés du pool de thèmes des questions (l'ennemi/boss déjà fixé sur la carte n'est jamais changé, cf. effectiveThemes)
     pendingThemeBanChoice Boolean  @default(false) // true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque acknowledgeRoom
     xpEarned        Int?
-    knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run (or converti, cf. server/utils/brainrunMetaHelper.ts)
+    knowledgePointsEarned Int? // Points de Savoir gagnés à la fin de cette run, bonus de talent inclus (or converti, cf. server/utils/brainrunMetaHelper.ts)
+    knowledgePointsBonus Int       @default(0) // part de knowledgePointsEarned due au talent Intérêts Composés (Utilitaire), pour l'affichage détaillé du récap ("+24 PS (+3)")
     coinsEarned     Int            @default(0) // Pièces (monnaie globale UserWallet) créditées cette run, uniquement aux Boss d'acte vaincus (cf. grantBrainrunActCoins)
     isDebugRun      Boolean        @default(false) // true dès qu'un outil de debug (set-stats/téléportation, cf. BrainrunService.debugSetStats/debugJumpToNode) a touché cette run ; bloque XP/pièces/Points de Savoir et l'incrémentation des achievements en fin de run
     createDate      DateTime       @default(now())

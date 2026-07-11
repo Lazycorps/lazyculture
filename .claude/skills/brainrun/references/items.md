@@ -38,20 +38,22 @@ Possédés en quantité (`run.consumables: Record<id, count>`), consommés via `
 
 **Plafond d'emplacements** : `BRAINRUN_BASE_CONSUMABLE_SLOTS` = 3 (5 avec la relique `BACKPACK`), calculé par `BrainrunService.maxConsumableSlots(relics)` et exposé au client via `run.maxConsumables`. Chaque exemplaire obtenu prend son propre emplacement — un 2e exemplaire identique compte pour 1 emplacement de plus, pas un compteur `x2` illimité. Tout octroi (`grantConsumable`, boucle de Cargaison Surprise) plafonne silencieusement à la capacité restante ; achat en Librairie et choix du bonus post-combat sont bloqués côté serveur (409) si l'inventaire est déjà plein, pour ne pas faire dépenser d'or/perdre un bonus pour rien. `BrainrunService.discardConsumable(type)` permet au joueur de jeter un exemplaire pour libérer un emplacement (bouton "Jeter" dans l'infobulle HUD, `app/pages/brainrun/index.vue`).
 
-| id                  | Nom                | Rareté | Prix Librairie    | Effet                                                             | Contrainte                          |
-| ------------------- | ------------------ | ------ | ----------------- | ----------------------------------------------------------------- | ----------------------------------- |
-| `FIFTY_FIFTY`       | 50/50              | COMMON | 20                | élimine la moitié des mauvaises propositions                      | 1 usage/question                    |
-| `PHONE_A_FRIEND`    | Appel à un ami     | COMMON | 20                | suggère une réponse, risque d'erreur croissant avec la difficulté | 1 usage/question                    |
-| `SHIELD`            | Bouclier           | COMMON | 20                | annule la prochaine perte de PV (combat ou Événement)             | non stackable (un seul armé)        |
-| `BOSS_CHRONO_BOOST` | Sablier Fêlé       | COMMON | 15                | +5s chrono boss en cours                                          | réservé combat Boss                 |
-| `BOSS_DAMAGE_BOOST` | Coup de Grâce      | COMMON | 20                | +10 dégâts si la réponse en cours est correcte                    | réservé combat Boss                 |
-| `MALUS_CANCEL`      | Antidote           | COMMON | 10                | annule le malus du boss sur la question en cours                  | réservé combat Boss                 |
-| `REDRAW_QUESTION`   | Nouvelle Pioche    | RARE   | 35                | remplace la question en cours, même difficulté/thèmes             | —                                   |
-| `HEAL_POTION`       | Potion de Soin     | RARE   | 35                | +1 PV                                                             | refusé si PV déjà au max            |
-| `RANDOM_STASH`      | Cargaison Surprise | RARE   | 30                | tire 3 consommables COMMON au hasard                              | —                                   |
-| `REVIVE_TOKEN`      | Dernier Souffle    | RARE   | _jamais en vente_ | ressuscite auto. à 1 PV à la 1re mort                             | auto-déclenché, usage manuel refusé |
+| id                  | Nom                | Rareté | Prix Librairie    | Effet                                                                    | Contrainte                          |
+| ------------------- | ------------------ | ------ | ----------------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| `FIFTY_FIFTY`       | 50/50              | COMMON | 20                | élimine la moitié des mauvaises propositions                             | 1 usage/question                    |
+| `PHONE_A_FRIEND`    | Appel à un ami     | COMMON | 20                | suggère une réponse, risque d'erreur croissant avec la difficulté        | 1 usage/question                    |
+| `SHIELD`            | Bouclier           | COMMON | 20                | octroie 1 charge de Bouclier (annule 1 perte de PV, combat ou Événement) | stackable, cf. ci-dessous           |
+| `BOSS_CHRONO_BOOST` | Sablier Fêlé       | COMMON | 15                | +5s chrono boss en cours                                                 | réservé combat Boss                 |
+| `BOSS_DAMAGE_BOOST` | Coup de Grâce      | COMMON | 20                | +10 dégâts si la réponse en cours est correcte                           | réservé combat Boss                 |
+| `MALUS_CANCEL`      | Antidote           | COMMON | 10                | annule le malus du boss sur la question en cours                         | réservé combat Boss                 |
+| `REDRAW_QUESTION`   | Nouvelle Pioche    | RARE   | 35                | remplace la question en cours, même difficulté/thèmes                    | —                                   |
+| `HEAL_POTION`       | Potion de Soin     | RARE   | 35                | +1 PV                                                                    | refusé si PV déjà au max            |
+| `RANDOM_STASH`      | Cargaison Surprise | RARE   | 30                | tire 3 consommables COMMON au hasard                                     | —                                   |
+| `REVIVE_TOKEN`      | Dernier Souffle    | RARE   | _jamais en vente_ | ressuscite auto. à 1 PV à la 1re mort                                    | auto-déclenché, usage manuel refusé |
 
 Les effets ponctuels sur la question en cours (50/50, Appel à un ami, Sablier Fêlé, Coup de Grâce, Antidote, Sixième Sens) sont persistés dans `BrainrunRoom.consumableReveal`, réinitialisé à chaque nouvelle question — **un seul usage par question et par type**, vérifié explicitement avant d'appliquer l'effet.
+
+**Bouclier : système de charges partagé avec les talents (Résistance)** — depuis l'arrivée de l'arbre de talents, `BrainrunRun.shieldCharges: Int` remplace l'ancien booléen `shieldArmed`. Chaque source (le consommable Bouclier, et les talents Bouclier d'Acte/Bouclier du Boss, cf. `talents.md`) octroie 1 charge via `grantShieldCharge` (`server/utils/brainrunLogic.ts`), plafonnée au nombre de PV actuels — une charge au-delà de ce nombre ne peut protéger personne, elle est donc immédiatement perdue plutôt que stockée. Chaque charge annule 1 perte de PV (`consumeShieldCharge`, combat ou Événement). **Toutes les charges expirent (repassent à 0) à la fin de chaque combat** (`STANDARD`/`ELITE`/`BOSS` nettoyé ou raté), utilisées ou non — un Événement ne les fait pas expirer. Rendu client (`app/pages/brainrun/index.vue`) : halo/cœur bleu sur les `shieldCharges` cœurs pleins les plus proches d'être perdus.
 
 ## Offres (comment reliques/consommables sont proposés)
 

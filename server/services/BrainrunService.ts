@@ -11,11 +11,12 @@ import {
   applyBossMalusToDamage,
   applyRelicsToBossDamage,
   applyRelicsToGold,
+  applyTalentsToGold,
   assignCombatIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   calculBrainrunUserXP,
-  consumeShieldIfArmed,
+  consumeShieldCharge,
   effectiveThemes,
   flashMalusBonusTimeMs,
   generateActGraph,
@@ -26,6 +27,7 @@ import {
   getActiveTalentEffects,
   getCandidateCols,
   goldToKnowledgePoints,
+  grantShieldCharge,
   instantRoomHealthDelta,
   isAlainMemoryIntro,
   isBossAnswerTimedOut,
@@ -34,6 +36,8 @@ import {
   pickCombatCandidate,
   pickFiftyFiftyEliminations,
   pickPhoneAFriendHint,
+  pickRandomCommonRelic,
+  pickRandomConsumable,
   pickRandomStashConsumables,
   resolveEventOption,
   type BrainrunRelicEffects,
@@ -64,6 +68,7 @@ import {
 import { assertDebugAccess } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
 import {
+  BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CHRONO_BOOST_MS,
   BRAINRUN_DAMAGE_BOOST_AMOUNT,
   BRAINRUN_EVENTS,
@@ -129,16 +134,56 @@ export class BrainrunService {
   private async createRun(userId: string): Promise<BrainrunStateDTO> {
     const metaProgress = await getMetaProgress(userId);
     const talentEffects = getActiveTalentEffects(metaProgress.unlockedTalents);
+    // Talents Premier Trésor/Kit de Départ : démarrent la run avec 1 relique commune/1
+    // consommable aléatoire déjà en possession, plutôt que d'attendre la 1re offre.
+    const startingRelic = talentEffects.startsWithRandomCommonRelic
+      ? pickRandomCommonRelic()
+      : null;
+    const startingConsumable = talentEffects.startsWithRandomConsumable
+      ? pickRandomConsumable()
+      : null;
+    const startHealthPoint = BRAINRUN_START_HP + talentEffects.bonusStartHp;
+    const startMaxHealthPoint = BRAINRUN_MAX_HP + talentEffects.bonusStartHp;
     const created = await prisma.brainrunRun.create({
       data: {
         userId,
-        healthPoint: BRAINRUN_START_HP + talentEffects.bonusStartHp,
-        maxHealthPoint: BRAINRUN_MAX_HP + talentEffects.bonusStartHp,
+        healthPoint: startHealthPoint,
+        maxHealthPoint: startMaxHealthPoint,
         gold: talentEffects.bonusStartGold,
+        relics: startingRelic ? [startingRelic] : [],
+        consumables: startingConsumable ? { [startingConsumable]: 1 } : {},
+        // Talent Bouclier d'Acte : l'Acte 1 démarre dès la création de la run (les actes suivants
+        // sont couverts par advanceAfterRoomClear).
+        shieldCharges: talentEffects.hasShieldOnActStart
+          ? grantShieldCharge(0, startHealthPoint)
+          : 0,
       },
     });
+    if (startingRelic) {
+      await recordRelicDiscovery(userId, startingRelic);
+    }
+    if (startingConsumable) {
+      await recordConsumableDiscovery(userId, startingConsumable);
+    }
     await this.seedActGraph(created.id, 1);
     return this.getStateById(created.id);
+  }
+
+  /** Points de Savoir gagnés en fin de run (WON/LOST/ABANDONED) : or converti
+   * (goldToKnowledgePoints), majoré du bonus du talent Intérêts Composés (`bonus`, 0 si le
+   * talent n'est pas débloqué) — `bonus` est exposé séparément pour l'affichage détaillé du
+   * récap ("+24 PS (+3)"). */
+  private async knowledgePointsForRun(
+    userId: string,
+    gold: number,
+  ): Promise<{ total: number; bonus: number }> {
+    const base = goldToKnowledgePoints(gold);
+    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const bonus =
+      talentEffects.knowledgePointsGainPct > 0
+        ? Math.floor((base * talentEffects.knowledgePointsGainPct) / 100)
+        : 0;
+    return { total: base + bonus, bonus };
   }
 
   async abandonRun(userId: string): Promise<void> {
@@ -147,10 +192,17 @@ export class BrainrunService {
     // Une run touchée par le debug (cf. debugSetStats/debugJumpToNode) ne rapporte pas de Points
     // de Savoir et n'est pas comptée dans les achievements — même règle qu'à la fin normale d'une
     // run (finalizeRun) : ce n'est pas une vraie partie.
-    const knowledgePointsEarned = run.isDebugRun ? 0 : goldToKnowledgePoints(run.gold);
+    const { total: knowledgePointsEarned, bonus: knowledgePointsBonus } = run.isDebugRun
+      ? { total: 0, bonus: 0 }
+      : await this.knowledgePointsForRun(userId, run.gold);
     await prisma.brainrunRun.update({
       where: { id: run.id },
-      data: { status: "ABANDONED", endDate: new Date(), knowledgePointsEarned },
+      data: {
+        status: "ABANDONED",
+        endDate: new Date(),
+        knowledgePointsEarned,
+        knowledgePointsBonus,
+      },
     });
     if (!run.isDebugRun) {
       await grantKnowledgePoints(userId, knowledgePointsEarned);
@@ -189,6 +241,7 @@ export class BrainrunService {
   ): Promise<void> {
     const choice = node.type as BrainrunRoomType;
     const effects = getActiveRelicEffects(run.relics);
+    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
 
     if (choice === "NEUTRAL") {
       // Nœud de démarrage cosmétique (rangée 1 de l'acte 1 uniquement, cf. references/map.md) :
@@ -211,7 +264,6 @@ export class BrainrunService {
     } else if (choice === "SHOP") {
       // Reste ACTIVE tant que le joueur n'a pas cliqué "Quitter la boutique" (cf. leaveShop) :
       // il peut acheter plusieurs offres avant de continuer sa route.
-      const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
       await prisma.brainrunRoom.update({
         where: { id: node.id },
         data: {
@@ -290,6 +342,11 @@ export class BrainrunService {
         run.bannedThemes,
       );
       const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
+      // Talent Faille d'Entrée : le boss démarre le combat avec un pourcentage de PV en moins.
+      const bossStartHp =
+        combatType === "BOSS" && talentEffects.bossHpReductionPct > 0
+          ? Math.round(BRAINRUN_BOSS_MAX_HP * (1 - talentEffects.bossHpReductionPct / 100))
+          : BRAINRUN_BOSS_MAX_HP;
 
       await prisma.brainrunRoom.update({
         where: { id: node.id },
@@ -301,8 +358,8 @@ export class BrainrunService {
           ...(forcedCombatId ? { enemyId, bossId } : {}),
           ...(combatType === "BOSS"
             ? {
-                bossHealthPoint: BRAINRUN_BOSS_MAX_HP,
-                bossMaxHealthPoint: BRAINRUN_BOSS_MAX_HP,
+                bossHealthPoint: bossStartHp,
+                bossMaxHealthPoint: bossStartHp,
                 bossPhase: 0,
                 // Chrono non démarré ici : laissé à null comme entre deux questions (cf.
                 // prepareNextBossQuestion), pour laisser le temps à la transition d'entrée en
@@ -317,6 +374,11 @@ export class BrainrunService {
         data: {
           currentCol: col,
           usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
+          // Talent Bouclier du Boss : octroie 1 charge de Bouclier au début de chaque combat de
+          // Boss (partagée avec le consommable et Bouclier d'Acte, cf. grantShieldCharge).
+          ...(combatType === "BOSS" && talentEffects.hasShieldOnBossStart
+            ? { shieldCharges: grantShieldCharge(run.shieldCharges, run.healthPoint) }
+            : {}),
         },
       });
     }
@@ -508,30 +570,54 @@ export class BrainrunService {
     const elapsedMs = activeRoom.questionStartedAt
       ? Date.now() - activeRoom.questionStartedAt.getTime()
       : 0;
-    // Bonus de temps total : relique Chronomètre Brisé (permanent) + Sablier Fêlé (consommable,
-    // une seule question) + malus Flash (négatif, rétrécit le temps imparti au fil du combat).
+    // Talents Rage du Désespoir/Sang-Froid (Résistance) : actifs tant qu'il ne reste qu'1 PV,
+    // évalué sur le PV *avant* cette réponse (l'état dans lequel le joueur aborde la question).
+    const isLastStand = run.healthPoint === 1;
+    // Bonus de temps total : relique Chronomètre Brisé (permanent) + talents Réflexes
+    // Affûtés/Répit Prolongé (permanent) + Sang-Froid (si 1 PV restant) + Sablier Fêlé
+    // (consommable, une seule question) + malus Flash (négatif, rétrécit le temps imparti au fil
+    // du combat).
     const bonusTimeMs =
       effects.bossTimeBonusMs +
+      talentEffects.bonusBossTimeMs +
+      (isLastStand ? talentEffects.bonusBossTimeAtLowHpMs : 0) +
       (reveal.chronoBonusMs ?? 0) +
       flashMalusBonusTimeMs(bossDef?.malus, responses.length, reveal.malusCancelled);
+    // Talent Premier Souffle : la 1re réponse soumise dans un combat de boss n'a plus de limite
+    // de temps (les dégâts potentiels peuvent quand même descendre à 0, cf.
+    // brainrunPotentialBossDamage) — fonctionne nativement avec Alain (memory_recall) car
+    // responses.length ne compte jamais son intro forcée (bloquée plus haut par isAlainMemoryIntro).
+    const skipTimeoutForFirstAnswer =
+      talentEffects.hasFirstAnswerNoTimeout && responses.length === 0;
     // Contre-la-montre : passé le délai imparti, la réponse est forcée en échec, quelle que
     // soit la proposition envoyée par le client.
-    const timedOut = isBossRoom && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
+    const timedOut =
+      isBossRoom && !skipTimeoutForFirstAnswer && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
     // Une mauvaise réponse fait toujours perdre exactement 1 PV, quelle que soit la difficulté
-    // de la question (plus de palier 1/2/3 PV) — seul le Bouclier peut encore annuler la perte.
+    // de la question (plus de palier 1/2/3 PV) — seul un Bouclier peut encore annuler la perte.
     const rawHpLoss = success ? 0 : 1;
-    const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, rawHpLoss);
+    const { hpLoss, shieldChargesRemaining } = consumeShieldCharge(run.shieldCharges, rawHpLoss);
     const bossDamage = isBossRoom
       ? (() => {
-          // Bonus de talent ("Frappe assurée") + relique (Adrénaline) + Coup de Grâce (consommable,
-          // une seule question), jamais appliqués sur un coup raté (comme applyRelicsToBossDamage).
-          const relicDamage = applyRelicsToBossDamage(
-            brainrunBossDamage(elapsedMs, success, bonusTimeMs),
-            effects,
-          );
+          // Plancher de dégâts (talent Coup Assuré) appliqué sur la base décroissante, avant tout
+          // bonus multiplicatif/additif — The Rock (damage_resist) continue de s'appliquer en tout
+          // dernier, sur le total déjà bonifié, et divise donc aussi ce plancher par 2.
+          const baseDamage = brainrunBossDamage(elapsedMs, success, bonusTimeMs);
+          const withFloor =
+            baseDamage > 0 && talentEffects.bossDamageFloor > 0
+              ? Math.max(baseDamage, talentEffects.bossDamageFloor)
+              : baseDamage;
+          // Relique (Adrénaline) + talents Frappe Renforcée/Décisive + Rage du Désespoir (si 1 PV
+          // restant) + Coup de Grâce (consommable, une seule question), jamais appliqués sur un
+          // coup raté (comme applyRelicsToBossDamage).
+          const relicDamage = applyRelicsToBossDamage(withFloor, effects);
           const withTalent =
-            relicDamage > 0 ? relicDamage + talentEffects.bonusBossDamagePerHit : 0;
+            relicDamage > 0
+              ? relicDamage +
+                talentEffects.bonusBossDamagePerHit +
+                (isLastStand ? talentEffects.bonusBossDamageAtLowHp : 0)
+              : 0;
           const withConsumable = withTalent > 0 ? withTalent + (reveal.damageBonus ?? 0) : 0;
           // Malus The Rock : appliqué en tout dernier, sur le total déjà bonifié.
           return applyBossMalusToDamage(withConsumable, bossDef?.malus, reveal.malusCancelled);
@@ -553,19 +639,29 @@ export class BrainrunService {
     ];
     let newHealthPoint = run.healthPoint - hpLoss;
     let died = newHealthPoint <= 0;
-    // Seconde Chance : consommée une fois, annule la mort et remonte à 1 PV.
+    // Ordre des filets de résurrection (règle générale, valable pour tout filet similaire) :
+    // consommable → relique → talent.
+    // Dernier Souffle (consommable) : consommé une fois, annule la mort et remonte à 1 PV.
+    const consumables = (run.consumables as ConsumableCounts) ?? {};
+    const reviveTokenUsed = died && (consumables.REVIVE_TOKEN ?? 0) > 0;
+    if (reviveTokenUsed) {
+      newHealthPoint = 1;
+      died = false;
+      newResponses[newResponses.length - 1]!.extraLifeUsed = true;
+    }
+    // Seconde Chance (relique) : même effet, en secours si le consommable n'a pas (ou plus) sauvé
+    // le joueur.
     const extraLifeUsed = died && effects.hasExtraLife;
     if (extraLifeUsed) {
       newHealthPoint = 1;
       died = false;
       newResponses[newResponses.length - 1]!.extraLifeUsed = true;
     }
-    // Dernier Souffle (consommable) : même effet que Seconde Chance, en secours si la relique
-    // n'a pas (ou plus) sauvé le joueur.
-    const consumables = (run.consumables as ConsumableCounts) ?? {};
-    const reviveTokenUsed = died && !extraLifeUsed && (consumables.REVIVE_TOKEN ?? 0) > 0;
-    if (reviveTokenUsed) {
-      newHealthPoint = 1;
+    // Second Souffle (talent ultime, Résistance) : dernier filet, seulement si aucun des deux
+    // précédents n'a agi, et une seule fois par run — remonte à 2 PV plutôt qu'1.
+    const talentReviveUsed = died && talentEffects.hasUltimateRevive && !run.talentReviveUsed;
+    if (talentReviveUsed) {
+      newHealthPoint = 2;
       died = false;
       newResponses[newResponses.length - 1]!.extraLifeUsed = true;
     }
@@ -608,12 +704,17 @@ export class BrainrunService {
     if (specializationHealTriggered) {
       newResponses[newResponses.length - 1]!.healthRegenerated = true;
     }
+    // Les charges de Bouclier expirent à la fin de chaque combat (utilisées ou non), quelle que
+    // soit leur source (consommable ou talents Bouclier d'Acte/du Boss) ; sinon on reflète juste
+    // la consommation éventuelle de cette réponse.
+    const combatEnds = died || bossDefeated || roomQuestionsDone;
 
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: {
         healthPoint: finalHealthPoint,
-        ...(shieldConsumed ? { shieldArmed: false } : {}),
+        shieldCharges: combatEnds ? 0 : shieldChargesRemaining,
+        ...(talentReviveUsed ? { talentReviveUsed: true } : {}),
         ...(extraLifeUsed ? { relics: run.relics.filter((r) => r !== "SECOND_CHANCE") } : {}),
         ...(reviveTokenUsed
           ? { consumables: { ...consumables, REVIVE_TOKEN: consumables.REVIVE_TOKEN! - 1 } }
@@ -632,13 +733,18 @@ export class BrainrunService {
       });
       await this.finalizeRun(run.id, "LOST");
     } else if (bossDefeated || roomQuestionsDone) {
-      const goldEarned = applyRelicsToGold(
-        BRAINRUN_GOLD_BY_ROOM_TYPE[activeRoom.type as CombatRoomType],
-        effects,
+      const goldEarned = applyTalentsToGold(
+        applyRelicsToGold(BRAINRUN_GOLD_BY_ROOM_TYPE[activeRoom.type as CombatRoomType], effects),
+        talentEffects,
       );
       // Bonus post-combat (relique/consommable au choix) uniquement après Elite/Boss —
       // les salles Standard ne rapportent que de l'or, pour garder Elite/Boss comme temps forts.
       const grantsBonus = activeRoom.type === "ELITE" || activeRoom.type === "BOSS";
+      // Talent Générosité : +1 offre, réservé aux Élites (le Boss reste à BRAINRUN_BONUS_OFFER_COUNT).
+      const bonusOfferCount =
+        activeRoom.type === "ELITE" && talentEffects.hasEliteExtraOffer
+          ? BRAINRUN_BONUS_OFFER_COUNT + 1
+          : BRAINRUN_BONUS_OFFER_COUNT;
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
         data: {
@@ -652,6 +758,7 @@ export class BrainrunService {
                   run.relics,
                   Math.random,
                   talentEffects.rareRelicWeightBonus,
+                  bonusOfferCount,
                 ),
                 offersRequireChoice: true,
                 offersResolved: false,
@@ -963,6 +1070,7 @@ export class BrainrunService {
       throw createError({ statusCode: 400, statusMessage: "Or insuffisant pour ce choix." });
     }
 
+    const effects = getActiveRelicEffects(run.relics);
     const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
     const resolved = resolveEventOption(option, {
       ownedRelics: run.relics,
@@ -970,21 +1078,35 @@ export class BrainrunService {
     });
     const hpCost = Math.max(0, -resolved.hpDelta);
     const hpReward = Math.max(0, resolved.hpDelta);
-    const { hpLoss, shieldConsumed } = consumeShieldIfArmed(run.shieldArmed, hpCost);
+    const { hpLoss, shieldChargesRemaining } = consumeShieldCharge(run.shieldCharges, hpCost);
+    const shieldConsumed = shieldChargesRemaining < run.shieldCharges;
     let newHealthPoint = Math.min(run.maxHealthPoint, run.healthPoint - hpLoss + hpReward);
     let died = newHealthPoint <= 0;
-    // Dernier Souffle (consommable) : même filet de sécurité qu'en combat (cf. submitAnswer),
-    // pour un coût en PV fatal d'Événement.
+    // Même filet de sécurité qu'en combat (cf. submitAnswer) pour un coût en PV fatal
+    // d'Événement : consommable → relique → talent.
     const consumables = (run.consumables as ConsumableCounts) ?? {};
     const reviveTokenUsed = died && (consumables.REVIVE_TOKEN ?? 0) > 0;
     if (reviveTokenUsed) {
       newHealthPoint = 1;
       died = false;
     }
+    const extraLifeUsed = died && effects.hasExtraLife;
+    if (extraLifeUsed) {
+      newHealthPoint = 1;
+      died = false;
+    }
+    const talentReviveUsed = died && talentEffects.hasUltimateRevive && !run.talentReviveUsed;
+    if (talentReviveUsed) {
+      newHealthPoint = 2;
+      died = false;
+    }
 
     let updatedRelics = run.relics;
     if (resolved.relicLost) {
       updatedRelics = updatedRelics.filter((r) => r !== resolved.relicLost);
+    }
+    if (extraLifeUsed) {
+      updatedRelics = updatedRelics.filter((r) => r !== "SECOND_CHANCE");
     }
     // Purge Thématique octroyée par un Événement : comme pour grantOffer, la relique n'est
     // ajoutée qu'une fois le thème choisi (cf. resolveThemeBan) ; pas d'effet PV/relics ici.
@@ -1003,8 +1125,9 @@ export class BrainrunService {
       data: {
         healthPoint: Math.max(newHealthPoint, 0),
         gold: Math.max(0, run.gold + resolved.goldDelta),
-        ...(shieldConsumed ? { shieldArmed: false } : {}),
-        ...(resolved.relicLost || (resolved.relicGranted && !grantsThemePurge)
+        shieldCharges: shieldChargesRemaining,
+        ...(talentReviveUsed ? { talentReviveUsed: true } : {}),
+        ...(resolved.relicLost || (resolved.relicGranted && !grantsThemePurge) || extraLifeUsed
           ? { relics: updatedRelics }
           : {}),
         ...(grantsThemePurge ? { pendingThemeBanChoice: true } : {}),
@@ -1111,13 +1234,13 @@ export class BrainrunService {
     }
 
     if (type === "SHIELD") {
-      if (run.shieldArmed) {
-        throw createError({ statusCode: 409, statusMessage: "Bouclier déjà armé." });
-      }
+      // Charge partagée avec les talents Bouclier d'Acte/du Boss (cf. grantShieldCharge) : une
+      // charge au-delà du nombre de PV actuels ne peut protéger personne, elle est donc perdue
+      // plutôt que refusée — le consommable est quand même dépensé (comme un achat malencontreux).
       await prisma.brainrunRun.update({
         where: { id: run.id },
         data: {
-          shieldArmed: true,
+          shieldCharges: grantShieldCharge(run.shieldCharges, run.healthPoint),
           consumables: { ...consumables, SHIELD: consumables.SHIELD! - 1 },
         },
       });
@@ -1657,6 +1780,7 @@ export class BrainrunService {
     }
 
     let coinsGranted = 0;
+    let actStartShieldCharges: number | undefined;
     if (outcome.act !== act) {
       // act = l'acte dont le Boss vient d'être nettoyé : palier de pièces correspondant
       // (server/utils/brainrunConfig.ts BRAINRUN_COINS_PER_ACT), plafonné par jour. Une run
@@ -1673,6 +1797,16 @@ export class BrainrunService {
         const effects = getActiveRelicEffects(currentRun.relics);
         await this.seedActGraph(runId, outcome.act, effects.eventBonusChance);
       }
+
+      // Talent Bouclier d'Acte : octroie 1 charge de Bouclier au début de chaque nouvel Acte
+      // (l'Acte 1 est couvert dès createRun). Le boss venant d'être vaincu, healthPoint est déjà
+      // remonté au maximum (cf. submitAnswer) au moment où ce code s'exécute.
+      const talentEffects = getActiveTalentEffects(
+        (await getMetaProgress(currentRun.userId)).unlockedTalents,
+      );
+      if (talentEffects.hasShieldOnActStart) {
+        actStartShieldCharges = grantShieldCharge(currentRun.shieldCharges, currentRun.healthPoint);
+      }
     }
 
     await prisma.brainrunRun.update({
@@ -1682,6 +1816,7 @@ export class BrainrunService {
         currentRow: outcome.row,
         currentCol: null,
         ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
+        ...(actStartShieldCharges !== undefined ? { shieldCharges: actStartShieldCharges } : {}),
       },
     });
   }
@@ -1700,7 +1835,9 @@ export class BrainrunService {
     // (filtré via isDebugRun sur les comptages totalGames/totalWins ci-dessous) : c'est un outil
     // de test, pas une vraie partie.
     const xpEarned = run.isDebugRun ? 0 : calculBrainrunUserXP(clearedRooms, status === "WON");
-    const knowledgePointsEarned = run.isDebugRun ? 0 : goldToKnowledgePoints(run.gold);
+    const { total: knowledgePointsEarned, bonus: knowledgePointsBonus } = run.isDebugRun
+      ? { total: 0, bonus: 0 }
+      : await this.knowledgePointsForRun(run.userId, run.gold);
     // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
     // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
     // complété).
@@ -1716,6 +1853,7 @@ export class BrainrunService {
         endDate: new Date(),
         xpEarned,
         knowledgePointsEarned,
+        knowledgePointsBonus,
         ...(coinsGranted > 0 ? { coinsEarned: { increment: coinsGranted } } : {}),
       },
     });
@@ -1925,13 +2063,14 @@ export class BrainrunService {
       gold: run.gold,
       xpEarned: run.xpEarned,
       knowledgePointsEarned: run.knowledgePointsEarned,
+      knowledgePointsBonus: run.knowledgePointsBonus,
       coinsEarned: run.coinsEarned,
       createDate: run.createDate,
       endDate: run.endDate,
       relics: run.relics as BrainrunRunDTO["relics"],
       consumables: (run.consumables as ConsumableCounts) ?? {},
       maxConsumables: this.maxConsumableSlots(run.relics),
-      shieldArmed: run.shieldArmed,
+      shieldCharges: run.shieldCharges,
       bannedThemes: run.bannedThemes,
       pendingThemeBanChoice: run.pendingThemeBanChoice,
       // Utilisé à la fois par le choix de thème de la relique Purge Thématique

@@ -109,6 +109,15 @@ export async function unlockTalent(
     throw createError({ statusCode: 409, statusMessage: "Talent déjà débloqué." });
   }
 
+  const satisfied =
+    talent.prerequisites.length === 0 ||
+    (talent.requireAll
+      ? talent.prerequisites.every((id) => progress.unlockedTalents.includes(id))
+      : talent.prerequisites.some((id) => progress.unlockedTalents.includes(id)));
+  if (!satisfied) {
+    throw createError({ statusCode: 400, statusMessage: "Prérequis non débloqué(s)." });
+  }
+
   const result = await prisma.brainrunMetaProgress.updateMany({
     where: { userId, knowledgePoints: { gte: talent.cost } },
     data: { knowledgePoints: { decrement: talent.cost }, unlockedTalents: { push: talentId } },

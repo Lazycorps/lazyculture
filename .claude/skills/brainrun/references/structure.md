@@ -57,9 +57,11 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 
 ## Composants et pages
 
-`app/components/brainrun/` : `BrainrunLobby.vue` (point d'entrée), `BrainrunMap.vue` (carte à embranchements), `BrainrunCombatIntro.vue` (transition d'entrée en combat), `BrainrunQuestionRunner.vue` (~700 lignes, moteur de question générique + UI spécifique boss, y compris l'écran de mémorisation d'Alain), `BrainrunShop.vue`, `BrainrunEvent.vue`, `BrainrunBonusSelect.vue` (bonus post Elite/Boss), `BrainrunGlossaryModal.vue` (encyclopédie des reliques/consommables découverts), `BrainrunHelpModal.vue`.
+`app/components/brainrun/` : `BrainrunLobby.vue` (point d'entrée), `BrainrunMap.vue` (carte à embranchements), `BrainrunCombatIntro.vue` (transition d'entrée en combat), `BrainrunQuestionRunner.vue` (~700 lignes, moteur de question générique + UI spécifique boss, y compris l'écran de mémorisation d'Alain), `BrainrunShop.vue`, `BrainrunEvent.vue`, `BrainrunBonusSelect.vue` (bonus post Elite/Boss), `BrainrunGlossaryModal.vue` (encyclopédie des reliques/consommables découverts), `BrainrunHelpModal.vue`, `BrainrunTalentTree.vue` (rendu d'une branche de l'arbre de talents — nœuds/arêtes en SVG, même technique que `BrainrunMap.vue`, cf. `talents.md`).
 
-`app/pages/brainrun/index.vue` (~900 lignes) — machine à états des écrans (lobby → carte → combat/salle spéciale → récap → fin de run). `app/pages/brainrun/talents.vue` — arbre de talents.
+`app/pages/brainrun/index.vue` (~900 lignes) — machine à états des écrans (lobby → carte → combat/salle spéciale → récap → fin de run). `app/pages/brainrun/talents.vue` — arbre de talents (3 instances de `BrainrunTalentTree.vue`, une par branche).
+
+`scripts/` (racine du repo) — scripts one-off exécutés manuellement (`node --env-file=.env scripts/<nom>.mjs`), même convention que `prisma/seed.mjs` : `brainrun-talent-tree-refund.mjs` (déjà exécuté le 2026-07-11, ne pas relancer).
 
 ## Documentation existante (à traiter avec prudence)
 

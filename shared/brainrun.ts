@@ -183,8 +183,12 @@ export type BrainrunRunDTO = {
   maxHealthPoint: number;
   gold: number;
   xpEarned: number | null;
-  /** Points de Savoir gagnés à la fin de cette run (or converti), null tant qu'elle est en cours. */
+  /** Points de Savoir gagnés à la fin de cette run (or converti, bonus de talent inclus), null
+   * tant qu'elle est en cours. */
   knowledgePointsEarned: number | null;
+  /** Part de knowledgePointsEarned due au talent Intérêts Composés (Utilitaire) ; 0 si non
+   * débloqué. Affichage détaillé du récap de fin de run ("+24 PS (+3)"). */
+  knowledgePointsBonus: number;
   /** Pièces (monnaie globale UserWallet) créditées pendant cette run, uniquement aux Boss
    * d'acte vaincus (cf. server/utils/brainrunMetaHelper.ts grantBrainrunActCoins). */
   coinsEarned: number;
@@ -197,8 +201,10 @@ export type BrainrunRunDTO = {
   /** Plafond total d'emplacements de consommables (somme des valeurs de `consumables`), 3 de
    * base + bonus de la relique Sac à Dos. */
   maxConsumables: number;
-  /** true si un Bouclier est armé : la prochaine perte de PV sera annulée. */
-  shieldArmed: boolean;
+  /** Charges de Bouclier actives : chacune annule 1 perte de PV. Partagées entre le consommable
+   * Bouclier et les talents Bouclier d'Acte/du Boss ; expirent (repassent à 0) à la fin de chaque
+   * combat, utilisées ou non. */
+  shieldCharges: number;
   /** Thèmes bannis pour le reste de la run (relique Purge Thématique). */
   bannedThemes: string[];
   /** true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque

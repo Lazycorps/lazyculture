@@ -38,47 +38,20 @@
           Arbre de talents
         </h2>
         <p class="text-xs text-gray-400 mb-4">
-          Améliorations permanentes, actives sur toutes vos prochaines runs.
+          Améliorations permanentes, actives sur toutes vos prochaines runs. Un nœud reste
+          verrouillé tant que son prérequis n'est pas débloqué.
         </p>
 
-        <div class="space-y-3">
-          <div
-            v-for="talent in talents"
-            :key="talent.id"
-            class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3"
-          >
-            <div
-              class="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-xl"
-              :class="
-                isUnlocked(talent.id)
-                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                  : 'bg-violet-500/10 border border-violet-500/30 text-violet-400'
-              "
-            >
-              <UIcon :name="talent.icon" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="font-black font-display text-sm text-white tracking-wide truncate">
-                {{ talent.name }}
-              </p>
-              <p class="text-[11px] text-gray-400 leading-snug">{{ talent.description }}</p>
-            </div>
-            <UButton
-              v-if="!isUnlocked(talent.id)"
-              size="sm"
-              :color="isAffordable(talent) ? 'primary' : 'neutral'"
-              :disabled="meta.loading.value || !isAffordable(talent)"
-              class="font-black font-display shrink-0 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed"
-              @click="unlock(talent.id)"
-            >
-              {{ talent.cost }} PS
-            </UButton>
-            <UIcon
-              v-else
-              name="i-heroicons-check-circle-solid"
-              class="text-emerald-400 text-2xl shrink-0"
-            />
-          </div>
+        <div class="space-y-6">
+          <BrainrunTalentTree
+            v-for="branch in branches"
+            :key="branch"
+            :branch="branch"
+            :unlocked-talents="unlockedTalents"
+            :knowledge-points="knowledgePoints"
+            :loading="meta.loading.value"
+            @unlock="unlock"
+          />
         </div>
       </template>
     </UCard>
@@ -86,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
+import type { BrainrunTalentBranch, BrainrunTalentId } from "#shared/brainrunTalents";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -98,15 +71,9 @@ if (user.value) {
   await meta.fetchMeta();
 }
 
-const talents = Object.values(BRAINRUN_TALENTS);
-
-function isUnlocked(id: BrainrunTalentId): boolean {
-  return meta.metaProgress.value?.unlockedTalents.includes(id) ?? false;
-}
-
-function isAffordable(talent: { cost: number }): boolean {
-  return (meta.metaProgress.value?.knowledgePoints ?? 0) >= talent.cost;
-}
+const branches: BrainrunTalentBranch[] = ["RESISTANCE", "DAMAGE", "UTILITY"];
+const unlockedTalents = computed(() => meta.metaProgress.value?.unlockedTalents ?? []);
+const knowledgePoints = computed(() => meta.metaProgress.value?.knowledgePoints ?? 0);
 
 async function unlock(id: BrainrunTalentId) {
   await meta.unlockTalent(id);
