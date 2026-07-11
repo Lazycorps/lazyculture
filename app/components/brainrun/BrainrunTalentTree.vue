@@ -33,8 +33,7 @@
             <button
               :id="nodeDomId(node.id)"
               type="button"
-              :disabled="isUnlocked(node) || !isUnlockable(node) || loading"
-              class="relative w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-75 disabled:cursor-not-allowed"
+              class="relative w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-75 cursor-pointer"
               :class="nodeClass(node)"
               @click="selectedId = node.id"
             >
@@ -147,10 +146,11 @@ const PALETTE: Record<
     dot: "bg-emerald-500",
     title: "text-emerald-400",
     unlocked:
-      "bg-emerald-500 border-t-2 border-x-2 border-b-6 border-emerald-400 border-b-emerald-700 text-white shadow-lg shadow-emerald-500/20",
+      "bg-emerald-500 border-t-2 border-x-2 border-b-6 border-emerald-400 border-b-emerald-700 text-white shadow-lg shadow-emerald-500/20 hover:brightness-110",
     unlockable:
       "bg-white/10 border-t-2 border-x-2 border-b-6 border-emerald-500/60 border-b-emerald-800/70 text-emerald-200 hover:brightness-125 active:translate-y-[3px] active:border-b-2 cursor-pointer",
-    locked: "bg-white/5 border-2 border-white/10 text-gray-500",
+    locked:
+      "bg-white/5 border-2 border-white/10 text-gray-500 hover:bg-white/10 hover:border-white/20",
     labelUnlocked: "text-emerald-400",
     iconUnlocked: "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400",
     iconUnlockable: "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300",
@@ -160,10 +160,11 @@ const PALETTE: Record<
     dot: "bg-rose-500",
     title: "text-rose-400",
     unlocked:
-      "bg-rose-500 border-t-2 border-x-2 border-b-6 border-rose-400 border-b-rose-700 text-white shadow-lg shadow-rose-500/20",
+      "bg-rose-500 border-t-2 border-x-2 border-b-6 border-rose-400 border-b-rose-700 text-white shadow-lg shadow-rose-500/20 hover:brightness-110",
     unlockable:
       "bg-white/10 border-t-2 border-x-2 border-b-6 border-rose-500/60 border-b-rose-800/70 text-rose-200 hover:brightness-125 active:translate-y-[3px] active:border-b-2 cursor-pointer",
-    locked: "bg-white/5 border-2 border-white/10 text-gray-500",
+    locked:
+      "bg-white/5 border-2 border-white/10 text-gray-500 hover:bg-white/10 hover:border-white/20",
     labelUnlocked: "text-rose-400",
     iconUnlocked: "bg-rose-500/10 border border-rose-500/30 text-rose-400",
     iconUnlockable: "bg-rose-500/10 border border-rose-500/30 text-rose-300",
@@ -173,10 +174,11 @@ const PALETTE: Record<
     dot: "bg-sky-500",
     title: "text-sky-400",
     unlocked:
-      "bg-sky-500 border-t-2 border-x-2 border-b-6 border-sky-400 border-b-sky-700 text-white shadow-lg shadow-sky-500/20",
+      "bg-sky-500 border-t-2 border-x-2 border-b-6 border-sky-400 border-b-sky-700 text-white shadow-lg shadow-sky-500/20 hover:brightness-110",
     unlockable:
       "bg-white/10 border-t-2 border-x-2 border-b-6 border-sky-500/60 border-b-sky-800/70 text-sky-200 hover:brightness-125 active:translate-y-[3px] active:border-b-2 cursor-pointer",
-    locked: "bg-white/5 border-2 border-white/10 text-gray-500",
+    locked:
+      "bg-white/5 border-2 border-white/10 text-gray-500 hover:bg-white/10 hover:border-white/20",
     labelUnlocked: "text-sky-400",
     iconUnlocked: "bg-sky-500/10 border border-sky-500/30 text-sky-400",
     iconUnlockable: "bg-sky-500/10 border border-sky-500/30 text-sky-300",
