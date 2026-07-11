@@ -1022,3 +1022,124 @@ export function effectiveThemes(themes: string[], bannedThemes: string[]): strin
   const filtered = themes.filter((t) => !bannedThemes.includes(t));
   return filtered.length > 0 ? filtered : themes;
 }
+
+/**
+ * Étage global linéaire d'une position (act, row) sur l'ensemble des actes, utilisé pour classer
+ * les joueurs par progression. Les actes n'ont pas le même nombre de rangées
+ * (getBrainrunRoomsPerAct), on somme donc les rangées des actes précédents plutôt que de coder
+ * les offsets en dur. Acte 1 → étages 1..10, Acte 2 → 11..19, Acte 3 → 20..28.
+ */
+export function brainrunGlobalFloor(act: number, row: number): number {
+  let offset = 0;
+  for (let a = 1; a < act; a++) {
+    offset += getBrainrunRoomsPerAct(a);
+  }
+  return offset + row;
+}
+
+/** Ligne de run brute nécessaire au classement (cf. RankingService.getBrainrunTop). */
+export type BrainrunRankRun = {
+  userId: string;
+  status: string;
+  currentAct: number;
+  currentRow: number;
+  createDate: Date;
+};
+
+/** Entrée agrégée par joueur pour le classement Brainrun, déjà triée. */
+export type BrainrunRankEntry = {
+  userId: string;
+  /** Meilleur étage global atteint (brainrunGlobalFloor). */
+  bestFloor: number;
+  bestAct: number;
+  bestRow: number;
+  /** true si le joueur a au moins une run gagnée (Boss de l'acte 3 battu). */
+  isVictory: boolean;
+  /** Nombre total de victoires. */
+  victoryCount: number;
+  /** Nombre de runs terminées jusqu'à la 1ʳᵉ victoire incluse (Infinity si jamais gagné). */
+  runsToFirstVictory: number;
+  /** Nombre total de runs terminées comptabilisées (WON + LOST + ABANDONED). */
+  totalRuns: number;
+};
+
+/**
+ * Agrège les runs terminées par joueur puis les classe pour le classement Brainrun.
+ *
+ * Les runs de debug (isDebugRun) et en cours (IN_PROGRESS) doivent avoir été filtrées en amont ;
+ * cette fonction pure ne connaît que les runs comptabilisées.
+ *
+ * Ordre :
+ *  1. Étage max atteint décroissant — les vainqueurs (« Victoire ») sont toujours au-dessus.
+ *  2. Entre vainqueurs : moins de runs jusqu'à la 1ʳᵉ victoire d'abord, puis plus de victoires.
+ *  3. Hors vainqueurs (à étage égal) : moins de runs terminées d'abord.
+ *  4. Départage final stable : userId.
+ */
+export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[] {
+  const byUser = new Map<string, BrainrunRankRun[]>();
+  for (const run of runs) {
+    const list = byUser.get(run.userId);
+    if (list) list.push(run);
+    else byUser.set(run.userId, [run]);
+  }
+
+  const entries: BrainrunRankEntry[] = [];
+  for (const [userId, userRuns] of byUser) {
+    const chronological = [...userRuns].sort(
+      (a, b) => a.createDate.getTime() - b.createDate.getTime(),
+    );
+
+    let bestFloor = 0;
+    let bestAct = 1;
+    let bestRow = 1;
+    let victoryCount = 0;
+    let runsToFirstVictory = Number.POSITIVE_INFINITY;
+
+    chronological.forEach((run, index) => {
+      const floor = brainrunGlobalFloor(run.currentAct, run.currentRow);
+      const isWin = run.status === "WON";
+      // La Victoire prime toujours sur l'étage brut : un boss d'acte 3 battu doit dominer une
+      // défaite atteignant la même rangée. On force son étage au-delà du plafond non-gagné.
+      const effectiveFloor = isWin ? Number.MAX_SAFE_INTEGER : floor;
+      if (effectiveFloor > bestFloor) {
+        bestFloor = effectiveFloor;
+        bestAct = run.currentAct;
+        bestRow = run.currentRow;
+      }
+      if (isWin) {
+        victoryCount++;
+        if (runsToFirstVictory === Number.POSITIVE_INFINITY) {
+          runsToFirstVictory = index + 1;
+        }
+      }
+    });
+
+    entries.push({
+      userId,
+      bestFloor,
+      bestAct,
+      bestRow,
+      isVictory: victoryCount > 0,
+      victoryCount,
+      runsToFirstVictory,
+      totalRuns: userRuns.length,
+    });
+  }
+
+  entries.sort((a, b) => {
+    if (a.isVictory && b.isVictory) {
+      if (a.runsToFirstVictory !== b.runsToFirstVictory) {
+        return a.runsToFirstVictory - b.runsToFirstVictory;
+      }
+      if (a.victoryCount !== b.victoryCount) return b.victoryCount - a.victoryCount;
+      return a.userId.localeCompare(b.userId);
+    }
+    if (a.isVictory !== b.isVictory) return a.isVictory ? -1 : 1;
+    // Deux non-vainqueurs : étage atteint décroissant, puis moins de runs.
+    if (a.bestFloor !== b.bestFloor) return b.bestFloor - a.bestFloor;
+    if (a.totalRuns !== b.totalRuns) return a.totalRuns - b.totalRuns;
+    return a.userId.localeCompare(b.userId);
+  });
+
+  return entries;
+}

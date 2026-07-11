@@ -66,6 +66,18 @@
           <span>XP</span>
         </button>
         <button
+          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          :class="
+            currentTab === 'brainrun'
+              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          "
+          @click="currentTab = 'brainrun'"
+        >
+          <UIcon name="i-heroicons-fire" class="text-xs" />
+          <span>Brainrun</span>
+        </button>
+        <button
           v-if="userStore.isLoggedIn"
           class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
@@ -176,6 +188,18 @@
                   >{{ secondPlace.score }} PTS</span
                 >
               </p>
+              <p
+                class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'brainrun'"
+              >
+                <span :class="secondPlace.isVictory ? 'text-emerald-400 font-extrabold' : ''">{{
+                  brainrunFloorText(secondPlace)
+                }}</span>
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ brainrunSubText(secondPlace) }}</span
+                >
+              </p>
             </div>
           </NuxtLink>
         </template>
@@ -255,6 +279,18 @@
                   >{{ firstPlace.score }} PTS</span
                 >
               </p>
+              <p
+                class="text-xs font-black text-gray-300 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'brainrun'"
+              >
+                <span :class="firstPlace.isVictory ? 'text-emerald-400' : ''">{{
+                  brainrunFloorText(firstPlace)
+                }}</span>
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ brainrunSubText(firstPlace) }}</span
+                >
+              </p>
             </div>
           </NuxtLink>
         </template>
@@ -328,6 +364,18 @@
                 <span
                   class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
                   >{{ thirdPlace.score }} PTS</span
+                >
+              </p>
+              <p
+                class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
+                v-else-if="currentTab === 'brainrun'"
+              >
+                <span :class="thirdPlace.isVictory ? 'text-emerald-400 font-extrabold' : ''">{{
+                  brainrunFloorText(thirdPlace)
+                }}</span>
+                <span
+                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                  >{{ brainrunSubText(thirdPlace) }}</span
                 >
               </p>
             </div>
@@ -430,6 +478,17 @@
                 {{ userItem.score }} PTS
               </div>
             </div>
+            <div class="text-right flex flex-col items-end" v-else-if="currentTab === 'brainrun'">
+              <span
+                class="font-extrabold font-display"
+                :class="userItem.isVictory ? 'text-emerald-400' : 'text-white'"
+              >
+                {{ brainrunFloorText(userItem) }}
+              </span>
+              <div class="text-[10px] font-bold text-gray-500 font-display mt-0.5">
+                {{ brainrunSubText(userItem) }}
+              </div>
+            </div>
 
             <div
               class="w-12 text-right text-xs font-semibold text-gray-400"
@@ -478,7 +537,7 @@ useSeoMeta({
     "Découvrez les meilleurs compétiteurs de LazyCulture. Consultez les classements d'expérience (XP), Battle Royale, Showdown et défis quotidiens.",
 });
 
-const currentTab = ref<"general" | "br" | "showdown" | "daily" | "friends">("daily");
+const currentTab = ref<"general" | "br" | "showdown" | "daily" | "brainrun" | "friends">("daily");
 const dailyPeriod = ref<"alltime" | "monthly">("monthly");
 
 const userStore = useUserStore();
@@ -513,11 +572,13 @@ const { data: dailyAlltimeUsers } = await useFetch<any[]>(
 const { data: dailyMonthlyUsers } = await useFetch<any[]>(
   "/api/ranking/daily-podium?period=monthly",
 );
+const { data: brainrunUsers } = await useFetch<any[]>("/api/ranking/brainrun");
 
 const activeUsers = computed(() => {
   if (currentTab.value === "general") return users.value || [];
   if (currentTab.value === "br") return brUsers.value || [];
   if (currentTab.value === "showdown") return showdownUsers.value || [];
+  if (currentTab.value === "brainrun") return brainrunUsers.value || [];
   if (currentTab.value === "daily") {
     return dailyPeriod.value === "alltime"
       ? dailyAlltimeUsers.value || []
@@ -526,6 +587,21 @@ const activeUsers = computed(() => {
   if (currentTab.value === "friends") return friendsUsers.value || [];
   return [];
 });
+
+/** Libellé de l'étage max atteint pour le classement Brainrun (« Victoire » ou « Acte X · Étage Y »). */
+function brainrunFloorText(item: any): string {
+  if (!item) return "";
+  return item.isVictory ? "🏆 Victoire" : `Acte ${item.bestAct} · Étage ${item.bestRow}`;
+}
+
+/** Sous-ligne : nombre de victoires pour les vainqueurs, sinon nombre de runs (critère de départage). */
+function brainrunSubText(item: any): string {
+  if (!item) return "";
+  if (item.isVictory) {
+    return `${item.victoryCount} ${item.victoryCount > 1 ? "victoires" : "victoire"}`;
+  }
+  return `${item.totalRuns} ${item.totalRuns > 1 ? "runs" : "run"}`;
+}
 
 const firstPlace = computed(() => activeUsers.value?.[0] || null);
 const secondPlace = computed(() => activeUsers.value?.[1] || null);

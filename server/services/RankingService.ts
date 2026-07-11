@@ -1,8 +1,10 @@
 import prisma from "~~/server/utils/prisma";
 import { UserRankingDTO } from "#shared/DTO/userRankingDTO";
 import { DailyPodiumRankingDTO } from "#shared/DTO/dailyPodiumRankingDTO";
+import { BrainrunRankingDTO } from "#shared/DTO/brainrunRankingDTO";
 import { getRankFromPoints } from "~~/server/utils/rankHelper";
 import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
+import { rankBrainrunPlayers } from "~~/server/utils/brainrunLogic";
 
 export class RankingService {
   async getTopUsers(): Promise<UserRankingDTO[]> {
@@ -120,6 +122,49 @@ export class RankingService {
         rankInfo,
         avatarUrl: rankRecord.user?.equippedAvatar?.imageUrl ?? null,
         frameStyleKey: rankRecord.user?.equippedFrame?.styleKey ?? null,
+      };
+    });
+  }
+
+  /** Classement Brainrun : Top 20 par étage max atteint (les vainqueurs en tête), départage par
+   * nombre de runs. Toute la logique de tri est dans rankBrainrunPlayers (server/utils/brainrunLogic.ts).
+   * Exclut les runs de debug et les runs en cours, comme BrainrunService.getRunStats. */
+  async getBrainrunTop(): Promise<BrainrunRankingDTO[]> {
+    const runs = await prisma.brainrunRun.findMany({
+      where: {
+        status: { in: ["WON", "LOST", "ABANDONED"] },
+        isDebugRun: false,
+      },
+      select: { userId: true, status: true, currentAct: true, currentRow: true, createDate: true },
+    });
+
+    const ranked = rankBrainrunPlayers(runs).slice(0, 20);
+    if (ranked.length === 0) return [];
+
+    // Hydrater les infos d'affichage des joueurs classés en une seule requête.
+    const users = await prisma.user.findMany({
+      where: { id: { in: ranked.map((r) => r.userId) } },
+      select: {
+        id: true,
+        name: true,
+        equippedAvatar: { select: { imageUrl: true } },
+        equippedFrame: { select: { styleKey: true } },
+      },
+    });
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    return ranked.map((entry) => {
+      const user = usersById.get(entry.userId);
+      return {
+        userId: entry.userId,
+        name: user?.name || "Anonyme",
+        avatarUrl: user?.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: user?.equippedFrame?.styleKey ?? null,
+        bestAct: entry.bestAct,
+        bestRow: entry.bestRow,
+        isVictory: entry.isVictory,
+        victoryCount: entry.victoryCount,
+        totalRuns: entry.totalRuns,
       };
     });
   }

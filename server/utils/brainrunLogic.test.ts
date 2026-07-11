@@ -8,6 +8,9 @@ import {
   assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
+  brainrunGlobalFloor,
+  rankBrainrunPlayers,
+  type BrainrunRankRun,
   calculBrainrunUserXP,
   consumeShieldCharge,
   effectiveThemes,
@@ -1166,5 +1169,99 @@ describe("pickRandomStashConsumables", () => {
     expect(pickRandomStashConsumables(fixedRandom, 3)).toEqual(
       pickRandomStashConsumables(fixedRandom, 3),
     );
+  });
+});
+
+describe("brainrunGlobalFloor", () => {
+  it("maps act/row to a linear floor across the three acts", () => {
+    // Acte 1 = étages 1..10, Acte 2 = 11..19, Acte 3 = 20..28.
+    expect(brainrunGlobalFloor(1, 1)).toBe(1);
+    expect(brainrunGlobalFloor(1, 10)).toBe(10);
+    expect(brainrunGlobalFloor(2, 1)).toBe(11);
+    expect(brainrunGlobalFloor(2, 9)).toBe(19);
+    expect(brainrunGlobalFloor(3, 1)).toBe(20);
+    expect(brainrunGlobalFloor(3, 9)).toBe(28);
+  });
+
+  it("is monotonically increasing with progression", () => {
+    expect(brainrunGlobalFloor(2, 1)).toBeGreaterThan(brainrunGlobalFloor(1, 10));
+    expect(brainrunGlobalFloor(3, 1)).toBeGreaterThan(brainrunGlobalFloor(2, 9));
+  });
+});
+
+describe("rankBrainrunPlayers", () => {
+  const d = (ms: number) => new Date(ms);
+  const run = (over: Partial<BrainrunRankRun> & { userId: string }): BrainrunRankRun => ({
+    status: "LOST",
+    currentAct: 1,
+    currentRow: 1,
+    createDate: d(0),
+    ...over,
+  });
+
+  it("places victorious players above every non-victorious player", () => {
+    const ranked = rankBrainrunPlayers([
+      // 'far' a atteint l'acte 3 mais sans jamais gagner.
+      run({ userId: "far", status: "LOST", currentAct: 3, currentRow: 9, createDate: d(1) }),
+      // 'winner' a gagné très tôt (acte 3 battu).
+      run({ userId: "winner", status: "WON", currentAct: 3, currentRow: 9, createDate: d(2) }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["winner", "far"]);
+    expect(ranked[0]!.isVictory).toBe(true);
+    expect(ranked[1]!.isVictory).toBe(false);
+  });
+
+  it("orders non-victorious players by max floor then by fewer runs", () => {
+    const ranked = rankBrainrunPlayers([
+      // 'a' : meilleur étage acte 2 rangée 5.
+      run({ userId: "a", currentAct: 2, currentRow: 5, createDate: d(1) }),
+      // 'b' et 'c' plafonnent au même étage (acte 2 rangée 3) mais 'c' a joué plus de runs.
+      run({ userId: "b", currentAct: 2, currentRow: 3, createDate: d(1) }),
+      run({ userId: "c", currentAct: 2, currentRow: 3, createDate: d(1) }),
+      run({ userId: "c", currentAct: 1, currentRow: 2, createDate: d(2) }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["a", "b", "c"]);
+    expect(ranked.find((r) => r.userId === "c")!.totalRuns).toBe(2);
+  });
+
+  it("orders victors by runs-to-first-victory, then by victory count", () => {
+    const ranked = rankBrainrunPlayers([
+      // 'quick' gagne dès sa 1ʳᵉ run.
+      run({ userId: "quick", status: "WON", currentAct: 3, currentRow: 9, createDate: d(1) }),
+      // 'grinder' perd 2 runs avant de gagner à la 3ᵉ (2 victoires au total).
+      run({ userId: "grinder", status: "LOST", currentAct: 1, currentRow: 4, createDate: d(1) }),
+      run({ userId: "grinder", status: "LOST", currentAct: 2, currentRow: 2, createDate: d(2) }),
+      run({ userId: "grinder", status: "WON", currentAct: 3, currentRow: 9, createDate: d(3) }),
+      run({ userId: "grinder", status: "WON", currentAct: 3, currentRow: 9, createDate: d(4) }),
+    ]);
+    // 'quick' devant malgré ses 1 victoire : elle est venue plus tôt (1 run vs 3).
+    expect(ranked.map((r) => r.userId)).toEqual(["quick", "grinder"]);
+    const grinder = ranked.find((r) => r.userId === "grinder")!;
+    expect(grinder.victoryCount).toBe(2);
+    expect(grinder.totalRuns).toBe(4);
+  });
+
+  it("breaks a tie in runs-to-first-victory by higher victory count", () => {
+    const ranked = rankBrainrunPlayers([
+      // Les deux gagnent à leur 1ʳᵉ run, mais 'x' a plus de victoires ensuite.
+      run({ userId: "x", status: "WON", currentAct: 3, currentRow: 9, createDate: d(1) }),
+      run({ userId: "x", status: "WON", currentAct: 3, currentRow: 9, createDate: d(2) }),
+      run({ userId: "y", status: "WON", currentAct: 3, currentRow: 9, createDate: d(1) }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["x", "y"]);
+  });
+
+  it("counts all finished runs and computes best floor / victory data per player", () => {
+    const ranked = rankBrainrunPlayers([
+      run({ userId: "solo", status: "ABANDONED", currentAct: 1, currentRow: 3, createDate: d(1) }),
+      run({ userId: "solo", status: "LOST", currentAct: 2, currentRow: 6, createDate: d(2) }),
+    ]);
+    const solo = ranked[0]!;
+    expect(solo.totalRuns).toBe(2);
+    expect(solo.isVictory).toBe(false);
+    expect(solo.victoryCount).toBe(0);
+    // Meilleur étage = la run la plus avancée (acte 2 rangée 6).
+    expect(solo.bestAct).toBe(2);
+    expect(solo.bestRow).toBe(6);
   });
 });
