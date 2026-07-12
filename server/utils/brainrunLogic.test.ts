@@ -5,6 +5,7 @@ import {
   applyRelicsToGold,
   applyTalentsToGold,
   assignCombatIdentities,
+  assignEventIdentities,
   assignNodeTypes,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
@@ -1044,21 +1045,84 @@ describe("generateShopReplacementOffer", () => {
 });
 
 describe("resolveEventOption", () => {
-  it("nets cost against reward for hp and gold", () => {
+  it("nets the explicit cost against the drawn outcome reward for hp and gold", () => {
     const result = resolveEventOption(
-      { label: "test", cost: { hp: 1, gold: 10 }, reward: { gold: 15 } },
+      {
+        label: "test",
+        cost: { hp: 1, gold: 10 },
+        outcomes: [{ weight: 1, reward: { gold: 15 }, resultText: "gagné" }],
+      },
       { ownedRelics: [] },
     );
     expect(result.hpDelta).toBe(-1);
     expect(result.goldDelta).toBe(5);
     expect(result.relicGranted).toBeNull();
     expect(result.consumablesGranted).toEqual([]);
+    expect(result.outcomeIndex).toBe(0);
+    expect(result.resultText).toBe("gagné");
+  });
+
+  it('returns nothing gained for a rewardless outcome ("rien ne se passe")', () => {
+    const result = resolveEventOption(
+      { label: "test", outcomes: [{ weight: 1, resultText: "rien" }] },
+      { ownedRelics: [] },
+    );
+    expect(result.hpDelta).toBe(0);
+    expect(result.goldDelta).toBe(0);
+    expect(result.relicGranted).toBeNull();
+    expect(result.shieldChargesGranted).toBe(0);
+    expect(result.fiftyFiftyChargesGranted).toBe(0);
+    expect(result.reviveGranted).toBe(false);
+    expect(result.resultText).toBe("rien");
+  });
+
+  it("picks the outcome according to its weight (masked draw)", () => {
+    const option = {
+      label: "test",
+      outcomes: [
+        { weight: 70, reward: { gold: 10 }, resultText: "A" },
+        { weight: 30, reward: { gold: 20 }, resultText: "B" },
+      ],
+    };
+    // random()=0.1 → premier outcome (70%), random()=0.9 → second (30%).
+    expect(resolveEventOption(option, { ownedRelics: [] }, () => 0.1).outcomeIndex).toBe(0);
+    expect(resolveEventOption(option, { ownedRelics: [] }, () => 0.9).outcomeIndex).toBe(1);
+  });
+
+  it("carries the new reward types (shield, 50/50 charges, revive, full heal, maxHp cost)", () => {
+    const result = resolveEventOption(
+      {
+        label: "test",
+        cost: { maxHp: 1 },
+        outcomes: [
+          {
+            weight: 1,
+            reward: { shieldCharges: 2, fiftyFiftyCharges: 3, revive: true, fullHeal: true },
+            resultText: "",
+          },
+        ],
+      },
+      { ownedRelics: [] },
+    );
+    expect(result.maxHpDelta).toBe(-1);
+    expect(result.shieldChargesGranted).toBe(2);
+    expect(result.fiftyFiftyChargesGranted).toBe(3);
+    expect(result.reviveGranted).toBe(true);
+    expect(result.fullHealGranted).toBe(true);
+  });
+
+  it("defaults fullHealGranted to false when the outcome has no fullHeal reward", () => {
+    const result = resolveEventOption(
+      { label: "test", outcomes: [{ weight: 1, reward: { hp: 1 }, resultText: "" }] },
+      { ownedRelics: [] },
+    );
+    expect(result.fullHealGranted).toBe(false);
   });
 
   it("grants an unowned random relic when the pool isn't exhausted", () => {
     const owned = ALL_RELIC_IDS.slice(0, ALL_RELIC_IDS.length - 1);
     const result = resolveEventOption(
-      { label: "test", reward: { relic: "RANDOM" } },
+      { label: "test", outcomes: [{ weight: 1, reward: { relic: "RANDOM" }, resultText: "" }] },
       { ownedRelics: owned },
     );
     expect(result.relicGranted).not.toBeNull();
@@ -1070,7 +1134,7 @@ describe("resolveEventOption", () => {
 
   it("grants the stackable Cœur Supplémentaire when every other relic is owned", () => {
     const result = resolveEventOption(
-      { label: "test", reward: { relic: "RANDOM" } },
+      { label: "test", outcomes: [{ weight: 1, reward: { relic: "RANDOM" }, resultText: "" }] },
       { ownedRelics: ALL_RELIC_IDS },
     );
     expect(result.relicGranted).toBe("EXTRA_HEART");
@@ -1078,7 +1142,16 @@ describe("resolveEventOption", () => {
 
   it("passes through granted consumables untouched", () => {
     const result = resolveEventOption(
-      { label: "test", reward: { consumables: [{ id: "FIFTY_FIFTY", amount: 2 }] } },
+      {
+        label: "test",
+        outcomes: [
+          {
+            weight: 1,
+            reward: { consumables: [{ id: "FIFTY_FIFTY", amount: 2 }] },
+            resultText: "",
+          },
+        ],
+      },
       { ownedRelics: [] },
     );
     expect(result.consumablesGranted).toEqual([{ id: "FIFTY_FIFTY", amount: 2 }]);
@@ -1087,7 +1160,12 @@ describe("resolveEventOption", () => {
   it("resolves a RANDOM consumable reward to a concrete catalog id", () => {
     for (let i = 0; i < 20; i++) {
       const result = resolveEventOption(
-        { label: "test", reward: { consumables: [{ id: "RANDOM", amount: 1 }] } },
+        {
+          label: "test",
+          outcomes: [
+            { weight: 1, reward: { consumables: [{ id: "RANDOM", amount: 1 }] }, resultText: "" },
+          ],
+        },
         { ownedRelics: [] },
       );
       expect(result.consumablesGranted).toHaveLength(1);
@@ -1098,7 +1176,11 @@ describe("resolveEventOption", () => {
   it("sacrifices a random owned relic on a RANDOM_OWNED cost", () => {
     const owned = [ALL_RELIC_IDS[0]!, ALL_RELIC_IDS[1]!];
     const result = resolveEventOption(
-      { label: "test", cost: { relic: "RANDOM_OWNED" }, reward: { relic: "RANDOM" } },
+      {
+        label: "test",
+        cost: { relic: "RANDOM_OWNED" },
+        outcomes: [{ weight: 1, reward: { relic: "RANDOM" }, resultText: "" }],
+      },
       { ownedRelics: owned },
     );
     expect(owned).toContain(result.relicLost);
@@ -1108,10 +1190,41 @@ describe("resolveEventOption", () => {
 
   it("has no relic to sacrifice when none is owned", () => {
     const result = resolveEventOption(
-      { label: "test", cost: { relic: "RANDOM_OWNED" }, reward: { relic: "RANDOM" } },
+      {
+        label: "test",
+        cost: { relic: "RANDOM_OWNED" },
+        outcomes: [{ weight: 1, reward: { relic: "RANDOM" }, resultText: "" }],
+      },
       { ownedRelics: [] },
     );
     expect(result.relicLost).toBeNull();
+  });
+});
+
+describe("assignEventIdentities", () => {
+  const nodes = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({ row: i + 2, col: 0 }));
+
+  it("assigns each EVENT node a distinct event when the pool is large enough", () => {
+    const pool = ["E1", "E2", "E3", "E4", "E5"];
+    const assigned = assignEventIdentities(nodes(4), pool, () => 0.42);
+    expect(assigned).toHaveLength(4);
+    const ids = assigned.map((a) => a.eventId);
+    expect(new Set(ids).size).toBe(4); // aucun doublon
+    ids.forEach((id) => expect(pool).toContain(id));
+  });
+
+  it("never reuses an excluded event id while the remaining pool suffices", () => {
+    const pool = ["E1", "E2", "E3", "E4"];
+    const assigned = assignEventIdentities(nodes(2), pool, () => 0.1, ["E1", "E2"]);
+    assigned.forEach((a) => expect(["E1", "E2"]).not.toContain(a.eventId));
+  });
+
+  it("falls back to repeats only when there are more nodes than unique events", () => {
+    const pool = ["E1", "E2"];
+    const assigned = assignEventIdentities(nodes(3), pool, () => 0.0);
+    expect(assigned).toHaveLength(3);
+    assigned.forEach((a) => expect(pool).toContain(a.eventId));
   });
 });
 

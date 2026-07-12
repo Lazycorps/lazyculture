@@ -87,6 +87,16 @@
                 <UIcon name="i-heroicons-currency-dollar" class="mr-0.5" />
                 {{ run?.gold ?? 0 }}
               </div>
+              <!-- Charges de 50/50 automatique actives (récompense d'Événement) : appliquées aux
+                   prochaines questions de combat, décomptées au fil de leur consommation. -->
+              <div
+                v-if="(run?.fiftyFiftyCharges ?? 0) > 0"
+                :title="`50/50 automatique appliqué à vos ${run?.fiftyFiftyCharges} prochaines questions de combat`"
+                class="flex items-center text-sky-400 font-black font-display text-sm"
+              >
+                <UIcon name="i-heroicons-scissors" class="mr-0.5" />
+                {{ run?.fiftyFiftyCharges }}
+              </div>
               <!-- Grille 4 colonnes : tient sur une ligne jusqu'à 4 Pv max (cas courant), passe
                    automatiquement sur une 2e ligne au-delà (jusqu'à 8, relique Cœur Supplémentaire) —
                    pas de logique conditionnelle, la grille gère seule le retour à la ligne. Les
@@ -384,6 +394,7 @@
                 :outcome="currentRoom.eventOutcome"
                 :loading="loading"
                 :gold="run?.gold ?? 0"
+                :max-health-point="run?.maxHealthPoint ?? 0"
                 @choose="(index: number) => brainrun.resolveEvent(index)"
                 @continue="brainrun.acknowledgeRoom()"
               />

@@ -123,9 +123,23 @@ export type BrainrunRoomResponse = {
  * "RANDOM", relique sacrifiée "RANDOM_OWNED") ou modifiés par le Bouclier. */
 export type BrainrunEventOutcomeDTO = {
   optionIndex: number;
-  /** PV effectivement perdus/gagnés (0 si le Bouclier a annulé un coût). */
+  /** Index de l'outcome tiré au sort dans la table de l'option (cf. resolveEventOption). */
+  outcomeIndex: number;
+  /** Texte de lore décrivant le résultat tiré au sort, affiché tel quel au joueur. */
+  resultText: string;
+  /** PV effectivement perdus/gagnés (0 si le Bouclier a annulé un coût, ou si soin complet). */
   hpDelta: number;
+  /** true si l'outcome a restauré tous les PV (affiché à part du hpDelta chiffré). */
+  fullHealGranted: boolean;
   goldDelta: number;
+  /** Variation de PV max (≤ 0 : rançon d'une résurrection, cf. événement Le Phénix Érudit). */
+  maxHpDelta: number;
+  /** Charges de Bouclier octroyées. */
+  shieldChargesGranted: number;
+  /** Charges de 50/50 automatique octroyées (appliquées aux prochaines questions de combat). */
+  fiftyFiftyChargesGranted: number;
+  /** true si un Dernier Souffle (résurrection) a été octroyé. */
+  reviveGranted: boolean;
   relicGranted: BrainrunRelicId | null;
   relicLost: BrainrunRelicId | null;
   consumablesGranted: { id: BrainrunConsumableId; amount: number }[];
@@ -205,6 +219,10 @@ export type BrainrunRunDTO = {
    * Bouclier et les talents Bouclier d'Acte/du Boss ; expirent (repassent à 0) à la fin de chaque
    * combat, utilisées ou non. */
   shieldCharges: number;
+  /** Charges de 50/50 automatique restantes (récompense d'Événement) : chacune applique un 50/50
+   * à la prochaine question de combat présentée puis se consomme. Persistent entre les combats,
+   * contrairement au Bouclier. */
+  fiftyFiftyCharges: number;
   /** Thèmes bannis pour le reste de la run (relique Purge Thématique). */
   bannedThemes: string[];
   /** true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque

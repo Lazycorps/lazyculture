@@ -73,30 +73,57 @@ export type BrainrunConsumableReveal = {
 
 export type BrainrunEventReward = {
   hp?: number;
+  /** Restaure tous les PV (jusqu'au PV max courant), façon feu de camp — prioritaire sur `hp`. */
+  fullHeal?: boolean;
   gold?: number;
   relic?: "RANDOM";
   /** "RANDOM" tire un type de consommable au hasard dans le catalogue. */
   consumables?: { id: BrainrunConsumableId | "RANDOM"; amount: number }[];
+  /** Charges de Bouclier octroyées (annulent chacune 1 perte de PV au prochain combat). */
+  shieldCharges?: number;
+  /** Charges de 50/50 automatique sur les N prochaines questions de combat (cf. resolveEvent). */
+  fiftyFiftyCharges?: number;
+  /** Octroie un Dernier Souffle (REVIVE_TOKEN) : résurrection automatique à la 1re mort. */
+  revive?: boolean;
 };
 
 export type BrainrunEventCost = {
   hp?: number;
   gold?: number;
+  /** Réduction permanente des PV max (ex. rançon d'une résurrection). Le coût reste toujours
+   * explicite sur l'option — jamais tiré au sort — pour ne pas punir le joueur par surprise. */
+  maxHp?: number;
   /** Sacrifie une relique possédée au hasard (aucun effet si le joueur n'en possède aucune). */
   relic?: "RANDOM_OWNED";
 };
 
+/** Un résultat possible d'une option d'Événement, tiré au sort masqué (poids relatif `weight`).
+ * `reward` absent = "rien ne se passe". `resultText` = phrase de lore affichée au passé une fois le
+ * choix résolu. Une option à un seul outcome est donc déterministe. Par convention (cf. resolveEvent),
+ * un outcome ne porte jamais de coût caché : les coûts sont toujours explicites sur l'option. */
+export type BrainrunEventOutcome = {
+  weight: number;
+  reward?: BrainrunEventReward;
+  resultText: string;
+};
+
 export type BrainrunEventOption = {
   label: string;
+  /** Coût explicite payé d'avance quel que soit le tirage (visible par le joueur avant de choisir). */
   cost?: BrainrunEventCost;
-  reward?: BrainrunEventReward;
+  /** Table de résultats masquée pondérée : au moins 1 entrée. */
+  outcomes: BrainrunEventOutcome[];
 };
 
 export type BrainrunEventDef = {
   id: string;
+  /** Acte auquel l'événement appartient (1-3) : le pool est tiré sans remise par acte à la
+   * génération de la carte (cf. assignEventIdentities), garantissant aucun doublon sur une run. */
+  act: number;
   title: string;
   description: string;
-  options: [BrainrunEventOption, BrainrunEventOption];
+  /** 2 à 3 options proposées au joueur. */
+  options: BrainrunEventOption[];
 };
 
 export type BrainrunOfferKind = "RELIC" | "CONSUMABLE" | "GOLD";
@@ -309,83 +336,777 @@ export const BRAINRUN_CONSUMABLES: Record<BrainrunConsumableId, BrainrunConsumab
   },
 };
 
+/**
+ * Catalogue des Événements, groupés par acte (8 par acte, aucun doublon possible sur une run car
+ * tirés sans remise à la génération de la carte, cf. assignEventIdentities). Montée en puissance
+ * par acte : Acte 1 petits enjeux (or/PV/communs), Acte 2 enjeux moyens (RARE, 2 charges, 50/50 x3),
+ * Acte 3 gros enjeux (relique, résurrection contre PV max, effets premium).
+ *
+ * Convention "façon Slay the Spire" : le `cost` d'une option est explicite et payé d'avance ; le
+ * `reward` est tiré au sort masqué dans `outcomes` (pondéré par `weight`), avec parfois "rien ne se
+ * passe" (outcome sans reward). Un outcome ne porte jamais de coût caché — les pertes sont toujours
+ * annoncées sur l'option (cf. resolveEventOption).
+ */
 export const BRAINRUN_EVENTS: Record<string, BrainrunEventDef> = {
-  BLACK_MARKET: {
-    id: "BLACK_MARKET",
-    title: "Marché noir",
-    description: "Un marchand louche vous propose une relique en échange de votre or.",
+  // ─────────────────────────────── ACTE 1 — petits enjeux ───────────────────────────────
+  GRIMOIRE_CORNE: {
+    id: "GRIMOIRE_CORNE",
+    act: 1,
+    title: "Le Grimoire Corné",
+    description: "Un vieux manuel scolaire gonflé d'humidité gît sur un pupitre poussiéreux.",
     options: [
-      { label: "Refuser et poursuivre" },
-      { label: "Payer 15 or", cost: { gold: 15 }, reward: { relic: "RANDOM" } },
-    ],
-  },
-  SACRIFICIAL_ALTAR: {
-    id: "SACRIFICIAL_ALTAR",
-    title: "Autel sacrificiel",
-    description: "Un autel ancien réclame un sacrifice de vie en échange d'un pouvoir.",
-    options: [
-      { label: "Ignorer l'autel" },
-      { label: "Sacrifier 1 PV", cost: { hp: 1 }, reward: { relic: "RANDOM" } },
-    ],
-  },
-  FORBIDDEN_LIBRARY: {
-    id: "FORBIDDEN_LIBRARY",
-    title: "Bibliothèque défendue",
-    description: "Des rayonnages interdits, gardés par un mécanisme dangereux.",
-    options: [
-      { label: "Fouiller prudemment", reward: { gold: 10 } },
       {
-        label: "S'aventurer plus loin",
+        label: "Le feuilleter",
+        outcomes: [
+          {
+            weight: 65,
+            reward: { gold: 10 },
+            resultText: "Une pièce oubliée glisse d'entre les pages.",
+          },
+          { weight: 35, resultText: "Les pages collées ne révèlent qu'une odeur de moisi." },
+        ],
+      },
+      {
+        label: "En arracher le chapitre interdit",
         cost: { hp: 1 },
-        reward: { consumables: [{ id: "FIFTY_FIFTY", amount: 2 }] },
+        outcomes: [
+          {
+            weight: 80,
+            reward: { consumables: [{ id: "RANDOM", amount: 1 }] },
+            resultText: "Le savoir défendu se matérialise entre vos mains.",
+          },
+          {
+            weight: 20,
+            resultText: "La page se désagrège en poussière avant que vous ne lisiez un mot.",
+          },
+        ],
       },
     ],
   },
-  MYSTIC_ORACLE: {
-    id: "MYSTIC_ORACLE",
-    title: "Oracle mystique",
-    description: "Un oracle propose de vous équiper avant la suite du parcours.",
+  FONTAINE_REPONSES: {
+    id: "FONTAINE_REPONSES",
+    act: 1,
+    title: "La Fontaine aux Réponses",
+    description: "Une source claire murmure des demi-vérités à qui tend l'oreille.",
     options: [
-      { label: "Repartir sans rien demander" },
       {
-        label: "Consulter l'oracle (-10 or)",
+        label: "Boire une gorgée",
+        outcomes: [
+          { weight: 60, reward: { hp: 1 }, resultText: "L'eau vive vous ravigote." },
+          { weight: 40, resultText: "Le goût est amer ; rien ne se passe." },
+        ],
+      },
+      {
+        label: "Y jeter une pièce",
+        cost: { gold: 5 },
+        outcomes: [
+          {
+            weight: 70,
+            reward: { shieldCharges: 1 },
+            resultText: "Un halo protecteur enveloppe votre esprit.",
+          },
+          {
+            weight: 30,
+            reward: { gold: 15 },
+            resultText: "La fontaine recrache une poignée de pièces, généreuse.",
+          },
+        ],
+      },
+    ],
+  },
+  BIBLIOTHECAIRE_FANTOME: {
+    id: "BIBLIOTHECAIRE_FANTOME",
+    act: 1,
+    title: "Le Bibliothécaire Fantôme",
+    description: "Un spectre érudit vous soumet une colle sur un détail oublié de l'Histoire.",
+    options: [
+      {
+        label: "Tenter votre chance",
+        outcomes: [
+          {
+            weight: 50,
+            reward: { gold: 12 },
+            resultText: "Bonne réponse ! Le fantôme vous récompense d'un sourire et d'or.",
+          },
+          { weight: 50, resultText: "Faux. Le spectre soupire et se dissipe." },
+        ],
+      },
+      {
+        label: "Avouer votre ignorance",
+        outcomes: [
+          {
+            weight: 1,
+            reward: { consumables: [{ id: "PHONE_A_FRIEND", amount: 1 }] },
+            resultText: "Touché par votre humilité, il vous confie un moyen d'appeler à l'aide.",
+          },
+        ],
+      },
+    ],
+  },
+  COLPORTEUR_ANECDOTES: {
+    id: "COLPORTEUR_ANECDOTES",
+    act: 1,
+    title: "Le Colporteur d'Anecdotes",
+    description: "Un marchand ambulant vend des « faits véridiques » à la criée.",
+    options: [
+      {
+        label: "Lui acheter un tuyau",
         cost: { gold: 10 },
-        reward: {
-          consumables: [
-            { id: "SHIELD", amount: 1 },
-            { id: "PHONE_A_FRIEND", amount: 1 },
-          ],
-        },
+        outcomes: [
+          {
+            weight: 60,
+            reward: { consumables: [{ id: "FIFTY_FIFTY", amount: 1 }] },
+            resultText: "Son astuce vous aidera à éliminer les mauvaises pistes.",
+          },
+          {
+            weight: 25,
+            reward: { consumables: [{ id: "PHONE_A_FRIEND", amount: 1 }] },
+            resultText: "Il vous glisse le contact d'un ami savant.",
+          },
+          { weight: 15, resultText: "Le « fait » était une pure invention. Argent perdu." },
+        ],
+      },
+      {
+        label: "Passer votre chemin",
+        outcomes: [{ weight: 1, resultText: "Vous ignorez le bonimenteur et poursuivez." }],
       },
     ],
   },
-  GENEROUS_SPIRIT: {
-    id: "GENEROUS_SPIRIT",
-    title: "Esprit généreux",
-    description: "Un esprit facétieux vous propose un présent, sans rien demander en retour.",
+  MALLE_CANCRE: {
+    id: "MALLE_CANCRE",
+    act: 1,
+    title: "La Malle du Cancre",
+    description: "Un coffre d'écolier abandonné, cadenas rouillé par les années.",
     options: [
       {
-        label: "Accepter le présent",
-        reward: { consumables: [{ id: "RANDOM", amount: 1 }] },
+        label: "Forcer le cadenas",
+        cost: { hp: 1 },
+        outcomes: [
+          {
+            weight: 70,
+            reward: { gold: 18 },
+            resultText: "Un magot d'argent de poche accumulé au fil des ans !",
+          },
+          {
+            weight: 20,
+            reward: { consumables: [{ id: "RANDOM", amount: 1 }] },
+            resultText: "Un objet oublié mais bien utile s'y cachait.",
+          },
+          { weight: 10, resultText: "La malle était vide, hormis des copies raturées." },
+        ],
       },
-      { label: "Décliner poliment" },
+      {
+        label: "Laisser fermé",
+        outcomes: [{ weight: 1, resultText: "Vous respectez le secret du cancre et continuez." }],
+      },
     ],
   },
-  MYSTIC_EXCHANGE: {
-    id: "MYSTIC_EXCHANGE",
-    title: "Échange mystique",
-    description:
-      "Un esprit vous propose d'échanger une de vos reliques contre une autre, au hasard.",
+  PARCHEMIN_VIERGE: {
+    id: "PARCHEMIN_VIERGE",
+    act: 1,
+    title: "Le Parchemin Vierge",
+    description: "Un parchemin ancien réclame qu'on y inscrive une trace de savoir.",
     options: [
-      { label: "Refuser l'échange" },
+      {
+        label: "Y inscrire votre nom",
+        outcomes: [
+          {
+            weight: 55,
+            reward: { relic: "RANDOM" },
+            resultText: "Le parchemin s'illumine et vous confère un artefact.",
+          },
+          { weight: 45, resultText: "L'encre sèche sans magie. Rien ne se produit." },
+        ],
+      },
+      {
+        label: "Ranger le parchemin",
+        outcomes: [{ weight: 1, resultText: "Vous laissez le parchemin à un futur érudit." }],
+      },
+    ],
+  },
+  DUEL_TRIVIA: {
+    id: "DUEL_TRIVIA",
+    act: 1,
+    title: "Le Duel de Trivia",
+    description: "Un rival vous provoque en duel de culture générale, mise à l'appui.",
+    options: [
+      {
+        label: "Relever le défi",
+        cost: { gold: 5 },
+        outcomes: [
+          {
+            weight: 60,
+            reward: { gold: 15 },
+            resultText: "Vous coiffez votre rival au poteau et raflez la mise !",
+          },
+          { weight: 40, resultText: "Battu d'une question. Votre mise est perdue." },
+        ],
+      },
+      {
+        label: "Décliner",
+        outcomes: [{ weight: 1, resultText: "Vous refusez le duel, prudent." }],
+      },
+    ],
+  },
+  AUTEL_NOVICES: {
+    id: "AUTEL_NOVICES",
+    act: 1,
+    title: "L'Autel des Novices",
+    description: "Un petit autel dédié aux apprentis, où l'on dépose une offrande.",
+    options: [
+      {
+        label: "Offrir une pièce",
+        cost: { gold: 10 },
+        outcomes: [
+          {
+            weight: 65,
+            reward: { shieldCharges: 1 },
+            resultText: "L'autel vous bénit d'une protection.",
+          },
+          {
+            weight: 35,
+            reward: { relic: "RANDOM" },
+            resultText: "Une relique modeste apparaît sur la pierre.",
+          },
+        ],
+      },
+      {
+        label: "Prier gratuitement",
+        outcomes: [
+          {
+            weight: 30,
+            reward: { hp: 1 },
+            resultText: "Un souffle apaisant vous soigne légèrement.",
+          },
+          { weight: 70, resultText: "Votre prière reste sans réponse." },
+        ],
+      },
+    ],
+  },
+  // ─────────────────────────────── ACTE 2 — enjeux moyens ───────────────────────────────
+  BIBLIOTHEQUE_INTERDITE: {
+    id: "BIBLIOTHEQUE_INTERDITE",
+    act: 2,
+    title: "La Bibliothèque Interdite",
+    description: "Des rayonnages scellés, gardés par un mécanisme grinçant.",
+    options: [
+      {
+        label: "Fouiller prudemment",
+        outcomes: [
+          {
+            weight: 60,
+            reward: { gold: 20 },
+            resultText: "Vous dénichez une bourse dissimulée entre deux traités.",
+          },
+          { weight: 40, resultText: "Les rayons accessibles ne recèlent rien de valeur." },
+        ],
+      },
+      {
+        label: "Briser le sceau",
+        cost: { hp: 1 },
+        outcomes: [
+          {
+            weight: 70,
+            reward: { relic: "RANDOM" },
+            resultText: "Un artefact scellé vous est révélé.",
+          },
+          {
+            weight: 30,
+            reward: { gold: 25 },
+            resultText: "Pas de relique, mais un coffret d'or bien garni.",
+          },
+        ],
+      },
+    ],
+  },
+  ORACLE_AMBIGU: {
+    id: "ORACLE_AMBIGU",
+    act: 2,
+    title: "L'Oracle Ambigu",
+    description: "Une voyante trouble entrevoit trois futurs possibles pour vous.",
+    options: [
+      {
+        label: "Payer la vision",
+        cost: { gold: 15 },
+        outcomes: [
+          {
+            weight: 50,
+            reward: { fiftyFiftyCharges: 3 },
+            resultText: "Elle vous montre les pièges de vos trois prochaines épreuves.",
+          },
+          {
+            weight: 35,
+            reward: { shieldCharges: 2 },
+            resultText: "Elle dresse autour de vous un double rempart.",
+          },
+          { weight: 15, resultText: "Sa transe échoue ; la fumée se dissipe sans révélation." },
+        ],
+      },
+      {
+        label: "Repartir",
+        outcomes: [{ weight: 1, resultText: "Vous quittez l'antre sans consulter l'oracle." }],
+      },
+    ],
+  },
+  PACTE_SAVOIR: {
+    id: "PACTE_SAVOIR",
+    act: 2,
+    title: "Le Pacte du Savoir",
+    description: "Un esprit propose d'échanger l'un de vos artefacts contre un autre, au hasard.",
+    options: [
       {
         label: "Tenter l'échange",
         cost: { relic: "RANDOM_OWNED" },
-        reward: { relic: "RANDOM" },
+        outcomes: [
+          {
+            weight: 75,
+            reward: { relic: "RANDOM" },
+            resultText: "L'échange est équitable : une nouvelle relique remplace l'ancienne.",
+          },
+          {
+            weight: 25,
+            reward: { relic: "RANDOM", gold: 10 },
+            resultText: "L'esprit, magnanime, ajoute un pourboire à l'échange.",
+          },
+        ],
+      },
+      {
+        label: "Refuser",
+        outcomes: [{ weight: 1, resultText: "Vous serrez vos reliques et déclinez." }],
+      },
+    ],
+  },
+  MARCHE_OMBRES: {
+    id: "MARCHE_OMBRES",
+    act: 2,
+    title: "Le Marché aux Ombres",
+    description: "Sous un porche obscur, un trafiquant propose une relique de contrebande.",
+    options: [
+      {
+        label: "Payer le prix fort",
+        cost: { gold: 25 },
+        outcomes: [
+          {
+            weight: 80,
+            reward: { relic: "RANDOM" },
+            resultText: "La marchandise est authentique : une relique change de mains.",
+          },
+          {
+            weight: 20,
+            reward: { relic: "RANDOM", gold: 20 },
+            resultText: "Pièce de collection ! Le trafiquant vous rétrocède même une part.",
+          },
+        ],
+      },
+      {
+        label: "Refuser la marchandise",
+        outcomes: [{ weight: 1, resultText: "Vous déclinez l'offre douteuse et poursuivez." }],
+      },
+    ],
+  },
+  SABLIER_FISSURE: {
+    id: "SABLIER_FISSURE",
+    act: 2,
+    title: "Le Sablier Fissuré",
+    description: "Un sablier fêlé fait miroiter un répit face aux gardiens à venir.",
+    options: [
+      {
+        label: "Le retourner",
+        outcomes: [
+          {
+            weight: 50,
+            reward: {
+              consumables: [
+                { id: "BOSS_CHRONO_BOOST", amount: 1 },
+                { id: "BOSS_DAMAGE_BOOST", amount: 1 },
+              ],
+            },
+            resultText: "Le temps vous confie de quoi bousculer un boss.",
+          },
+          {
+            weight: 50,
+            reward: { consumables: [{ id: "MALUS_CANCEL", amount: 1 }] },
+            resultText: "Un antidote se cristallise dans le verre fêlé.",
+          },
+        ],
+      },
+      {
+        label: "Ne pas y toucher",
+        outcomes: [{ weight: 1, resultText: "Vous laissez le sablier à sa lente agonie." }],
+      },
+    ],
+  },
+  SALLE_EXAMEN: {
+    id: "SALLE_EXAMEN",
+    act: 2,
+    title: "La Salle d'Examen",
+    description: "Une salle silencieuse ; un surveillant vous tend une copie et un chronomètre.",
+    options: [
+      {
+        label: "Composer",
+        cost: { hp: 1 },
+        outcomes: [
+          {
+            weight: 60,
+            reward: { gold: 30 },
+            resultText: "Copie brillante : votre bourse d'excellence est bien garnie.",
+          },
+          {
+            weight: 25,
+            reward: { relic: "RANDOM" },
+            resultText: "Le jury, impressionné, vous décerne un artefact.",
+          },
+          { weight: 15, resultText: "Copie blanche. Le stress n'a rien donné." },
+        ],
+      },
+      {
+        label: "Sécher l'examen",
+        outcomes: [
+          {
+            weight: 40,
+            reward: { gold: 8 },
+            resultText: "Vous revendez vos notes à un cancre dans le couloir.",
+          },
+          { weight: 60, resultText: "Vous filez sans demander votre reste." },
+        ],
+      },
+    ],
+  },
+  PUITS_SOUHAITS: {
+    id: "PUITS_SOUHAITS",
+    act: 2,
+    title: "Le Puits à Souhaits Érudit",
+    description: "Un puits ancien exauce, dit-on, les vœux des esprits curieux.",
+    options: [
+      {
+        label: "Y jeter une bourse",
+        cost: { gold: 20 },
+        outcomes: [
+          {
+            weight: 55,
+            reward: { shieldCharges: 2 },
+            resultText: "Deux gardiens invisibles se dressent à vos côtés.",
+          },
+          { weight: 30, reward: { hp: 2 }, resultText: "Une eau régénérante remonte du puits." },
+          {
+            weight: 15,
+            reward: { gold: 40 },
+            resultText: "Le puits déborde de pièces : jackpot !",
+          },
+        ],
+      },
+      {
+        label: "Regarder au fond",
+        outcomes: [
+          {
+            weight: 25,
+            reward: { consumables: [{ id: "RANDOM", amount: 1 }] },
+            resultText: "Un objet flotte à la surface, à portée de main.",
+          },
+          { weight: 75, resultText: "Vous ne voyez que votre reflet dans l'eau noire." },
+        ],
+      },
+    ],
+  },
+  COPISTE_MALADE: {
+    id: "COPISTE_MALADE",
+    act: 2,
+    title: "Le Copiste Malade",
+    description: "Un vieux copiste fiévreux propose de léguer son savoir contre votre vitalité.",
+    options: [
+      {
+        label: "Recueillir ses notes",
+        cost: { hp: 2 },
+        outcomes: [
+          {
+            weight: 80,
+            reward: { relic: "RANDOM" },
+            resultText: "Ses années de labeur se condensent en une relique précieuse.",
+          },
+          {
+            weight: 20,
+            reward: { relic: "RANDOM", consumables: [{ id: "RANDOM", amount: 1 }] },
+            resultText: "Il vous lègue bien plus qu'espéré.",
+          },
+        ],
+      },
+      {
+        label: "Le veiller",
+        outcomes: [
+          {
+            weight: 30,
+            reward: { hp: 1 },
+            resultText: "Votre bonté vous apaise ; vous récupérez un peu.",
+          },
+          {
+            weight: 70,
+            resultText: "Vous veillez le copiste jusqu'à l'aube, sans autre récompense.",
+          },
+        ],
+      },
+    ],
+  },
+  // ─────────────────────────────── ACTE 3 — gros enjeux ───────────────────────────────
+  BIBLIOTHEQUE_ALEXANDRIE: {
+    id: "BIBLIOTHEQUE_ALEXANDRIE",
+    act: 3,
+    title: "La Grande Bibliothèque",
+    description: "La bibliothèque ultime brûle ; le savoir du monde part en fumée sous vos yeux.",
+    options: [
+      {
+        label: "Sauver un manuscrit",
+        cost: { hp: 2 },
+        outcomes: [
+          {
+            weight: 75,
+            reward: { relic: "RANDOM" },
+            resultText: "Vous arrachez aux flammes un traité inestimable.",
+          },
+          {
+            weight: 25,
+            reward: { relic: "RANDOM", gold: 20 },
+            resultText: "Le manuscrit sauvé recelait aussi une bourse.",
+          },
+        ],
+      },
+      {
+        label: "Contempler l'incendie",
+        outcomes: [
+          {
+            weight: 40,
+            reward: { gold: 25 },
+            resultText: "Vous monnayez quelques feuillets calcinés à un collectionneur.",
+          },
+          { weight: 60, resultText: "Vous regardez, impuissant, le savoir se consumer." },
+        ],
+      },
+    ],
+  },
+  PHENIX_ERUDIT: {
+    id: "PHENIX_ERUDIT",
+    act: 3,
+    title: "Le Phénix Érudit",
+    description:
+      "Un phénix de parchemin offre de renaître avec vous — au prix permanent d'une part de votre vitalité.",
+    options: [
+      {
+        label: "Accepter le don (−1 PV max)",
+        cost: { maxHp: 1 },
+        outcomes: [
+          {
+            weight: 1,
+            reward: { revive: true },
+            resultText:
+              "Le phénix scelle en vous une seconde vie, prélevant un peu de votre souffle.",
+          },
+        ],
+      },
+      {
+        label: "Refuser le pacte",
+        outcomes: [
+          {
+            weight: 1,
+            resultText: "Vous déclinez ; certaines dettes ne valent pas d'être contractées.",
+          },
+        ],
+      },
+    ],
+  },
+  ORACLE_TROIS_VERITES: {
+    id: "ORACLE_TROIS_VERITES",
+    act: 3,
+    title: "L'Oracle des Trois Vérités",
+    description: "Un grand oracle propose de dévoiler les pièges de vos trois prochaines épreuves.",
+    options: [
+      {
+        label: "Payer le grand rituel",
+        cost: { gold: 30 },
+        outcomes: [
+          {
+            weight: 60,
+            reward: { fiftyFiftyCharges: 3 },
+            resultText: "Les faux-semblants de vos trois prochaines questions vous apparaissent.",
+          },
+          {
+            weight: 40,
+            reward: { shieldCharges: 2 },
+            resultText: "À défaut de clairvoyance, l'oracle vous protège doublement.",
+          },
+        ],
+      },
+      {
+        label: "Décliner",
+        outcomes: [
+          { weight: 1, resultText: "Vous préférez affronter l'inconnu à visage découvert." },
+        ],
+      },
+    ],
+  },
+  TRIBUNAL_SAVOIR: {
+    id: "TRIBUNAL_SAVOIR",
+    act: 3,
+    title: "Le Tribunal du Savoir",
+    description:
+      "Un tribunal d'érudits juge votre valeur ; plaider coûte cher mais peut rapporter gros.",
+    options: [
+      {
+        label: "Plaider votre cause",
+        cost: { gold: 40 },
+        outcomes: [
+          {
+            weight: 60,
+            reward: { relic: "RANDOM", gold: 30 },
+            resultText: "Le jury tranche en votre faveur : relique et dédommagement !",
+          },
+          { weight: 40, resultText: "Débouté. Les frais de justice sont perdus." },
+        ],
+      },
+      {
+        label: "Renoncer",
+        outcomes: [{ weight: 1, resultText: "Vous quittez la salle sans plaider." }],
+      },
+    ],
+  },
+  CHAMBRE_FORTE_SAGES: {
+    id: "CHAMBRE_FORTE_SAGES",
+    act: 3,
+    title: "La Chambre Forte des Sages",
+    description: "Une chambre forte scellée par des énigmes millénaires.",
+    options: [
+      {
+        label: "Crocheter la serrure",
+        cost: { hp: 2 },
+        outcomes: [
+          {
+            weight: 70,
+            reward: { gold: 50 },
+            resultText: "Un trésor d'érudition converti en or pur !",
+          },
+          {
+            weight: 20,
+            reward: { relic: "RANDOM" },
+            resultText: "Un artefact des sages repose au fond du coffre.",
+          },
+          { weight: 10, resultText: "La chambre était déjà pillée. Rien." },
+        ],
+      },
+      {
+        label: "S'éloigner",
+        outcomes: [{ weight: 1, resultText: "Vous jugez le risque trop grand et passez." }],
+      },
+    ],
+  },
+  SANCTUAIRE_REPOS: {
+    id: "SANCTUAIRE_REPOS",
+    act: 3,
+    title: "Le Sanctuaire du Repos",
+    description: "Un havre de paix où méditer avant l'assaut final.",
+    options: [
+      {
+        label: "Méditer",
+        outcomes: [
+          {
+            weight: 35,
+            reward: { fullHeal: true },
+            resultText: "Une paix profonde vous envahit ; toutes vos blessures se referment.",
+          },
+          {
+            weight: 40,
+            reward: { hp: 2 },
+            resultText: "Une méditation profonde restaure vos forces.",
+          },
+          { weight: 25, reward: { hp: 1 }, resultText: "Un court repos vous ravigote un peu." },
+        ],
+      },
+      {
+        label: "Communier avec les lieux",
+        cost: { gold: 10 },
+        outcomes: [
+          {
+            weight: 80,
+            reward: { shieldCharges: 2 },
+            resultText: "L'esprit du sanctuaire vous arme de deux protections.",
+          },
+          { weight: 20, reward: { hp: 3 }, resultText: "Une vague de vitalité vous submerge." },
+        ],
+      },
+    ],
+  },
+  ECHANGE_FAUSTIEN: {
+    id: "ECHANGE_FAUSTIEN",
+    act: 3,
+    title: "L'Échange Faustien",
+    description: "Un contrat mirifique promet monts et merveilles contre l'une de vos reliques.",
+    options: [
+      {
+        label: "Signer le pacte",
+        cost: { relic: "RANDOM_OWNED" },
+        outcomes: [
+          {
+            weight: 90,
+            reward: { relic: "RANDOM", consumables: [{ id: "RANDOM", amount: 1 }] },
+            resultText: "Le pacte tient ses promesses : bien plus que ce que vous cédez.",
+          },
+          {
+            weight: 10,
+            reward: { relic: "RANDOM" },
+            resultText: "L'échange se fait, honnête sans être fastueux.",
+          },
+        ],
+      },
+      {
+        label: "Brûler le contrat",
+        outcomes: [{ weight: 1, resultText: "Vous jetez le parchemin au feu, méfiant." }],
+      },
+    ],
+  },
+  RELIQUE_SCELLEE: {
+    id: "RELIQUE_SCELLEE",
+    act: 3,
+    title: "La Relique Scellée",
+    description: "Une relique palpite sous un sceau de sang et de savoir.",
+    options: [
+      {
+        label: "Briser le sceau",
+        cost: { hp: 2 },
+        outcomes: [
+          {
+            weight: 70,
+            reward: { relic: "RANDOM" },
+            resultText: "Le sceau cède ; la relique est vôtre.",
+          },
+          {
+            weight: 30,
+            reward: { relic: "RANDOM", shieldCharges: 2 },
+            resultText: "La relique libère aussi une aura protectrice.",
+          },
+        ],
+      },
+      {
+        label: "Laisser dormir",
+        outcomes: [
+          {
+            weight: 20,
+            reward: { gold: 15 },
+            resultText: "Vous récupérez quelques éclats du sceau, monnayables.",
+          },
+          { weight: 80, resultText: "Vous laissez la relique à son sommeil." },
+        ],
       },
     ],
   },
 };
+
+/** Ids des événements d'un acte donné (pool tiré sans remise à la génération de la carte). */
+export function getBrainrunEventIdsByAct(act: number): string[] {
+  return Object.values(BRAINRUN_EVENTS)
+    .filter((event) => event.act === act)
+    .map((event) => event.id);
+}
+
+/** PV max plancher en-dessous duquel une option d'Événement à coût `maxHp` est refusée (client
+ * ET serveur), pour ne pas laisser le joueur se réduire à un état ingérable via une résurrection. */
+export const BRAINRUN_EVENT_MIN_MAX_HP = 2;
 
 /** Poids de tirage par rareté, partagé par les reliques et les consommables (RARE ~4x moins fréquent que COMMON). */
 export const BRAINRUN_RARITY_WEIGHT: Record<BrainrunRarity, number> = {

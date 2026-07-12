@@ -13,6 +13,7 @@ import {
   applyRelicsToGold,
   applyTalentsToGold,
   assignCombatIdentities,
+  assignEventIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   calculBrainrunUserXP,
@@ -71,7 +72,9 @@ import {
   BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CHRONO_BOOST_MS,
   BRAINRUN_DAMAGE_BOOST_AMOUNT,
+  BRAINRUN_EVENT_MIN_MAX_HP,
   BRAINRUN_EVENTS,
+  getBrainrunEventIdsByAct,
   type BrainrunConsumableId,
   type BrainrunConsumableReveal,
   type BrainrunOffer,
@@ -278,9 +281,12 @@ export class BrainrunService {
       });
       await prisma.brainrunRun.update({ where: { id: run.id }, data: { currentCol: col } });
     } else if (choice === "EVENT") {
-      // Reste ACTIVE tant que le joueur n'a pas choisi une des 2 options (cf. resolveEvent).
-      const eventIds = Object.keys(BRAINRUN_EVENTS);
-      const eventId = eventIds[Math.floor(Math.random() * eventIds.length)]!;
+      // L'événement du nœud a été fixé à la génération de la carte (cf. seedActGraph/
+      // assignEventIdentities), garantissant aucun doublon sur la run. Filet de sécurité si absent
+      // (nœud EVENT forcé via debugJumpToNode sans eventId préassigné) : on en tire un à la volée
+      // dans le pool de l'acte, en excluant ceux déjà placés. Reste ACTIVE tant que le joueur n'a
+      // pas choisi une option (cf. resolveEvent).
+      const eventId = node.eventId ?? (await this.pickFallbackEventId(run.id, run.currentAct));
       await prisma.brainrunRoom.update({
         where: { id: node.id },
         data: { status: "ACTIVE", eventId },
@@ -341,7 +347,11 @@ export class BrainrunService {
         { culture_generale: BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[run.currentAct]! },
         run.bannedThemes,
       );
-      const autoHintReveal = await this.computeAutoHintReveal(questionIds[0], effects);
+      const { reveal: entryReveal, fiftyFiftyConsumed } = await this.computeQuestionEntryReveal(
+        questionIds[0],
+        effects,
+        run.fiftyFiftyCharges,
+      );
       // Talent Faille d'Entrée : le boss démarre le combat avec un pourcentage de PV en moins.
       const bossStartHp =
         combatType === "BOSS" && talentEffects.bossHpReductionPct > 0
@@ -354,7 +364,7 @@ export class BrainrunService {
           status: "ACTIVE",
           questionIds,
           responses: [],
-          consumableReveal: autoHintReveal,
+          consumableReveal: entryReveal,
           ...(forcedCombatId ? { enemyId, bossId } : {}),
           ...(combatType === "BOSS"
             ? {
@@ -374,6 +384,9 @@ export class BrainrunService {
         data: {
           currentCol: col,
           usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
+          // Charge de 50/50 automatique consommée par la 1re question du combat (récompense
+          // d'Événement, cf. computeQuestionEntryReveal).
+          ...(fiftyFiftyConsumed ? { fiftyFiftyCharges: { decrement: 1 } } : {}),
           // Talent Bouclier du Boss : octroie 1 charge de Bouclier au début de chaque combat de
           // Boss (partagée avec le consommable et Bouclier d'Acte, cf. grantShieldCharge).
           ...(combatType === "BOSS" && talentEffects.hasShieldOnBossStart
@@ -803,12 +816,15 @@ export class BrainrunService {
       }
 
       // Réinitialisé pour la prochaine question : l'effet 50/50 / Appel à un ami ne s'applique
-      // qu'à la question sur laquelle il a été utilisé ; Sixième Sens est re-tiré pour la
-      // nouvelle question (cf. computeAutoHintReveal).
-      const nextConsumableReveal = await this.computeAutoHintReveal(
-        updatedQuestionIds[newResponses.length],
-        effects,
-      );
+      // qu'à la question sur laquelle il a été utilisé ; Sixième Sens et le 50/50 automatique
+      // (charges d'Événement) sont ré-évalués pour la nouvelle question (cf.
+      // computeQuestionEntryReveal).
+      const { reveal: nextConsumableReveal, fiftyFiftyConsumed } =
+        await this.computeQuestionEntryReveal(
+          updatedQuestionIds[newResponses.length],
+          effects,
+          run.fiftyFiftyCharges,
+        );
 
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
@@ -822,6 +838,13 @@ export class BrainrunService {
           ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint, questionStartedAt: null } : {}),
         },
       });
+      // Charge de 50/50 automatique consommée par cette nouvelle question (cf. entrée en combat).
+      if (fiftyFiftyConsumed) {
+        await prisma.brainrunRun.update({
+          where: { id: run.id },
+          data: { fiftyFiftyCharges: { decrement: 1 } },
+        });
+      }
     }
 
     return this.getStateById(run.id);
@@ -1069,6 +1092,12 @@ export class BrainrunService {
     if (goldCost > run.gold) {
       throw createError({ statusCode: 400, statusMessage: "Or insuffisant pour ce choix." });
     }
+    // Coût en PV max (rançon d'une résurrection) refusé si le joueur passerait sous le plancher —
+    // même garde côté client (option désactivée), défense en profondeur.
+    const maxHpCost = option.cost?.maxHp ?? 0;
+    if (maxHpCost > 0 && run.maxHealthPoint - maxHpCost < BRAINRUN_EVENT_MIN_MAX_HP) {
+      throw createError({ statusCode: 400, statusMessage: "PV max insuffisants pour ce choix." });
+    }
 
     const effects = getActiveRelicEffects(run.relics);
     const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
@@ -1080,7 +1109,10 @@ export class BrainrunService {
     const hpReward = Math.max(0, resolved.hpDelta);
     const { hpLoss, shieldChargesRemaining } = consumeShieldCharge(run.shieldCharges, hpCost);
     const shieldConsumed = shieldChargesRemaining < run.shieldCharges;
-    let newHealthPoint = Math.min(run.maxHealthPoint, run.healthPoint - hpLoss + hpReward);
+    // PV max abaissé d'abord par une éventuelle rançon (coût maxHp, ≤ 0 ; jamais fatal car borné
+    // par BRAINRUN_EVENT_MIN_MAX_HP plus haut), puis relevé par EXTRA_HEART plus bas.
+    let finalMaxHealthPoint = run.maxHealthPoint + resolved.maxHpDelta;
+    let newHealthPoint = Math.min(finalMaxHealthPoint, run.healthPoint - hpLoss + hpReward);
     let died = newHealthPoint <= 0;
     // Même filet de sécurité qu'en combat (cf. submitAnswer) pour un coût en PV fatal
     // d'Événement : consommable → relique → talent.
@@ -1111,30 +1143,66 @@ export class BrainrunService {
     // Purge Thématique octroyée par un Événement : comme pour grantOffer, la relique n'est
     // ajoutée qu'une fois le thème choisi (cf. resolveThemeBan) ; pas d'effet PV/relics ici.
     const grantsThemePurge = resolved.relicGranted === "THEME_PURGE";
-    let newMaxHealthPoint: number | undefined;
     if (resolved.relicGranted && !grantsThemePurge) {
       updatedRelics = [...updatedRelics, resolved.relicGranted];
       if (resolved.relicGranted === "EXTRA_HEART") {
-        newMaxHealthPoint = Math.min(run.maxHealthPoint + 1, BRAINRUN_ABSOLUTE_MAX_HP);
-        newHealthPoint = Math.min(newHealthPoint + 1, newMaxHealthPoint);
+        finalMaxHealthPoint = Math.min(finalMaxHealthPoint + 1, BRAINRUN_ABSOLUTE_MAX_HP);
+        newHealthPoint = Math.min(newHealthPoint + 1, finalMaxHealthPoint);
       }
     }
 
+    // Soin complet (récompense d'Événement) : remonte les PV au max courant, après stabilisation
+    // du PV max (rançon éventuelle + EXTRA_HEART). Seulement si le joueur survit.
+    if (resolved.fullHealGranted && !died) {
+      newHealthPoint = finalMaxHealthPoint;
+    }
+
+    // Charges de Bouclier gagnées (récompense d'Événement) : ajoutées après stabilisation des PV,
+    // chacune plafonnée aux PV courants (grantShieldCharge). Seulement si le joueur survit.
+    let newShieldCharges = shieldChargesRemaining;
+    if (!died) {
+      for (let i = 0; i < resolved.shieldChargesGranted; i++) {
+        newShieldCharges = grantShieldCharge(newShieldCharges, newHealthPoint);
+      }
+    }
+
+    // Dernier Souffle gagné (résurrection) : octroi direct hors plafond d'emplacements — c'est une
+    // récompense garantie payée par une perte de PV max, elle ne doit jamais être perdue faute de
+    // place (contrairement aux consommables ordinaires plafonnés par grantConsumable).
+    let updatedConsumables = consumables;
+    let consumablesChanged = false;
+    if (reviveTokenUsed) {
+      updatedConsumables = {
+        ...updatedConsumables,
+        REVIVE_TOKEN: (updatedConsumables.REVIVE_TOKEN ?? 0) - 1,
+      };
+      consumablesChanged = true;
+    }
+    if (resolved.reviveGranted && !died) {
+      updatedConsumables = {
+        ...updatedConsumables,
+        REVIVE_TOKEN: (updatedConsumables.REVIVE_TOKEN ?? 0) + 1,
+      };
+      consumablesChanged = true;
+    }
+
+    const maxHealthPointChanged = finalMaxHealthPoint !== run.maxHealthPoint;
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: {
         healthPoint: Math.max(newHealthPoint, 0),
         gold: Math.max(0, run.gold + resolved.goldDelta),
-        shieldCharges: shieldChargesRemaining,
+        shieldCharges: newShieldCharges,
+        ...(resolved.fiftyFiftyChargesGranted > 0 && !died
+          ? { fiftyFiftyCharges: run.fiftyFiftyCharges + resolved.fiftyFiftyChargesGranted }
+          : {}),
         ...(talentReviveUsed ? { talentReviveUsed: true } : {}),
         ...(resolved.relicLost || (resolved.relicGranted && !grantsThemePurge) || extraLifeUsed
           ? { relics: updatedRelics }
           : {}),
         ...(grantsThemePurge ? { pendingThemeBanChoice: true } : {}),
-        ...(newMaxHealthPoint !== undefined ? { maxHealthPoint: newMaxHealthPoint } : {}),
-        ...(reviveTokenUsed
-          ? { consumables: { ...consumables, REVIVE_TOKEN: consumables.REVIVE_TOKEN! - 1 } }
-          : {}),
+        ...(maxHealthPointChanged ? { maxHealthPoint: finalMaxHealthPoint } : {}),
+        ...(consumablesChanged ? { consumables: updatedConsumables } : {}),
       },
     });
     if (resolved.relicGranted && !grantsThemePurge) {
@@ -1154,12 +1222,20 @@ export class BrainrunService {
       });
       await this.finalizeRun(run.id, "LOST");
     } else {
-      // Résultat réellement appliqué (post-Bouclier/tirages aléatoires), affiché tel quel côté
-      // client à la place du récap générique une fois la salle CLEARED (cf. BrainrunEvent.vue).
+      // Résultat réellement appliqué (post-Bouclier/tirages aléatoires masqués), affiché tel quel
+      // côté client à la place du récap générique une fois la salle CLEARED (cf. BrainrunEvent.vue) :
+      // le lore de l'outcome tiré (resultText) + le détail visuel des gains réels.
       const outcome: BrainrunEventOutcomeDTO = {
         optionIndex,
+        outcomeIndex: resolved.outcomeIndex,
+        resultText: resolved.resultText,
         hpDelta: hpReward - hpLoss,
+        fullHealGranted: resolved.fullHealGranted && !died,
         goldDelta: resolved.goldDelta,
+        maxHpDelta: resolved.maxHpDelta,
+        shieldChargesGranted: !died ? resolved.shieldChargesGranted : 0,
+        fiftyFiftyChargesGranted: !died ? resolved.fiftyFiftyChargesGranted : 0,
+        reviveGranted: resolved.reviveGranted,
         relicGranted: resolved.relicGranted,
         relicLost: resolved.relicLost,
         consumablesGranted: resolved.consumablesGranted,
@@ -1519,6 +1595,14 @@ export class BrainrunService {
         type: { in: ["STANDARD", "ELITE"] },
       },
     });
+    // Événements déjà placés sur la carte de l'acte : à exclure du tirage des nœuds nouvellement
+    // convertis, pour préserver la garantie "aucun doublon d'Événement sur une run".
+    const usedEventIds = (
+      await prisma.brainrunRoom.findMany({
+        where: { runId, act, eventId: { not: null } },
+        select: { eventId: true },
+      })
+    ).map((r) => r.eventId!);
     for (const room of candidates) {
       const converted = maybeConvertNodeToEvent(
         room.type as BrainrunRoomType,
@@ -1526,29 +1610,71 @@ export class BrainrunService {
         Math.random,
       );
       if (converted !== room.type) {
+        const [assigned] = assignEventIdentities(
+          [{ row: room.row, col: room.col }],
+          getBrainrunEventIdsByAct(act),
+          Math.random,
+          usedEventIds,
+        );
+        const eventId = assigned!.eventId;
+        usedEventIds.push(eventId);
         await prisma.brainrunRoom.update({
           where: { id: room.id },
-          data: { type: converted },
+          data: { type: converted, eventId },
         });
       }
     }
   }
 
+  /** Filet de sécurité : tire un eventId pour un nœud EVENT dépourvu (ex. type forcé via
+   * debugJumpToNode), en excluant les Événements déjà présents sur la carte de l'acte. */
+  private async pickFallbackEventId(runId: string, act: number): Promise<string> {
+    const usedEventIds = (
+      await prisma.brainrunRoom.findMany({
+        where: { runId, act, eventId: { not: null } },
+        select: { eventId: true },
+      })
+    ).map((r) => r.eventId!);
+    const [assigned] = assignEventIdentities(
+      [{ row: 0, col: 0 }],
+      getBrainrunEventIdsByAct(act),
+      Math.random,
+      usedEventIds,
+    );
+    return assigned!.eventId;
+  }
+
   /**
-   * Relique Sixième Sens : tire, pour la question donnée, une chance de révéler la bonne réponse
-   * (après un délai géré côté client, cf. BRAINRUN_SIXTH_SENSE_DELAY_MS). Retourne un reveal vide
-   * si la relique n'est pas possédée, si le tirage échoue, ou si la question n'existe pas.
+   * Effets automatiques appliqués à une nouvelle question de combat au moment où elle est présentée :
+   * - **Sixième Sens** (relique, `autoHintChance`) : chance de révéler la bonne réponse après un
+   *   délai géré côté client (cf. BRAINRUN_SIXTH_SENSE_DELAY_MS) ;
+   * - **50/50 automatique** (`fiftyFiftyChargesAvailable`, récompense d'Événement) : si au moins une
+   *   charge est disponible, applique un 50/50 à la question et signale la consommation d'une charge
+   *   (à décrémenter par l'appelant via `fiftyFiftyConsumed`).
+   * Les deux peuvent se cumuler sur la même question. Retourne un reveal vide si la question n'existe
+   * pas ou si aucun effet ne s'applique.
    */
-  private async computeAutoHintReveal(
+  private async computeQuestionEntryReveal(
     questionId: number | undefined,
     effects: BrainrunRelicEffects,
-  ): Promise<ConsumableReveal> {
-    if (questionId === undefined || effects.autoHintChance <= 0) return {};
-    if (Math.random() >= effects.autoHintChance) return {};
+    fiftyFiftyChargesAvailable: number,
+  ): Promise<{ reveal: ConsumableReveal; fiftyFiftyConsumed: boolean }> {
+    if (questionId === undefined) return { reveal: {}, fiftyFiftyConsumed: false };
+    const wantsHint = effects.autoHintChance > 0 && Math.random() < effects.autoHintChance;
+    const wantsFiftyFifty = fiftyFiftyChargesAvailable > 0;
+    if (!wantsHint && !wantsFiftyFifty) return { reveal: {}, fiftyFiftyConsumed: false };
     const question = await questionService.getById(questionId);
-    if (!question) return {};
+    if (!question) return { reveal: {}, fiftyFiftyConsumed: false };
     const questionData = question.data as unknown as QuestionDataDTO;
-    return { autoHintId: questionData.response };
+    const reveal: ConsumableReveal = {};
+    if (wantsHint) reveal.autoHintId = questionData.response;
+    let fiftyFiftyConsumed = false;
+    if (wantsFiftyFifty) {
+      const propositionIds = questionData.propositions.map((p) => p.id);
+      reveal.eliminatedIds = pickFiftyFiftyEliminations(propositionIds, questionData.response);
+      fiftyFiftyConsumed = true;
+    }
+    return { reveal, fiftyFiftyConsumed };
   }
 
   /** Plafond d'emplacements de consommables (3 de base, +2 avec la relique Sac à Dos) : chaque
@@ -1744,6 +1870,14 @@ export class BrainrunService {
       getBrainrunBossesByAct(act),
     );
     const identityByKey = new Map(combatIdentities.map((i) => [`${i.row}:${i.col}`, i]));
+    // L'événement de chaque nœud EVENT est lui aussi fixé ici, tiré sans remise dans le pool de
+    // l'acte (aucun doublon d'Événement possible sur une run, cf. assignEventIdentities).
+    const eventIdentities = assignEventIdentities(
+      nodes.filter((node) => node.type === "EVENT"),
+      getBrainrunEventIdsByAct(act),
+      Math.random,
+    );
+    const eventIdByKey = new Map(eventIdentities.map((e) => [`${e.row}:${e.col}`, e.eventId]));
     await prisma.brainrunRoom.createMany({
       data: nodes.map((node) => {
         const identity = identityByKey.get(`${node.row}:${node.col}`)!;
@@ -1756,6 +1890,7 @@ export class BrainrunService {
           type: node.type,
           enemyId: identity.enemyId,
           bossId: identity.bossId,
+          eventId: eventIdByKey.get(`${node.row}:${node.col}`) ?? null,
         };
       }),
     });
@@ -2071,6 +2206,7 @@ export class BrainrunService {
       consumables: (run.consumables as ConsumableCounts) ?? {},
       maxConsumables: this.maxConsumableSlots(run.relics),
       shieldCharges: run.shieldCharges,
+      fiftyFiftyCharges: run.fiftyFiftyCharges,
       bannedThemes: run.bannedThemes,
       pendingThemeBanChoice: run.pendingThemeBanChoice,
       // Utilisé à la fois par le choix de thème de la relique Purge Thématique

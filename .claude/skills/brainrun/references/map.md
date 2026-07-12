@@ -98,6 +98,13 @@ random)`** (retombe sur le pool complet si épuisé) — conserve la variété d
   (`brainrunLogic.ts`), sans jamais changer l'identité déjà fixée. Voir `items.md` pour le détail.
 - `run.usedEnemyIds` (champ Prisma) a été supprimé : l'exclusion se fait maintenant une seule fois,
   à la génération, plutôt que dynamiquement au fil de la run.
+- **L'événement de chaque nœud `EVENT` est fixé de la même façon** depuis le 2026-07-12 :
+  `seedActGraph` appelle `assignEventIdentities` (tirage **sans remise** dans le pool de l'acte,
+  `getBrainrunEventIdsByAct`) après `assignCombatIdentities`, garantissant qu'aucun Événement
+  n'apparaît deux fois sur une run. `resolveNodeChoice` lit `node.eventId` au lieu de tirer à
+  l'entrée (filet `pickFallbackEventId` si absent). La conversion `STANDARD`/`ELITE` → `EVENT` par
+  l'Aimant à Événements (ci-dessous) assigne aussi un eventId, en excluant ceux déjà placés. Détail
+  dans `events-shop-library.md`.
 
 ## Résolution du nœud Neutre
 

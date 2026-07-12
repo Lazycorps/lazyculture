@@ -575,16 +575,38 @@ export function resolveEventOption(
   random: () => number = Math.random,
 ): {
   hpDelta: number;
+  /** true si l'outcome restaure tous les PV (appliqué par le service, prioritaire sur hpDelta). */
+  fullHealGranted: boolean;
   goldDelta: number;
+  /** Variation permanente de PV max (≤ 0 : coût explicite `maxHp` de l'option). */
+  maxHpDelta: number;
+  shieldChargesGranted: number;
+  fiftyFiftyChargesGranted: number;
+  reviveGranted: boolean;
   relicGranted: BrainrunRelicId | null;
   /** Relique sacrifiée (coût "RANDOM_OWNED") ; null si le joueur n'en possédait aucune. */
   relicLost: BrainrunRelicId | null;
   consumablesGranted: { id: BrainrunConsumableId; amount: number }[];
+  /** Index de l'outcome tiré au sort et son texte de lore, pour l'affichage du résultat. */
+  outcomeIndex: number;
+  resultText: string;
 } {
-  const hpDelta = (option.reward?.hp ?? 0) - (option.cost?.hp ?? 0);
-  let goldDelta = (option.reward?.gold ?? 0) - (option.cost?.gold ?? 0);
+  // Tirage masqué de l'outcome parmi la table pondérée de l'option ("ratio de chance positif").
+  const outcome = weightedRandomPick(option.outcomes, (o) => o.weight, random);
+  const outcomeIndex = option.outcomes.indexOf(outcome);
+  const reward = outcome.reward;
+
+  const hpDelta = (reward?.hp ?? 0) - (option.cost?.hp ?? 0);
+  const fullHealGranted = reward?.fullHeal ?? false;
+  let goldDelta = (reward?.gold ?? 0) - (option.cost?.gold ?? 0);
+  // Seuls les coûts (explicites, sur l'option) réduisent les PV max — jamais un outcome tiré au sort.
+  const maxHpDelta = -(option.cost?.maxHp ?? 0);
+  const shieldChargesGranted = reward?.shieldCharges ?? 0;
+  const fiftyFiftyChargesGranted = reward?.fiftyFiftyCharges ?? 0;
+  const reviveGranted = reward?.revive ?? false;
+
   const consumableIds = Object.keys(BRAINRUN_CONSUMABLES) as BrainrunConsumableId[];
-  const consumablesGranted = (option.reward?.consumables ?? []).map((grant) => ({
+  const consumablesGranted = (reward?.consumables ?? []).map((grant) => ({
     id:
       grant.id === "RANDOM"
         ? weightedRandomPick(
@@ -604,7 +626,7 @@ export function resolveEventOption(
   }
 
   let relicGranted: BrainrunRelicId | null = null;
-  if (option.reward?.relic === "RANDOM") {
+  if (reward?.relic === "RANDOM") {
     // Exclut aussi la relique tout juste sacrifiée (relicLost) : un "échange" ne doit pas
     // pouvoir rendre la même relique. Comme elle fait déjà partie de ownedRelics, elle est
     // naturellement exclue par pickUnownedRelics.
@@ -621,7 +643,20 @@ export function resolveEventOption(
     }
   }
 
-  return { hpDelta, goldDelta, relicGranted, relicLost, consumablesGranted };
+  return {
+    hpDelta,
+    fullHealGranted,
+    goldDelta,
+    maxHpDelta,
+    shieldChargesGranted,
+    fiftyFiftyChargesGranted,
+    reviveGranted,
+    relicGranted,
+    relicLost,
+    consumablesGranted,
+    outcomeIndex,
+    resultText: outcome.resultText,
+  };
 }
 
 /** 50/50 : élimine la moitié des mauvaises propositions (arrondi à l'inférieur), pas toujours 2 —
@@ -1061,6 +1096,33 @@ export function assignCombatIdentities(
       return { row: node.row, col: node.col, enemyId: null, bossId: boss.id };
     }
     return { row: node.row, col: node.col, enemyId: null, bossId: null };
+  });
+}
+
+/**
+ * Fixe l'événement de chaque nœud EVENT d'un acte, une fois à la génération de la carte (comme
+ * assignCombatIdentities pour les ennemis) : tiré **sans remise** dans le pool de l'acte, ce qui
+ * garantit qu'aucun Événement n'apparaît deux fois sur une run tant que le pool (8 par acte) couvre
+ * le nombre de nœuds EVENT. `excludeIds` retire du tirage les événements déjà placés sur la carte —
+ * utilisé lors d'une conversion en cours de run (Aimant à Événements, cf.
+ * BrainrunService.convertUpcomingNodesToEvents) pour ne pas dupliquer un événement déjà présent.
+ * Si le pool disponible est épuisé (plus de nœuds EVENT que d'événements uniques), on autorise la
+ * répétition en repiochant dans le pool complet mélangé, plutôt que de bloquer.
+ */
+export function assignEventIdentities(
+  eventNodes: { row: number; col: number }[],
+  eventPool: string[],
+  random: () => number = Math.random,
+  excludeIds: string[] = [],
+): { row: number; col: number; eventId: string }[] {
+  let bag = shuffle(
+    eventPool.filter((id) => !excludeIds.includes(id)),
+    random,
+  );
+  return eventNodes.map((node) => {
+    if (bag.length === 0) bag = shuffle(eventPool, random);
+    const eventId = bag.shift()!;
+    return { row: node.row, col: node.col, eventId };
   });
 }
 

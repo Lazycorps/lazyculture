@@ -64,6 +64,9 @@ Téléporte vers un nœud précis, qui doit être `PENDING` (refuse un nœud dé
    l'ennemi/boss est fixé à la génération (cf. `map.md`/`enemies-and-bosses.md`), un changement de
    type ré-assigne aussi `enemyId`/`bossId` pour rester cohérent avec le nouveau type (sauf si
    `forcedCombatId` est fourni, auquel cas c'est `resolveNodeChoice` qui s'en charge juste après).
+   Forcer un nœud `EVENT` (dont l'eventId n'est pas préassigné par ce chemin) est rattrapé par le
+   filet `pickFallbackEventId` de `resolveNodeChoice`, qui tire un Événement de l'acte non encore
+   présent sur la carte (cf. `events-shop-library.md`).
 5. Met à jour `currentAct`/`currentRow`, puis délègue la résolution du nœud à `resolveNodeChoice` —
    la même méthode privée que `chooseNode` utilise pour un choix normal (extraite de `chooseNode`
    lors de l'ajout du debug, pour ne pas dupliquer la logique de questions).
