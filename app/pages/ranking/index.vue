@@ -15,10 +15,10 @@
     <!-- Tabs Switcher -->
     <div class="flex justify-center pt-2">
       <div
-        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 flex space-x-1 w-full max-w-lg"
+        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 grid grid-cols-3 gap-1 w-full max-w-[260px] sm:max-w-md"
       >
         <button
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'daily'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -30,7 +30,7 @@
           <span>Quotidien</span>
         </button>
         <button
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'br'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -42,7 +42,7 @@
           <span>BR</span>
         </button>
         <button
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'showdown'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -54,7 +54,7 @@
           <span>Showdown</span>
         </button>
         <button
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'general'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -66,7 +66,7 @@
           <span>XP</span>
         </button>
         <button
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'brainrun'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
@@ -79,7 +79,7 @@
         </button>
         <button
           v-if="userStore.isLoggedIn"
-          class="flex-1 py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
+          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
           :class="
             currentTab === 'friends'
               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
