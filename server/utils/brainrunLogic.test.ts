@@ -609,6 +609,31 @@ describe("assignCombatIdentities", () => {
     expect(classicPool.map((c) => c.id)).toContain(identities[0]!.enemyId);
     expect(elitePool.map((e) => e.id)).toContain(identities[1]!.enemyId);
   });
+
+  it("never repeats an Elite along a single route, even when the map has more Elite nodes than the pool", () => {
+    // Deux routes partageant un même nœud Élite final, alimenté par 2 nœuds Élite parallèles :
+    //   r1c0 (STANDARD) → r2c0/r2c1 (ELITE) → r3c0 (ELITE) → r4c0 (BOSS)
+    // 3 nœuds Élite pour un pool de 2 : l'ancienne exclusion globale épuisait le pool et
+    // réutilisait e1/e2 arbitrairement sur un trajet. La profondeur de route garantit que r3c0
+    // (profondeur 2) diffère de l'Élite de profondeur 1 qu'on a traversée pour l'atteindre.
+    const nodes = [
+      { row: 1, col: 0, type: "STANDARD" as const, nextCols: [0, 1] },
+      { row: 2, col: 0, type: "ELITE" as const, nextCols: [0] },
+      { row: 2, col: 1, type: "ELITE" as const, nextCols: [0] },
+      { row: 3, col: 0, type: "ELITE" as const, nextCols: [0] },
+      { row: 4, col: 0, type: "BOSS" as const, nextCols: [] },
+    ];
+    for (let seed = 0; seed < 50; seed++) {
+      const identities = assignCombatIdentities(nodes, classicPool, elitePool, bossPool);
+      const get = (row: number, col: number) =>
+        identities.find((i) => i.row === row && i.col === col)!.enemyId;
+      // Route A : r2c0 → r3c0 ; Route B : r2c1 → r3c0. Chaque route doit avoir 2 Élites distinctes.
+      // (r2c0/r2c1, de même profondeur, ne sont jamais sur une même route et peuvent partager
+      // l'identité — voulu, pas un doublon perçu par le joueur.)
+      expect(get(3, 0)).not.toBe(get(2, 0));
+      expect(get(3, 0)).not.toBe(get(2, 1));
+    }
+  });
 });
 
 describe("effectiveThemes", () => {

@@ -979,22 +979,72 @@ export type BrainrunNodeCombatIdentity = {
   bossId: string | null;
 };
 
+type CombatIdentityNode = {
+  row: number;
+  col: number;
+  type: BrainrunRoomType;
+  nextCols?: number[];
+};
+
+/**
+ * Profondeur "de route" de chaque nœud d'un `tier` donné : nombre maximum de nœuds de ce tier
+ * rencontrés sur une route (rangée 1 → Boss) en **incluant** le nœud lui-même. Calculée en
+ * propageant le meilleur compte le long des arêtes (`nextCols`), rangées croissantes.
+ *
+ * Propriété clé : deux nœuds du même tier situés sur une même route ont des profondeurs
+ * **strictement croissantes** (chaque nœud du tier ajoute 1). Affecter une identité par
+ * profondeur garantit donc qu'aucune route ne traverse deux fois le même ennemi de ce tier, tant
+ * que le pool couvre la profondeur maximale possible (BRAINRUN_MAX_ELITE_PER_ROUTE pour les
+ * Élites, largement couvert par les 5 Élites d'un acte). Deux nœuds de même profondeur, eux, ne
+ * partagent jamais de route : ils peuvent réutiliser la même identité sans créer de doublon perçu.
+ */
+function computeTierRouteDepths(
+  nodes: CombatIdentityNode[],
+  tier: BrainrunRoomType,
+): Map<string, number> {
+  const key = (row: number, col: number) => `${row}:${col}`;
+  const exists = new Set(nodes.map((n) => key(n.row, n.col)));
+  const bestBefore = new Map<string, number>(); // meilleur compte du tier strictement avant ce nœud
+  const depth = new Map<string, number>();
+  const sorted = [...nodes].sort((a, b) => a.row - b.row || a.col - b.col);
+  for (const node of sorted) {
+    const here = (bestBefore.get(key(node.row, node.col)) ?? 0) + (node.type === tier ? 1 : 0);
+    depth.set(key(node.row, node.col), here);
+    for (const col of node.nextCols ?? []) {
+      const childKey = key(node.row + 1, col);
+      if (!exists.has(childKey)) continue;
+      bestBefore.set(childKey, Math.max(bestBefore.get(childKey) ?? 0, here));
+    }
+  }
+  return depth;
+}
+
 /**
  * Fixe l'ennemi/boss de chaque nœud de combat (Standard/Élite/Boss) d'un acte, une fois pour
  * toutes à la génération de la carte (plus de tirage à l'entrée de la salle, cf.
- * references/map.md) : garantit qu'un même ennemi n'apparaît jamais deux fois sur la carte tant
- * que le pool du tier (Classique/Élite, séparément) n'est pas épuisé. Le Boss (1 seul nœud par
- * acte) n'a pas besoin d'exclusion.
+ * references/map.md).
+ *
+ * - **Élite** : identité affectée par **profondeur de route** (cf. computeTierRouteDepths) dans un
+ *   pool mélangé une fois par carte — garantit qu'aucune route (rangée 1 → Boss) ne fait affronter
+ *   deux fois la même Élite, même si la carte compte plus de nœuds Élite que le pool (l'ancienne
+ *   exclusion globale au fil des nœuds épuisait le pool et laissait réapparaître une même Élite sur
+ *   un trajet). Les nœuds Élite de même profondeur — jamais sur une même route — peuvent partager
+ *   une identité sans doublon perçu par le joueur.
+ * - **Standard** : exclusion globale au fil des nœuds tant que le pool (10 Classiques/acte) n'est
+ *   pas épuisé — conserve la variété d'affichage de la carte (ex. les 3 combats Standard de l'étage
+ *   1 restent distincts) ; le risque de doublon sur un trajet y est marginal vu la taille du pool.
+ * - **Boss** : 1 seul nœud par acte, pas d'exclusion nécessaire.
  */
 export function assignCombatIdentities(
-  nodes: { row: number; col: number; type: BrainrunRoomType }[],
+  nodes: CombatIdentityNode[],
   classicPool: { id: string }[],
   elitePool: { id: string }[],
   bossPool: { id: string }[],
   random: () => number = Math.random,
 ): BrainrunNodeCombatIdentity[] {
   const usedClassic: string[] = [];
-  const usedElite: string[] = [];
+  const eliteByDepth = shuffle(elitePool, random);
+  const eliteDepths = computeTierRouteDepths(nodes, "ELITE");
   return nodes.map((node) => {
     if (node.type === "STANDARD") {
       const enemy = pickCombatCandidate(classicPool, usedClassic, random);
@@ -1002,8 +1052,8 @@ export function assignCombatIdentities(
       return { row: node.row, col: node.col, enemyId: enemy.id, bossId: null };
     }
     if (node.type === "ELITE") {
-      const enemy = pickCombatCandidate(elitePool, usedElite, random);
-      usedElite.push(enemy.id);
+      const depth = eliteDepths.get(`${node.row}:${node.col}`) ?? 1;
+      const enemy = eliteByDepth[(depth - 1) % eliteByDepth.length]!;
       return { row: node.row, col: node.col, enemyId: enemy.id, bossId: null };
     }
     if (node.type === "BOSS") {

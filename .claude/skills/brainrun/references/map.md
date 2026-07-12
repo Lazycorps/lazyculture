@@ -79,11 +79,16 @@ l'ennemi/boss de chaque nœud `STANDARD`/`ELITE`/`BOSS` est fixé **une fois pou
 génération de la carte**, dans `BrainrunService.seedActGraph`, juste après `generateActGraph` :
 
 - **`assignCombatIdentities(nodes, classicPool, elitePool, bossPool, random)`** (`brainrunLogic.ts`)
-  parcourt les nœuds et pioche via **`pickCombatCandidate(pool, excludeIds, random)`**, en excluant
-  au fur et à mesure les ids déjà assignés **du même tier** (Classique/Élite séparément) — garantit
-  qu'aucun ennemi n'apparaît deux fois sur la carte d'un acte tant que le pool du tier n'est pas
-  épuisé (retombe sur le pool complet sinon, même filet de sécurité qu'ailleurs). Le Boss (1 seul
-  nœud par acte) n'a pas besoin d'exclusion.
+  affecte l'identité différemment selon le tier :
+  - **Standard** : exclusion globale au fil des nœuds via **`pickCombatCandidate(pool, excludeIds,
+random)`** (retombe sur le pool complet si épuisé) — conserve la variété d'affichage de la carte,
+    doublon sur un trajet marginal vu le pool de 10.
+  - **Élite** : identité par **profondeur de route** (`computeTierRouteDepths`), pas par exclusion
+    globale — **garantit qu'aucune route ne fait affronter deux fois la même Élite**, même si la
+    carte a plus de nœuds Élite que le pool (l'étage forcé 100% Élite fait 4 de large). L'ancienne
+    exclusion globale épuisait le pool de 5 Élites puis en réutilisait une au hasard qui pouvait
+    retomber sur le trajet du joueur (bug corrigé 2026-07-12). Détail dans `enemies-and-bosses.md`.
+  - **Boss** (1 seul nœud par acte) : pas d'exclusion nécessaire.
 - `BrainrunService.resolveNodeChoice` ne tire plus rien à l'entrée en salle : il lit
   `node.enemyId`/`node.bossId` déjà persistés. `forcedCombatId` (debug uniquement, cf.
   `debugJumpToNode`) reste le seul moyen de l'écraser explicitement.
