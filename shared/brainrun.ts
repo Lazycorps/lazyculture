@@ -171,6 +171,10 @@ export type BrainrunRoomDTO = {
   bossMaxHealthPoint: number | null;
   /** Horodatage limite pour répondre à la question en cours (uniquement salle BOSS active). */
   questionDeadline: Date | null;
+  /** Horodatage de démarrage de la question en cours (uniquement salle BOSS active) : sert au client
+   * à calculer le temps écoulé indépendamment des bonus qui repoussent questionDeadline (ex. flou de
+   * Gérard, qui doit se dissiper sur une durée fixe depuis le début, pas depuis la deadline). */
+  questionStartedAt: Date | null;
   /** Offres à résoudre : bonus post-combat (ELITE/BOSS) ou offres de la Boutique. */
   offers: BrainrunOffer[] | null;
   /** true uniquement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu. */

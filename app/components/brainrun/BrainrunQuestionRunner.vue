@@ -248,6 +248,7 @@ const actionBarRef = ref<HTMLElement | null>(null);
 // de cette même valeur (à la place du séparateur habituel entre l'en-tête et la question).
 const timedOutFlag = ref(false);
 const remainingMs = useState("brainrun-boss-remaining-ms", () => BRAINRUN_BOSS_QUESTION_TIME_MS);
+const bossElapsedMs = ref(0);
 let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
 
 const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
@@ -325,10 +326,15 @@ function handleConsumableClick(id: BrainrunConsumableId) {
 }
 
 function updateRemainingMs() {
-  const deadline = brainrun.currentRoom.value?.questionDeadline;
+  const room = brainrun.currentRoom.value;
+  const deadline = room?.questionDeadline;
   remainingMs.value = deadline
     ? Math.max(0, new Date(deadline).getTime() - Date.now())
     : BRAINRUN_BOSS_QUESTION_TIME_MS;
+  // Temps écoulé depuis le début de la question (indépendant des bonus qui repoussent la deadline) :
+  // sert au flou de Gérard, qui doit se dissiper sur une durée fixe. Cf. useBrainrunBossMalus.
+  const startedAt = room?.questionStartedAt;
+  bossElapsedMs.value = startedAt ? Math.max(0, Date.now() - new Date(startedAt).getTime()) : 0;
 }
 
 function stopBossTimer() {
@@ -521,7 +527,7 @@ const { displayPropositions, answerBlurPx, mirrorAnswers, pauseSwap, resumeSwap 
   useBrainrunBossMalus({
     malus: activeBossMalus,
     propositions: questionPropositions,
-    remainingMs,
+    elapsedMs: bossElapsedMs,
     revealed,
   });
 

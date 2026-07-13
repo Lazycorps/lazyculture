@@ -20,7 +20,7 @@
 ## Cycle de vie d'une salle (dans `BrainrunService`)
 
 1. `chooseNode(col)` — le joueur choisit un nœud accessible (`getCandidateNodes`). Le type était déjà assigné à la génération de la carte, jamais fourni par le client. Pour un combat : tire un ennemi/boss (exclusion des thèmes bannis + ennemis déjà rencontrés dans l'acte) puis les questions ; passe la salle en `ACTIVE`.
-2. `submitAnswer(questionId, responseId)` — répété question par question pour `STANDARD`/`ELITE`/`BOSS`. Calcule succès, perte de PV, dégâts de boss ; passe en `CLEARED` (or gagné, offres de bonus si Elite/Boss) ou `FAILED` (mort → `finalizeRun("LOST")`).
+2. `submitAnswer(questionId, responseId)` — répété question par question pour `STANDARD`/`ELITE`/`BOSS`. Calcule succès, perte de PV, dégâts de boss ; passe en `CLEARED` (or gagné, offres de bonus si Elite/Boss — **sauf le Boss du dernier acte**, qui gagne la run et ne propose donc aucun bonus) ou `FAILED` (mort → `finalizeRun("LOST")`).
 3. `acknowledgeRoom()` — confirme le récap de fin de salle (`CLEARED`) et avance vers la rangée suivante via `advanceAfterRoomClear`. Bloqué tant qu'un bonus post-combat ou un choix de thème banni est en attente.
 4. Pour les salles spéciales, l'équivalent de l'étape 2 est `resolveRest`/`buyShopItem`+`leaveShop`/`resolveEvent` → détail dans `events-shop-library.md`.
 

@@ -9,7 +9,12 @@ const SCRAMBLE_INTERVAL_MS = 1000;
 const SCRAMBLE_REVERT_MS = 700;
 const SCRAMBLE_RATIO = 0.2;
 const MAX_BLUR_PX = 6;
+// Marge avant la fin (temps de base, sans bonus) à laquelle le flou a totalement disparu.
 const BLUR_CLEAR_AT_MS = 3000;
+// Durée fixe de dissipation du flou, depuis le début de la question (12s = temps de base − marge).
+// Ancrée sur le temps écoulé et non sur le temps restant : sinon les bonus qui repoussent la
+// deadline (Chronomètre, boost de chrono, etc.) feraient disparaître le flou trop lentement.
+const BLUR_DURATION_MS = BRAINRUN_BOSS_QUESTION_TIME_MS - BLUR_CLEAR_AT_MS;
 const RANDOM_LETTERS = "abcdefghijklmnopqrstuvwxyz";
 
 /**
@@ -20,13 +25,15 @@ const RANDOM_LETTERS = "abcdefghijklmnopqrstuvwxyz";
 export function useBrainrunBossMalus(options: {
   malus: Ref<BrainrunBossMalusId | undefined>;
   propositions: Ref<Proposition[]>;
-  remainingMs: Ref<number>;
+  /** Temps écoulé depuis le début de la question de boss (ms) — pilote la dissipation du flou de
+   * Gérard sur une durée fixe, indépendamment des bonus de temps. */
+  elapsedMs: Ref<number>;
   /** Réponse révélée (correct/incorrect déjà connu) : désactive tout effet de malus affectant
    * l'affichage des réponses (masquage, swap, mélange de lettres, flou, miroir), pour que le
    * joueur voie les réponses réelles pendant le feedback. */
   revealed?: Ref<boolean>;
 }) {
-  const { malus, propositions, remainingMs, revealed } = options;
+  const { malus, propositions, elapsedMs, revealed } = options;
 
   const swapOrder = ref<Proposition[]>([...propositions.value]);
   const hiddenId = ref<number | null>(null);
@@ -121,9 +128,7 @@ export function useBrainrunBossMalus(options: {
 
   const answerBlurPx = computed(() => {
     if (revealed?.value || malus.value !== "progressive_blur") return 0;
-    if (remainingMs.value <= BLUR_CLEAR_AT_MS) return 0;
-    const progress =
-      (remainingMs.value - BLUR_CLEAR_AT_MS) / (BRAINRUN_BOSS_QUESTION_TIME_MS - BLUR_CLEAR_AT_MS);
+    const progress = 1 - elapsedMs.value / BLUR_DURATION_MS;
     return Math.max(0, Math.min(MAX_BLUR_PX, MAX_BLUR_PX * progress));
   });
 

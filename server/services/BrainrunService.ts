@@ -752,7 +752,13 @@ export class BrainrunService {
       );
       // Bonus post-combat (relique/consommable au choix) uniquement après Elite/Boss —
       // les salles Standard ne rapportent que de l'or, pour garder Elite/Boss comme temps forts.
-      const grantsBonus = activeRoom.type === "ELITE" || activeRoom.type === "BOSS";
+      // Exception : le Boss du dernier acte (qui gagne la run) ne propose pas de bonus — la run est
+      // finie, une récompense n'aurait aucun usage (cf. nextRowAfterClear → RUN_WON).
+      const isRunWinningBoss =
+        activeRoom.type === "BOSS" &&
+        nextRowAfterClear(activeRoom.act, activeRoom.row).kind === "RUN_WON";
+      const grantsBonus =
+        (activeRoom.type === "ELITE" || activeRoom.type === "BOSS") && !isRunWinningBoss;
       // Talent Générosité : +1 offre, réservé aux Élites (le Boss reste à BRAINRUN_BONUS_OFFER_COUNT).
       const bonusOfferCount =
         activeRoom.type === "ELITE" && talentEffects.hasEliteExtraOffer
@@ -2295,6 +2301,8 @@ export class BrainrunService {
       bossMaxHealthPoint: room.bossMaxHealthPoint,
       bossPhase: room.bossPhase,
       questionDeadline,
+      questionStartedAt:
+        room.type === "BOSS" && room.status === "ACTIVE" ? room.questionStartedAt : null,
       offers: (room.offers as unknown as BrainrunOffer[] | null) ?? null,
       offersRequireChoice: room.offersRequireChoice,
       offersResolved: room.offersResolved,

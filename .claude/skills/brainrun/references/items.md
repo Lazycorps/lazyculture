@@ -61,7 +61,7 @@ Les effets ponctuels sur la question en cours (50/50, Appel à un ami, Sablier F
 
 Deux générateurs distincts dans `brainrunLogic.ts`, à ne pas confondre :
 
-- **`generateBonusOffers`** — bonus post Elite/Boss, gratuit, toujours `BRAINRUN_BONUS_OFFER_COUNT` = 3 options (jamais moins), priorité reliques non possédées pondérées par rareté, complété par des consommables puis de l'or si le pool de reliques est épuisé. Le joueur peut aussi cliquer "Passer" (`SKIP`) → relique Lot de Consolation.
+- **`generateBonusOffers`** — bonus post Elite/Boss, gratuit, toujours `BRAINRUN_BONUS_OFFER_COUNT` = 3 options (jamais moins), priorité reliques non possédées pondérées par rareté, complété par des consommables puis de l'or si le pool de reliques est épuisé. Le joueur peut aussi cliquer "Passer" (`SKIP`) → relique Lot de Consolation. **Exception** : le Boss du dernier acte (celui qui gagne la run) ne déclenche **aucun** bonus — `submitAnswer` calcule `isRunWinningBoss` via `nextRowAfterClear(...).kind === "RUN_WON"` et met `grantsBonus = false` (la run est finie, une récompense serait inutilisable).
 - **`generateShopOffers`** — Librairie, avec prix (détail dans `events-shop-library.md`).
 
 ## Glossaire (encyclopédie des objets découverts)
