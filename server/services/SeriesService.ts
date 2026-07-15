@@ -352,7 +352,7 @@ export class SeriesService {
     return randomId;
   }
 
-  /** 10 questions aléatoires uniques, en évitant celles des 10 dernières séries daily. */
+  /** 10 questions aléatoires uniques, en évitant celles des 30 dernières séries daily. */
   private async getRandomDailyQuestionsIds() {
     const { minId, maxId } = await this.getMinMaxId();
     const uniqueIds = new Set<number>();
@@ -361,7 +361,7 @@ export class SeriesService {
         type: "daily",
       },
       orderBy: { id: "desc" },
-      take: 10,
+      take: 30,
     });
 
     let questionIdsToIgnore: number[] = [];
