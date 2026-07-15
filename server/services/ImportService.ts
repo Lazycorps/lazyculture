@@ -113,14 +113,34 @@ export class ImportService {
   async importCultureQuizz(supabase: SupabaseClient, request: QuizzCultureRequestDTO) {
     const questions = await this.extractQuestionsData(request);
 
+    const questionsToInsert: QuestionDataDTO[] = [];
     for (const question of questions) {
+      const libelle = question.libelle?.trim();
+      if (!libelle) continue;
+
+      // Check for duplicate in DB (same title, active questions)
+      const exists = await prisma.question.findFirst({
+        where: {
+          deleted: false,
+          data: {
+            path: ["libelle"],
+            equals: libelle,
+          },
+        },
+      });
+      if (exists) continue;
+
+      questionsToInsert.push(question);
+    }
+
+    for (const question of questionsToInsert) {
       if (question.img) {
         const imageName = crypto.randomUUID();
         question.img = await this.downloadAndUploadImage(supabase, question.img, imageName);
       }
     }
 
-    return this.persistQuestions(questions, "CultureQuizz");
+    return this.persistQuestions(questionsToInsert, "CultureQuizz");
   }
 
   importOpenQuizzDB(body: OpenQuizzDB, theme?: string) {
