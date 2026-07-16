@@ -254,6 +254,7 @@ const supabase = useSupabaseClient();
 const router = useRouter();
 const userStore = useUserStore();
 const { authFetch } = useAuthFetch();
+const toast = useToast();
 
 const loading = ref(true);
 const loadingHistory = ref(true);
@@ -387,8 +388,18 @@ async function updateUsername() {
     if (userStore.user) {
       userStore.user.name = username.value;
     }
-  } catch (e) {
+    toast.add({
+      title: "Profil mis à jour",
+      description: "Votre pseudonyme a été enregistré avec succès.",
+      color: "success",
+    });
+  } catch (e: any) {
     console.error("Failed to update username:", e);
+    toast.add({
+      title: "Erreur",
+      description: e?.data?.statusMessage || "Impossible de mettre à jour le pseudonyme.",
+      color: "error",
+    });
   } finally {
     loadingUpdateUser.value = false;
   }

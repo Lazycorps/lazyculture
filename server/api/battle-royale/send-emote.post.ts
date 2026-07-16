@@ -1,6 +1,8 @@
 import { getAuthenticatedUser } from "~~/server/utils/auth";
 import { battleRoyaleManager } from "~~/server/utils/battleRoyaleManager";
 
+const ALLOWED_EMOTES = ["👍", "👎", "😂", "😢", "😮", "😡", "😎", "🤫"];
+
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
   const body = await readBody(event).catch(() => ({}));
@@ -12,6 +14,14 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: "Les paramètres matchId et emote sont requis.",
+    });
+  }
+
+  // Validation de l'emote
+  if (!ALLOWED_EMOTES.includes(emote)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Cette réaction n'est pas autorisée.",
     });
   }
 
