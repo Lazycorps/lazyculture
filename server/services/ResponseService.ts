@@ -3,8 +3,10 @@ import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import { isCorrectAnswer } from "~~/server/services/QuestionService";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 
+const DAILY_REWARD_CAP = 150;
+
 export class ResponseService {
-  async validateResponse(body: ResponseDTO, userId?: string) {
+  async validateResponse(body: ResponseDTO, userId?: string, bypassDailyCap = false) {
     const question = await prisma.question.findFirst({
       where: { id: body.questionId },
     });
@@ -48,19 +50,47 @@ export class ResponseService {
       });
 
       if (success) {
-        const userProgress = await this.updateUserProgress(
-          userId,
-          question.xp_earned,
-          successCount,
-        );
-        responseResult.xpEarned = (userProgress.xpEarned ??
-          (userProgress as any).userXpWin ??
-          0) as number;
-        responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
-        responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
-        responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
-        responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
-        await grantCoins(userId, responseResult.coinsEarned);
+        let isCapped = false;
+        if (!bypassDailyCap) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const dailyAnswersCount = await prisma.questionResponse.count({
+            where: {
+              userId,
+              date: {
+                gte: today,
+              },
+            },
+          });
+          if (dailyAnswersCount > DAILY_REWARD_CAP) {
+            isCapped = true;
+          }
+        }
+
+        if (isCapped) {
+          const userProgress = await prisma.userProgress.findFirst({
+            where: { userId },
+          });
+          responseResult.xpEarned = 0;
+          responseResult.xpTot = userProgress?.xp ?? 0;
+          responseResult.previousLevel = userProgress?.levelId ?? 1;
+          responseResult.newLevel = userProgress?.levelId ?? 1;
+          responseResult.coinsEarned = 0;
+        } else {
+          const userProgress = await this.updateUserProgress(
+            userId,
+            question.xp_earned,
+            successCount,
+          );
+          responseResult.xpEarned = (userProgress.xpEarned ??
+            (userProgress as any).userXpWin ??
+            0) as number;
+          responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
+          responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
+          responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
+          responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
+          await grantCoins(userId, responseResult.coinsEarned);
+        }
       }
     }
 

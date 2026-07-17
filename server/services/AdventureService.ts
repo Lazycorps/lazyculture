@@ -317,6 +317,7 @@ export class AdventureService {
           userResponseId,
         },
         userId,
+        true, // bypassDailyCap
       );
       if (res?.xpEarned) {
         xpEarnedTotal += res.xpEarned;
@@ -326,31 +327,35 @@ export class AdventureService {
     const isReplay = sequence < currentUnlocked || completed;
 
     if (success) {
-      // Award stage completion bonus XP
+      // Award stage completion bonus XP (only if not a replay)
       let bonusXp = 0;
-      if (stage.type === "STEP") bonusXp = 50;
-      else if (stage.type === "CONTROL") bonusXp = 150;
-      else if (stage.type === "EXAM") bonusXp = 500;
+      if (!isReplay) {
+        if (stage.type === "STEP") bonusXp = 50;
+        else if (stage.type === "CONTROL") bonusXp = 150;
+        else if (stage.type === "EXAM") bonusXp = 500;
+      }
 
       // Update user progress XP
-      const progressRecord = await prisma.userProgress.findFirst({
-        where: { userId },
-      });
-      if (progressRecord) {
-        const userXpTot = progressRecord.xp + bonusXp;
-        const level = await prisma.level.findFirst({
-          where: { xp_threshold: { lte: userXpTot } },
-          orderBy: { xp_threshold: "desc" },
-        });
-        await prisma.userProgress.update({
+      if (bonusXp > 0) {
+        const progressRecord = await prisma.userProgress.findFirst({
           where: { userId },
-          data: {
-            xp: { increment: bonusXp },
-            levelId: level?.id,
-          },
         });
+        if (progressRecord) {
+          const userXpTot = progressRecord.xp + bonusXp;
+          const level = await prisma.level.findFirst({
+            where: { xp_threshold: { lte: userXpTot } },
+            orderBy: { xp_threshold: "desc" },
+          });
+          await prisma.userProgress.update({
+            where: { userId },
+            data: {
+              xp: { increment: bonusXp },
+              levelId: level?.id,
+            },
+          });
+        }
+        await grantCoins(userId, coinsFromXp(bonusXp));
       }
-      await grantCoins(userId, coinsFromXp(bonusXp));
 
       // 4. Update stage scores map
       let stageScores: Record<string, number> = {};
