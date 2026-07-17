@@ -35,6 +35,18 @@ export const useAchievementStore = defineStore("achivements", {
         this.notify(a);
       });
     },
+    async checkSpeedrun() {
+      const result = await $fetch<UserAchievementDTO[]>("/api/achievement/speedrun");
+      result?.forEach((a) => {
+        const alreadyExists = this.userAchievements.some(
+          (ua) => ua.achievementId === a.achievementId,
+        );
+        if (!alreadyExists) {
+          this.userAchievements.push(a);
+          this.notify(a);
+        }
+      });
+    },
     async checkBattleRoyale() {
       const result = await $fetch<UserAchievementDTO[]>("/api/achievement/br");
       result?.forEach((a) => {

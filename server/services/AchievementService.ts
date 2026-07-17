@@ -247,6 +247,51 @@ export class AchievementService {
 
     return [...gamesPlayedAchievement, ...winsAchievement];
   }
+
+  async checkSpeedrunAchievements(userId: string) {
+    const speedrunGamesCount = await prisma.questionSeriesResponse.count({
+      where: { userId, seriesType: { in: ["speedrun_survival", "speedrun_sprint"] } },
+    });
+    const speedrunGamesAchievements = await checkAndAwardAchievements(
+      userId,
+      "speedrunGames",
+      speedrunGamesCount,
+    );
+
+    const survivalMaxScore = await prisma.questionSeriesResponse.findFirst({
+      where: { userId, seriesType: "speedrun_survival" },
+      orderBy: { result: "desc" },
+      select: { result: true },
+    });
+    const survivalMaxScoreValue = survivalMaxScore ? Number(survivalMaxScore.result) : 0;
+    const survivalAchievements = await checkAndAwardAchievements(
+      userId,
+      "speedrunSurvivalMaxScore",
+      survivalMaxScoreValue,
+    );
+
+    const sprintBestTime = await prisma.questionSeriesResponse.findFirst({
+      where: {
+        userId,
+        seriesType: "speedrun_sprint",
+        result: { lt: 9999999 },
+        data: {
+          path: ["ended"],
+          equals: true,
+        },
+      },
+      orderBy: { result: "asc" },
+      select: { result: true },
+    });
+    const sprintBestTimeValue = sprintBestTime ? Number(sprintBestTime.result) : 999999999;
+    const sprintAchievements = await checkAndAwardAchievements(
+      userId,
+      "speedrunSprintBestTime",
+      sprintBestTimeValue,
+    );
+
+    return [...speedrunGamesAchievements, ...survivalAchievements, ...sprintAchievements];
+  }
 }
 
 export const achievementService = new AchievementService();

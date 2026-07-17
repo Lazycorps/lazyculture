@@ -9,6 +9,14 @@ import type {
   UserSeriesDTO,
 } from "#shared/series";
 import type { QuestionSeriesAscensionResponseData } from "#shared/series/seriesAscension";
+import type {
+  SpeedrunSurvivalResponseData,
+  UserSpeedrunSurvivalDTO,
+  SpeedrunSurvivalRankingDTO,
+  SpeedrunSprintResponseData,
+  UserSpeedrunSprintDTO,
+  SpeedrunSprintRankingDTO,
+} from "#shared/series/seriesSpeedrun";
 import { QuestionDataDTO } from "#shared/question";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
@@ -535,6 +543,526 @@ export class SeriesService {
     await grantCoins(userId, coinsFromXp(userXpWin));
 
     return userXpWin;
+  }
+
+  // ===================== Speedrun Survival =====================
+
+  async getOrCreateSpeedrunSeries(): Promise<number> {
+    let series = await prisma.questionSeries.findFirst({
+      where: { type: "speedrun_survival" },
+    });
+    if (!series) {
+      series = await prisma.questionSeries.create({
+        data: {
+          type: "speedrun_survival",
+          difficulty: 1,
+          title: "Speedrun Survie Flash",
+          date: new Date(),
+          userCreate: "Auto",
+          userUpdate: "Auto",
+          data: {},
+        },
+      });
+    }
+    return series.id;
+  }
+
+  async getActiveSpeedrunSurvival(userId: string): Promise<UserSpeedrunSurvivalDTO> {
+    const seriesId = await this.getOrCreateSpeedrunSeries();
+    const activeResponse = await prisma.questionSeriesResponse.findFirst({
+      where: {
+        seriesId,
+        userId,
+        seriesType: "speedrun_survival",
+      },
+      orderBy: { id: "desc" },
+    });
+
+    const series = await prisma.questionSeries.findUnique({
+      where: { id: seriesId },
+    });
+
+    if (activeResponse) {
+      const data = activeResponse.data as any as SpeedrunSurvivalResponseData;
+      const elapsedMs = Date.now() - activeResponse.createDate.getTime();
+      const elapsedSec = elapsedMs / 1000;
+      const limit = 120 - (data.penalties || 0);
+      if (!data.ended && elapsedSec < limit) {
+        return {
+          series: series as unknown as QuestionSeriesDTO,
+          userResponse: activeResponse as unknown as any,
+        };
+      } else if (!data.ended) {
+        data.ended = true;
+        await prisma.questionSeriesResponse.update({
+          where: { id: activeResponse.id },
+          data: { data: data as any },
+        });
+      }
+    }
+
+    return {
+      series: series as unknown as QuestionSeriesDTO,
+      userResponse: null,
+    };
+  }
+
+  async startSpeedrunSurvival(userId: string): Promise<UserSpeedrunSurvivalDTO> {
+    const seriesId = await this.getOrCreateSpeedrunSeries();
+
+    // Find if there is an active speedrun
+    const activeResponse = await prisma.questionSeriesResponse.findFirst({
+      where: {
+        seriesId,
+        userId,
+        seriesType: "speedrun_survival",
+      },
+      orderBy: { id: "desc" },
+    });
+
+    const series = await prisma.questionSeries.findUnique({
+      where: { id: seriesId },
+    });
+
+    if (activeResponse) {
+      const data = activeResponse.data as any as SpeedrunSurvivalResponseData;
+      const elapsedMs = Date.now() - activeResponse.createDate.getTime();
+      const elapsedSec = elapsedMs / 1000;
+      const limit = 120 - (data.penalties || 0);
+      if (!data.ended && elapsedSec < limit) {
+        return {
+          series: series as unknown as QuestionSeriesDTO,
+          userResponse: activeResponse as unknown as any,
+        };
+      } else if (!data.ended) {
+        data.ended = true;
+        await prisma.questionSeriesResponse.update({
+          where: { id: activeResponse.id },
+          data: { data: data as any },
+        });
+      }
+    }
+
+    const firstQuestionId = await this.getRandomQuestionId([]);
+    if (!firstQuestionId) {
+      throw new Error("No questions available");
+    }
+
+    const newResponseData: SpeedrunSurvivalResponseData = {
+      seriesType: "speedrun_survival",
+      responses: [],
+      score: 0,
+      penalties: 0,
+      ended: false,
+      nextQuestion: firstQuestionId,
+      answeredQuestionIds: [firstQuestionId],
+      xpEarned: 0,
+    };
+
+    const newResponse = await prisma.questionSeriesResponse.create({
+      data: {
+        seriesId,
+        userId,
+        seriesType: "speedrun_survival",
+        result: 0,
+        data: newResponseData as any,
+      },
+    });
+
+    return {
+      series: series as unknown as QuestionSeriesDTO,
+      userResponse: newResponse as unknown as any,
+    };
+  }
+
+  async submitSpeedrunSurvivalResponse(body: SeriesResponseDTO, userId: string) {
+    const question = await prisma.question.findFirst({
+      where: { id: body.questionId },
+    });
+    if (!question?.data) return;
+
+    const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+
+    const seriesResponse = await prisma.questionSeriesResponse.findFirst({
+      where: { seriesId: body.seriesId, userId, seriesType: "speedrun_survival" },
+      orderBy: { id: "desc" },
+    });
+    if (!seriesResponse) return;
+
+    const responseData = seriesResponse.data as any as SpeedrunSurvivalResponseData;
+    if (responseData.ended) return seriesResponse;
+
+    if (body.questionId != responseData.nextQuestion) return seriesResponse;
+
+    const elapsedMs = Date.now() - seriesResponse.createDate.getTime();
+    const elapsedSec = elapsedMs / 1000;
+    const currentLimit = 120 - responseData.penalties;
+
+    if (elapsedSec >= currentLimit) {
+      responseData.ended = true;
+      return await prisma.questionSeriesResponse.update({
+        where: { id: seriesResponse.id },
+        data: {
+          data: responseData as any,
+          updateDate: new Date(),
+        },
+      });
+    }
+
+    const responseToAdd: QuestionSeriesResponseDataResponse = {
+      questionId: body.questionId,
+      responseId: body.userResponseId,
+      success,
+      elapsedTime: Math.round(elapsedMs),
+    };
+
+    responseData.responses.push(responseToAdd);
+
+    if (success) {
+      responseData.score++;
+    } else {
+      responseData.penalties += 5;
+    }
+
+    const newLimit = 120 - responseData.penalties;
+    const finalElapsedMs = Date.now() - seriesResponse.createDate.getTime();
+    const finalElapsedSec = finalElapsedMs / 1000;
+    const timeExpired = finalElapsedSec >= newLimit;
+
+    if (timeExpired) {
+      responseData.ended = true;
+    } else {
+      const nextQId = await this.getRandomQuestionId(responseData.answeredQuestionIds);
+      if (nextQId) {
+        responseData.nextQuestion = nextQId;
+        responseData.answeredQuestionIds.push(nextQId);
+      } else {
+        responseData.ended = true;
+      }
+    }
+
+    if (responseData.ended) {
+      const xpEarned = await this.calculSpeedrunUserXP(responseData.score, userId);
+      responseData.xpEarned = xpEarned;
+    }
+
+    return await prisma.questionSeriesResponse.update({
+      where: { id: seriesResponse.id },
+      data: {
+        data: responseData as any,
+        updateDate: new Date(),
+        result: responseData.score,
+      },
+    });
+  }
+
+  private async getRandomQuestionId(excludeIds: number[]): Promise<number | null> {
+    const { minId, maxId } = await this.getMinMaxId();
+    if (!minId || !maxId) return null;
+
+    for (let i = 0; i < 30; i++) {
+      const randomId = Math.floor(Math.random() * (maxId - minId + 1) + minId);
+      if (!excludeIds.includes(randomId) && (await this.isQuestionExists(randomId))) {
+        return randomId;
+      }
+    }
+
+    const questions = await prisma.question.findMany({
+      where: {
+        deleted: false,
+        id: { notIn: excludeIds },
+      },
+      select: { id: true },
+      take: 10,
+    });
+    if (questions.length > 0) {
+      const q = questions[Math.floor(Math.random() * questions.length)];
+      return q ? q.id : null;
+    }
+    return null;
+  }
+
+  private async calculSpeedrunUserXP(score: number, userId: string) {
+    const xpPerCorrect = 5;
+    const userXpWin = score * xpPerCorrect;
+    if (userXpWin <= 0) return 0;
+
+    const userProgress = await prisma.userProgress.findFirst({
+      where: { userId },
+    });
+
+    if (userProgress) {
+      const userXpTot = userProgress.xp + userXpWin;
+      const level = await prisma.level.findFirst({
+        where: { xp_threshold: { lte: userXpTot } },
+        orderBy: { xp_threshold: "desc" },
+      });
+      await prisma.userProgress.update({
+        where: { userId },
+        data: {
+          xp: { increment: userXpWin },
+          levelId: level?.id,
+        },
+      });
+    }
+
+    await grantCoins(userId, coinsFromXp(userXpWin));
+    return userXpWin;
+  }
+
+  async getSpeedrunSurvivalRanking(): Promise<SpeedrunSurvivalRankingDTO[]> {
+    const seriesId = await this.getOrCreateSpeedrunSeries();
+
+    const topResponses = await prisma.questionSeriesResponse.findMany({
+      where: {
+        seriesId,
+        seriesType: "speedrun_survival",
+      },
+      orderBy: [{ result: "desc" }, { createDate: "asc" }],
+      include: {
+        user: {
+          include: {
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
+          },
+        },
+      },
+      take: 200,
+    });
+
+    const seenUsers = new Set<string>();
+    const ranking: SpeedrunSurvivalRankingDTO[] = [];
+    let rank = 1;
+
+    for (const r of topResponses) {
+      if (seenUsers.has(r.userId)) continue;
+      seenUsers.add(r.userId);
+
+      ranking.push({
+        userId: r.userId,
+        userName: r.user.name ?? "Anonymous",
+        score: Number(r.result),
+        avatarUrl: r.user.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: r.user.equippedFrame?.styleKey ?? null,
+        rank: rank++,
+      });
+
+      if (ranking.length >= 50) break;
+    }
+
+    return ranking;
+  }
+
+  // ===================== Speedrun Sprint =====================
+
+  async getOrCreateSpeedrunSprintSeries(): Promise<number> {
+    let series = await prisma.questionSeries.findFirst({
+      where: { type: "speedrun_sprint" },
+    });
+    if (!series) {
+      series = await prisma.questionSeries.create({
+        data: {
+          type: "speedrun_sprint",
+          difficulty: 1,
+          title: "Speedrun Sprint 20",
+          date: new Date(),
+          userCreate: "Auto",
+          userUpdate: "Auto",
+          data: {},
+        },
+      });
+    }
+    return series.id;
+  }
+
+  async getActiveSpeedrunSprint(userId: string): Promise<UserSpeedrunSprintDTO> {
+    const seriesId = await this.getOrCreateSpeedrunSprintSeries();
+    const activeResponse = await prisma.questionSeriesResponse.findFirst({
+      where: {
+        seriesId,
+        userId,
+        seriesType: "speedrun_sprint",
+      },
+      orderBy: { id: "desc" },
+    });
+
+    const series = await prisma.questionSeries.findUnique({
+      where: { id: seriesId },
+    });
+
+    if (activeResponse) {
+      const data = activeResponse.data as any as SpeedrunSprintResponseData;
+      if (!data.ended) {
+        return {
+          series: series as unknown as QuestionSeriesDTO,
+          userResponse: activeResponse as unknown as any,
+        };
+      }
+    }
+
+    return {
+      series: series as unknown as QuestionSeriesDTO,
+      userResponse: null,
+    };
+  }
+
+  async startSpeedrunSprint(userId: string): Promise<UserSpeedrunSprintDTO> {
+    const seriesId = await this.getOrCreateSpeedrunSprintSeries();
+
+    const activeRun = await this.getActiveSpeedrunSprint(userId);
+    if (activeRun.userResponse) {
+      return activeRun;
+    }
+
+    const firstQuestionId = await this.getRandomQuestionId([]);
+    if (!firstQuestionId) {
+      throw new Error("No questions available");
+    }
+
+    const newResponseData: SpeedrunSprintResponseData = {
+      seriesType: "speedrun_sprint",
+      responses: [],
+      score: 0,
+      penalties: 0,
+      ended: false,
+      nextQuestion: firstQuestionId,
+      answeredQuestionIds: [firstQuestionId],
+      xpEarned: 0,
+    };
+
+    const newResponse = await prisma.questionSeriesResponse.create({
+      data: {
+        seriesId,
+        userId,
+        seriesType: "speedrun_sprint",
+        result: 9999999, // default high time
+        data: newResponseData as any,
+      },
+    });
+
+    return {
+      series: activeRun.series,
+      userResponse: newResponse as unknown as any,
+    };
+  }
+
+  async submitSpeedrunSprintResponse(body: SeriesResponseDTO, userId: string) {
+    const question = await prisma.question.findFirst({
+      where: { id: body.questionId },
+    });
+    if (!question?.data) return;
+
+    const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+
+    const seriesResponse = await prisma.questionSeriesResponse.findFirst({
+      where: { seriesId: body.seriesId, userId, seriesType: "speedrun_sprint" },
+      orderBy: { id: "desc" },
+    });
+    if (!seriesResponse) return;
+
+    const responseData = seriesResponse.data as any as SpeedrunSprintResponseData;
+    if (responseData.ended) return seriesResponse;
+
+    if (body.questionId != responseData.nextQuestion) return seriesResponse;
+
+    const elapsedMs = Date.now() - seriesResponse.createDate.getTime();
+
+    const responseToAdd: QuestionSeriesResponseDataResponse = {
+      questionId: body.questionId,
+      responseId: body.userResponseId,
+      success,
+      elapsedTime: Math.round(elapsedMs),
+    };
+
+    responseData.responses.push(responseToAdd);
+
+    if (success) {
+      responseData.score++;
+    } else {
+      responseData.penalties += 5;
+    }
+
+    // Target: 20 correct answers
+    if (responseData.score >= 20) {
+      responseData.ended = true;
+      const finalTimeMs = elapsedMs + responseData.penalties * 1000;
+
+      const xpEarned = await this.calculSpeedrunUserXP(responseData.score, userId);
+      responseData.xpEarned = xpEarned;
+
+      return await prisma.questionSeriesResponse.update({
+        where: { id: seriesResponse.id },
+        data: {
+          data: responseData as any,
+          updateDate: new Date(),
+          result: finalTimeMs,
+        },
+      });
+    } else {
+      const nextQId = await this.getRandomQuestionId(responseData.answeredQuestionIds);
+      if (nextQId) {
+        responseData.nextQuestion = nextQId;
+        responseData.answeredQuestionIds.push(nextQId);
+      } else {
+        responseData.ended = true;
+      }
+    }
+
+    return await prisma.questionSeriesResponse.update({
+      where: { id: seriesResponse.id },
+      data: {
+        data: responseData as any,
+        updateDate: new Date(),
+        result: 9999999,
+      },
+    });
+  }
+
+  async getSpeedrunSprintRanking(): Promise<SpeedrunSprintRankingDTO[]> {
+    const seriesId = await this.getOrCreateSpeedrunSprintSeries();
+
+    const topResponses = await prisma.questionSeriesResponse.findMany({
+      where: {
+        seriesId,
+        seriesType: "speedrun_sprint",
+        data: {
+          path: ["ended"],
+          equals: true,
+        },
+      },
+      orderBy: [{ result: "asc" }, { createDate: "asc" }],
+      include: {
+        user: {
+          include: {
+            equippedAvatar: { select: { imageUrl: true } },
+            equippedFrame: { select: { styleKey: true } },
+          },
+        },
+      },
+      take: 200,
+    });
+
+    const seenUsers = new Set<string>();
+    const ranking: SpeedrunSprintRankingDTO[] = [];
+    let rank = 1;
+
+    for (const r of topResponses) {
+      if (seenUsers.has(r.userId)) continue;
+      seenUsers.add(r.userId);
+
+      ranking.push({
+        userId: r.userId,
+        userName: r.user.name ?? "Anonymous",
+        elapsedTimeMs: Number(r.result),
+        avatarUrl: r.user.equippedAvatar?.imageUrl ?? null,
+        frameStyleKey: r.user.equippedFrame?.styleKey ?? null,
+        rank: rank++,
+      });
+
+      if (ranking.length >= 50) break;
+    }
+
+    return ranking;
   }
 }
 

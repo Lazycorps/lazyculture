@@ -25,7 +25,10 @@ type ActionType =
   | "brClutchWin"
   | "brRounds"
   | "brRankPoints"
-  | "brStreak";
+  | "brStreak"
+  | "speedrunGames"
+  | "speedrunSurvivalMaxScore"
+  | "speedrunSprintBestTime";
 
 export async function checkAndAwardAchievements(
   userId: string,
@@ -72,11 +75,15 @@ export async function checkAndAwardAchievements(
   return newAchievements;
 }
 
-// Fonction pour vérifier si les conditions d'un achievement sont remplies
 function checkAchievementCondition(
   achievement: any,
   action: ActionType,
   actionValue: number,
 ): boolean {
-  return achievement.conditionType === action && actionValue >= achievement.conditionValue;
+  if (achievement.conditionType !== action) return false;
+  if (action === "speedrunSprintBestTime") {
+    // A lower time is better, so actionValue (final time) must be <= target conditionValue
+    return actionValue <= achievement.conditionValue;
+  }
+  return actionValue >= achievement.conditionValue;
 }
