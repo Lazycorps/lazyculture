@@ -468,3 +468,16 @@ model Notification {
     @@index([read])
 }
 
+model Announcement {
+    id          Int      @id @default(autoincrement())
+    title       String
+    description String
+    tag         String
+    tagColor    String   @default("bg-violet-500/20 text-violet-300 border-violet-500/30")
+    createDate  DateTime @default(now())
+    icon        String   @default("i-heroicons-megaphone")
+    enabled     Boolean  @default(true)
+    btnLabel    String?
+    btnLink     String?
+}
+

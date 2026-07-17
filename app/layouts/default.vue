@@ -72,7 +72,7 @@ const userProfile = computed(() => {
 const xpProgress = computed(() => userStore.xpProgress);
 
 const navItems = computed(() => [
-  { label: "Thèmes", path: "/themes", icon: "i-heroicons-book-open" },
+  { label: "Accueil", path: "/", icon: "i-heroicons-home" },
   { label: "Solo", path: "/solo", icon: "i-heroicons-user" },
   { label: "Quotidien", path: "/series/daily", icon: "i-heroicons-calendar" },
   // { label: "Ascension", path: "/series/ascent", icon: "i-heroicons-arrow-trending-up" },
@@ -105,9 +105,10 @@ onUnmounted(() => {
 const route = useRoute();
 
 const pageTitle = computed(() => {
-  const match = navItems.value.find(
-    (item) => route.path === item.path || route.path.startsWith(item.path + "/"),
-  );
+  const match = navItems.value.find((item) => {
+    if (item.path === "/") return route.path === "/";
+    return route.path === item.path || route.path.startsWith(item.path + "/");
+  });
   return match?.label ?? "LazyCulture";
 });
 

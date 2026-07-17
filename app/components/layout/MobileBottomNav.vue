@@ -9,7 +9,8 @@
       :key="item.path"
       :to="item.path"
       class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
-      active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      :active-class="item.path === '/' ? '' : 'nav-mobile-active text-violet-400 bg-violet-600/10'"
+      exact-active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
     >
       <UIcon :name="item.icon" class="text-2xl group-hover:scale-110 transition-transform mb-1" />
       <span class="text-[10px] font-bold font-display">{{ item.label }}</span>

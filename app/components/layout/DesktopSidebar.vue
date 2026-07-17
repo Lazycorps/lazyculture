@@ -5,7 +5,7 @@
     <!-- Logo and App Title -->
     <div
       class="flex items-center space-x-3 cursor-pointer select-none group"
-      @click="router.push('/themes')"
+      @click="router.push('/')"
     >
       <img
         src="/pwa-192x192.png"
@@ -26,7 +26,8 @@
         :key="item.path"
         :to="item.path"
         class="flex items-center space-x-3 px-4 py-3.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
-        active-class="nav-active text-violet-400 bg-violet-600/10"
+        :active-class="item.path === '/' ? '' : 'nav-active text-violet-400 bg-violet-600/10'"
+        exact-active-class="nav-active text-violet-400 bg-violet-600/10"
       >
         <UIcon :name="item.icon" class="text-xl group-hover:scale-110 transition-transform" />
         <span class="font-semibold font-display tracking-wide">{{ item.label }}</span>

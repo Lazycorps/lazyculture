@@ -72,8 +72,8 @@ export default defineNuxtConfig({
       theme_color: "#070a13",
       background_color: "#070a13",
       display: "standalone",
-      // Directement /themes : "/" est une redirection 307, ce qui ralentit chaque lancement
-      start_url: "/themes",
+      // Point vers la page d'accueil racine
+      start_url: "/",
       scope: "/",
       orientation: "any",
       icons: [
@@ -148,10 +148,6 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
-    "/": {
-      // Temporary redirect using a 307 status code
-      redirect: "/themes",
-    },
     "/admin/**": { ssr: false },
     "/adventure/**": { ssr: false },
     "/series/battle-royale": { ssr: false },

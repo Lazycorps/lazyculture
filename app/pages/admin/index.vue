@@ -126,12 +126,12 @@
               Éditez la base de questions existante, gérez les signalements faits par la communauté,
               ou gérez les thèmes disponibles.
             </p>
-            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <div class="flex flex-wrap gap-3 pt-2">
               <UButton
                 to="/admin/maintenance/questions"
                 color="primary"
                 icon="i-heroicons-question-mark-circle"
-                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+                class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
               >
                 Gérer les questions
               </UButton>
@@ -140,7 +140,7 @@
                 color="neutral"
                 variant="subtle"
                 icon="i-heroicons-book-open"
-                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+                class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
               >
                 Gérer les thèmes
               </UButton>
@@ -149,7 +149,7 @@
                 color="neutral"
                 variant="subtle"
                 icon="i-heroicons-map"
-                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+                class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
               >
                 Gérer les Aventures
               </UButton>
@@ -158,9 +158,18 @@
                 color="neutral"
                 variant="subtle"
                 icon="i-heroicons-face-smile"
-                class="flex-1 font-bold font-display text-xs justify-center py-2.5"
+                class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
               >
                 Gérer les avatars
+              </UButton>
+              <UButton
+                to="/admin/maintenance/announcements"
+                color="neutral"
+                variant="subtle"
+                icon="i-heroicons-megaphone"
+                class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
+              >
+                Gérer les nouveautés
               </UButton>
             </div>
           </div>

@@ -1,19 +1,720 @@
 <template>
-  <div class="w-full max-w-xl mx-auto py-4 select-none">
-    <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+  <div class="w-full max-w-5xl mx-auto py-6 px-4 space-y-8 select-none">
+    <!-- 1. DYNAMIC WELCOME / PROFILE HEADER -->
+    <ClientOnly>
+      <div
+        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6"
+      >
+        <!-- Background decorative glows -->
+        <div
+          class="absolute -left-16 -top-16 w-32 h-32 rounded-full bg-violet-600/10 blur-3xl"
+        ></div>
+        <div
+          class="absolute -right-16 -bottom-16 w-32 h-32 rounded-full bg-indigo-600/10 blur-3xl"
+        ></div>
+
+        <!-- Left: Player Info / Greeting -->
+        <div class="flex items-center space-x-4 relative z-10">
+          <template v-if="user">
+            <UserAvatar
+              :src="userProfile?.equippedAvatar?.imageUrl"
+              :frame="userProfile?.equippedFrame?.styleKey"
+              size="xl"
+              avatar-class="border-2 border-violet-500/40 shadow-neon"
+            />
+            <div class="space-y-1">
+              <h2 class="text-xl md:text-2xl font-black font-display text-white tracking-wide">
+                Ravi de vous revoir, {{ userProfile?.name || "Joueur" }} ! 👋
+              </h2>
+              <p class="text-xs text-gray-400 font-medium">
+                Prêt à relever de nouveaux défis de culture générale aujourd'hui ?
+              </p>
+            </div>
+          </template>
+          <template v-else>
+            <div
+              class="w-14 h-14 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-2xl text-violet-400"
+            >
+              🚀
+            </div>
+            <div class="space-y-1">
+              <h2 class="text-xl md:text-2xl font-black font-display text-white tracking-wide">
+                Bienvenue sur LazyCulture !
+              </h2>
+              <p class="text-xs text-gray-400 font-medium">
+                Testez vos connaissances, explorez nos modes de jeu et défiez la communauté.
+              </p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Right: Stats Capsule / Guest Action -->
+        <div class="relative z-10 shrink-0">
+          <div v-if="user" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <!-- Level & XP progress -->
+            <div
+              class="bg-slate-950/60 border border-white/5 rounded-2xl p-4 min-w-[200px] space-y-2"
+            >
+              <div class="flex justify-between items-center text-xs font-bold font-display">
+                <span class="text-violet-400 uppercase tracking-wider"
+                  >Niveau {{ userProfile?.level || 1 }}</span
+                >
+                <span class="text-gray-400"
+                  >{{ userProfile?.xp || 0 }} / {{ userProfile?.nextLevelTreshold || 100 }} XP</span
+                >
+              </div>
+              <!-- Premium Progress Bar -->
+              <div
+                class="w-full h-2 bg-slate-900 rounded-full border border-white/5 overflow-hidden"
+              >
+                <div
+                  class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
+                  :style="{ width: `${xpProgress}%` }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Coins Badge -->
+            <div
+              class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between gap-3 text-amber-400"
+            >
+              <div class="space-y-0.5">
+                <p
+                  class="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider font-display"
+                >
+                  Porte-monnaie
+                </p>
+                <p class="text-lg font-black font-display tracking-wide leading-none">
+                  {{ userProfile?.coins || 0 }}
+                </p>
+              </div>
+              <UIcon
+                name="i-heroicons-circle-stack-solid"
+                class="text-3xl text-amber-500 animate-pulse"
+              />
+            </div>
+          </div>
+
+          <div v-else class="flex gap-3">
+            <UButton
+              to="/login"
+              color="primary"
+              size="lg"
+              class="font-black font-display uppercase tracking-widest px-6"
+              icon="i-heroicons-key"
+            >
+              Se Connecter
+            </UButton>
+            <UButton
+              to="/themes"
+              color="white"
+              variant="ghost"
+              size="lg"
+              class="font-black font-display uppercase tracking-widest border border-white/10 hover:bg-white/5"
+            >
+              Visiter
+            </UButton>
+          </div>
+        </div>
+      </div>
+    </ClientOnly>
+
+    <!-- 2. HIGH-ENGAGEMENT DAILY CHALLENGE HERO SECTION -->
+    <div
+      class="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-[#1e1b4b]/30 via-[#111827]/60 to-[#070a13]/80 backdrop-blur-xl p-6 md:p-8 hover:border-violet-500/40 transition-all duration-300 group"
     >
-      <!-- Standard Random Question Runner -->
-      <QuestionComponent />
-    </UCard>
+      <!-- Background radial glow -->
+      <div
+        class="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-violet-600/15 blur-3xl group-hover:bg-violet-600/25 transition-colors"
+      ></div>
+
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div class="space-y-4 max-w-xl">
+          <!-- Mini Badge -->
+          <div
+            class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs font-black uppercase text-violet-400 font-display tracking-widest"
+          >
+            <span class="animate-pulse">📅</span>
+            <span>Défi Quotidien</span>
+          </div>
+
+          <div class="space-y-2">
+            <h3
+              class="text-2xl md:text-3xl font-black font-display text-white tracking-wide uppercase"
+            >
+              {{ dailyTitle }}
+            </h3>
+            <p class="text-sm text-gray-400 leading-relaxed">
+              Une série unique de 10 questions de culture générale, commune à tous les joueurs. Une
+              tentative quotidienne pour accumuler de l'XP et monter au classement !
+            </p>
+          </div>
+
+          <!-- Live stats counters -->
+          <div
+            class="flex flex-wrap items-center gap-4 text-xs font-bold font-display text-gray-300"
+          >
+            <div
+              class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full"
+            >
+              <UIcon name="i-heroicons-users" class="text-violet-400 text-sm" />
+              <span>{{ dailyStats?.participants ?? 0 }} participants</span>
+            </div>
+            <div
+              class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full text-emerald-400"
+            >
+              <UIcon name="i-heroicons-check-circle" class="text-emerald-400 text-sm" />
+              <span>{{ dailyStats?.finishers ?? 0 }} finishers</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action / Status block -->
+        <div class="shrink-0 w-full md:w-auto">
+          <ClientOnly>
+            <div
+              class="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 text-center space-y-4 max-w-sm mx-auto md:max-w-none"
+            >
+              <!-- States logic -->
+              <template v-if="!user">
+                <p class="text-xs text-gray-400 font-medium">
+                  Connectez-vous pour enregistrer votre score
+                </p>
+                <UButton
+                  to="/login"
+                  color="primary"
+                  size="xl"
+                  block
+                  icon="i-heroicons-key"
+                  class="font-black font-display uppercase tracking-widest py-3 bg-gradient-to-r from-violet-600 to-indigo-600 shadow-md shadow-violet-600/20"
+                >
+                  Jouer le Défi
+                </UButton>
+              </template>
+
+              <template v-else>
+                <!-- In progress -->
+                <div v-if="questionId > 0 && !completed" class="space-y-3">
+                  <div class="flex justify-between text-xs font-bold font-display text-gray-400">
+                    <span>Progression du jour</span>
+                    <span class="text-violet-400">{{ questionId }} / {{ nbrQuestion }}</span>
+                  </div>
+                  <div
+                    class="w-40 h-2 bg-slate-950 rounded-full overflow-hidden border border-white/5"
+                  >
+                    <div
+                      class="h-full bg-violet-600 rounded-full transition-all"
+                      :style="{
+                        width: `${nbrQuestion > 0 ? (questionId / nbrQuestion) * 100 : 0}%`,
+                      }"
+                    ></div>
+                  </div>
+                  <UButton
+                    to="/series/daily"
+                    color="primary"
+                    size="lg"
+                    block
+                    icon="i-heroicons-play-solid"
+                    class="font-black font-display uppercase tracking-widest py-3 bg-gradient-to-r from-violet-600 to-indigo-600 shadow-md shadow-violet-600/20"
+                  >
+                    Reprendre le Défi
+                  </UButton>
+                </div>
+
+                <!-- Completed -->
+                <div v-else-if="completed" class="space-y-3">
+                  <div
+                    class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400 font-display"
+                  >
+                    <span>⭐ Réussi</span>
+                  </div>
+                  <p class="text-sm font-black font-display text-white">
+                    Score : <span class="text-emerald-400">{{ score }} / {{ nbrQuestion }}</span>
+                  </p>
+                  <p
+                    class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider font-display"
+                  >
+                    Revenez demain !
+                  </p>
+                  <UButton
+                    to="/ranking/daily"
+                    color="primary"
+                    size="md"
+                    block
+                    icon="i-heroicons-chart-bar"
+                    class="font-black font-display uppercase tracking-widest"
+                  >
+                    Classement du Jour
+                  </UButton>
+                </div>
+
+                <!-- Not started -->
+                <div v-else class="space-y-2">
+                  <p class="text-xs text-gray-400 font-bold uppercase tracking-wider font-display">
+                    Défi disponible !
+                  </p>
+                  <UButton
+                    to="/series/daily"
+                    color="primary"
+                    size="lg"
+                    block
+                    icon="i-heroicons-play-solid"
+                    class="font-black font-display uppercase tracking-widest py-3 px-6 bg-gradient-to-r from-violet-600 to-indigo-600 shadow-md shadow-violet-600/20"
+                  >
+                    Démarrer
+                  </UButton>
+                </div>
+              </template>
+            </div>
+          </ClientOnly>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. GAME MODES EXPLORATION HUBS -->
+    <div class="space-y-6">
+      <div class="space-y-1">
+        <h3 class="text-xl font-black font-display text-white tracking-wide uppercase">
+          Explorez les Modes de Jeu
+        </h3>
+        <p class="text-xs text-gray-400 font-medium">
+          Choisissez votre style de jeu : progressez seul à votre rythme ou affrontez des rivaux en
+          direct.
+        </p>
+      </div>
+
+      <!-- Section: Solo Modes -->
+      <div class="space-y-4">
+        <div
+          class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
+        >
+          <span>🎯</span>
+          <span>Modes Solo</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Aventure -->
+          <div
+            @click="navigateTo('/adventure')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-emerald-600/10 blur-xl group-hover:bg-emerald-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">🗺️</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                >
+                  Parcours
+                </span>
+              </div>
+              <h4 class="text-base font-black font-display text-white tracking-wide">Aventure</h4>
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+                Parcourez des chemins thématiques, validez chaque étape et progressez à votre propre
+                rythme.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-emerald-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Jouer</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+
+          <!-- Brainrun -->
+          <div
+            @click="navigateTo('/brainrun')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-orange-500/40 hover:shadow-[0_0_20px_rgba(249,115,22,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-orange-600/10 blur-xl group-hover:bg-orange-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">🧠</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                >
+                  Roguelite
+                </span>
+              </div>
+              <h4 class="text-base font-black font-display text-white tracking-wide">Brainrun</h4>
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+                Grimpez les 3 actes, affrontez des boss, collectez des reliques et tentez de
+                survivre le plus loin possible.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-orange-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Lancer une run</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+
+          <!-- Speedrun -->
+          <div
+            @click="navigateTo('/series/speedrun')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-violet-500/40 hover:shadow-[0_0_20px_rgba(139,92,246,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-violet-600/10 blur-xl group-hover:bg-violet-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">⏱️</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20"
+                >
+                  Sprint
+                </span>
+              </div>
+              <h4 class="text-base font-black font-display text-white tracking-wide">Speedrun</h4>
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+                Un maximum de questions dans un temps chronométré. Attention, chaque erreur réduit
+                votre temps restant !
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-violet-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Lancer le sprint</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+
+          <!-- Ascension -->
+          <div
+            @click="navigateTo('/series/ascent')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-indigo-600/10 blur-xl group-hover:bg-indigo-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">🧗</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                >
+                  Survie
+                </span>
+              </div>
+              <h4 class="text-base font-black font-display text-white tracking-wide">Ascension</h4>
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+                Grimpez vers le sommet de la culture générale en gérant vos points de vie à chaque
+                étape difficile.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-indigo-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Commencer</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Multiplayer Modes -->
+      <div class="space-y-4">
+        <div
+          class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
+        >
+          <span>👥</span>
+          <span>Modes Multijoueur</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Battle Royale -->
+          <div
+            @click="navigateTo('/series/battle-royale')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-6 flex flex-col justify-between h-44 hover:border-red-500/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-red-600/10 blur-xl group-hover:bg-red-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">🔥</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20"
+                >
+                  Arène à 20
+                </span>
+              </div>
+              <h4 class="text-lg font-black font-display text-white tracking-wide">
+                Battle Royale
+              </h4>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                Survivez en temps réel face à 19 autres combattants. Le dernier joueur avec des
+                points de vie l'emporte !
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-red-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Rejoindre l'arène</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+
+          <!-- Showdown -->
+          <div
+            @click="navigateTo('/series/showdown')"
+            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-6 flex flex-col justify-between h-44 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-pink-600/10 blur-xl group-hover:bg-pink-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">⚔️</span>
+                <span
+                  class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-400 border border-pink-500/20"
+                >
+                  Duel 1v1
+                </span>
+              </div>
+              <h4 class="text-lg font-black font-display text-white tracking-wide">Showdown</h4>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                Affrontez un adversaire dans un duel tactique de points de vie. Choisissez vos
+                thèmes stratégiquement.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-pink-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Lancer un duel</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. TWO COLUMN: NEWS / UPDATES & QUICK PLAY -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Latest updates column (Takes 2 cols) -->
+      <div class="lg:col-span-2 space-y-4">
+        <div
+          class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
+        >
+          <UIcon name="i-heroicons-megaphone" class="text-violet-400 text-sm" />
+          <span>Dernières Nouveautés</span>
+        </div>
+
+        <div class="space-y-3">
+          <template v-if="announcements && announcements.length > 0">
+            <div
+              v-for="news in announcements"
+              :key="news.id"
+              class="bg-white/5 border border-white/10 rounded-2xl p-4 flex gap-4 hover:bg-white/10 transition-colors"
+            >
+              <div
+                class="w-10 h-10 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center shrink-0 text-violet-400 text-lg"
+              >
+                <UIcon :name="news.icon || 'i-heroicons-megaphone'" />
+              </div>
+              <div class="space-y-1.5 flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h5 class="text-sm font-black font-display text-white truncate">
+                    {{ news.title }}
+                  </h5>
+                  <span
+                    class="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 border"
+                    :class="
+                      news.tagColor || 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                    "
+                  >
+                    {{ news.tag }}
+                  </span>
+                </div>
+                <p class="text-xs text-gray-400 leading-relaxed">
+                  {{ news.description }}
+                </p>
+                <div v-if="news.btnLabel && news.btnLink" class="pt-2">
+                  <UButton
+                    :to="news.btnLink"
+                    size="xs"
+                    color="primary"
+                    variant="solid"
+                    class="font-black font-display uppercase tracking-widest px-3.5 py-1.5"
+                  >
+                    {{ news.btnLabel }}
+                  </UButton>
+                </div>
+                <div class="text-[10px] text-gray-500 font-semibold font-display">
+                  {{ formatDate(news.createDate) }}
+                </div>
+              </div>
+            </div>
+          </template>
+          <div
+            v-else
+            class="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-xs text-gray-500 italic"
+          >
+            Aucune actualité disponible pour le moment.
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Play CTA / Training Column (Takes 1 col) -->
+      <div class="space-y-4">
+        <div
+          class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
+        >
+          <UIcon name="i-heroicons-academic-cap" class="text-violet-400 text-sm" />
+          <span>Partie Rapide</span>
+        </div>
+
+        <div
+          class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 flex flex-col justify-between gap-6 hover:border-violet-500/40 transition-all duration-300 group h-[calc(100%-2rem)]"
+        >
+          <div
+            class="absolute -right-12 -bottom-12 w-28 h-28 rounded-full bg-violet-600/15 blur-xl group-hover:bg-violet-600/20"
+          ></div>
+
+          <div class="space-y-3 relative z-10">
+            <div
+              class="w-12 h-12 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform"
+            >
+              🎲
+            </div>
+            <h4 class="text-lg font-black font-display text-white tracking-wide">
+              Entraînement Rapide
+            </h4>
+            <p class="text-xs text-gray-400 leading-relaxed">
+              Pas le temps pour une run complète ou un duel ? Lancez instantanément une série de
+              questions aléatoires de culture générale pour vous échauffer !
+            </p>
+          </div>
+
+          <div class="space-y-2.5 relative z-10 w-full">
+            <UButton
+              to="/themes/random"
+              color="primary"
+              size="lg"
+              block
+              icon="i-heroicons-play-solid"
+              class="font-black font-display uppercase tracking-widest py-3 bg-gradient-to-r from-violet-600 to-indigo-600 group-hover:from-violet-500 group-hover:to-indigo-500"
+            >
+              Lancer Aléatoire
+            </UButton>
+            <UButton
+              to="/themes"
+              color="white"
+              variant="solid"
+              size="lg"
+              block
+              icon="i-heroicons-book-open"
+              class="font-black font-display uppercase tracking-widest py-3 border border-white/10 hover:bg-white/5 bg-slate-950/60"
+            >
+              Tous les Thèmes
+            </UButton>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import QuestionComponent from "@/components/Question.vue";
+import { useUserStore } from "~/stores/userStore";
+import type { UserSeriesDTO } from "#shared/series";
+import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
+
+// 1. Meta definitions for SEO
+useSeoMeta({
+  title: "Accueil - Quiz, Défis & Culture Générale",
+  ogTitle: "Accueil - Quiz, Défis & Culture Générale - LazyCulture",
+  description:
+    "Découvrez LazyCulture, la plateforme de quiz thématiques, roguelite Brainrun, duels multijoueurs Showdown et défis quotidiens.",
+  ogDescription:
+    "Découvrez LazyCulture, la plateforme de quiz thématiques, roguelite Brainrun, duels multijoueurs Showdown et défis quotidiens.",
+});
+
+// 2. Auth & User store fetching
+const userStore = useUserStore();
 const user = useSupabaseUser();
+
+onMounted(async () => {
+  await userStore.fetchUser();
+});
+
+// Computed properties for player profile
+const userProfile = computed(() => {
+  if (!userStore.user) return null;
+  return {
+    name: userStore.user.name || "Joueur",
+    level: userStore.user.UserProgress?.levelId || 1,
+    xp: userStore.user.UserProgress?.xp || 0,
+    nextLevelTreshold: userStore.user.nextLevelTreshold || 100,
+    equippedAvatar: userStore.user.equippedAvatar ?? null,
+    equippedFrame: userStore.user.equippedFrame ?? null,
+    coins: userStore.user.Wallet?.coins ?? 0,
+  };
+});
+
+const xpProgress = computed(() => userStore.xpProgress);
+
+// 3. Daily challenge live data
+const { data: userSeries } = await useFetch<UserSeriesDTO>(() =>
+  user.value ? "/api/series/daily" : null,
+);
+const { data: dailyStats } = await useFetch<DailyStatsDTO>("/api/series/dailyStats");
+
+const dailyTitle = computed(() => {
+  return userSeries.value?.series?.title || "Série Quotidienne";
+});
+const nbrQuestion = computed(() => {
+  return userSeries.value?.series?.data?.questionsIds?.length || 0;
+});
+const questionId = computed(() => {
+  return userSeries.value?.userResponse?.data?.responses?.length ?? 0;
+});
+const completed = computed(() => {
+  return nbrQuestion.value > 0 && questionId.value >= nbrQuestion.value;
+});
+const score = computed(() => {
+  return userSeries.value?.userResponse?.data?.score ?? 0;
+});
+
+// 4. Dynamic announcements loading
+const { data: announcements } = await useFetch<any[]>("/api/announcements");
+
+// Format date helper
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const now = new Date();
+
+  // Set times to midnight to compare only dates
+  const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffTime = nowDate.getTime() - dDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return "Aujourd'hui";
+  } else if (diffDays === 1) {
+    return "Hier";
+  } else if (diffDays < 7) {
+    return `Il y a ${diffDays} jours`;
+  }
+
+  return d.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
+};
 </script>
 
 <style scoped>
-/* Page styling */
+.shadow-neon {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+}
 </style>

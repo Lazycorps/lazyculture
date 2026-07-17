@@ -16,8 +16,49 @@
     </div>
 
     <!-- Modes Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-      <!-- Mode 1: Aventure -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+      <!-- Mode 1: Thèmes -->
+      <div
+        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 md:p-8 flex flex-col justify-between space-y-6 hover:border-cyan-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+        @click="navigateTo('/themes')"
+      >
+        <!-- Background radial glow -->
+        <div
+          class="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-cyan-600/10 blur-3xl group-hover:bg-cyan-600/20 transition-colors"
+        ></div>
+
+        <div class="space-y-4 relative z-10">
+          <div
+            class="w-14 h-14 rounded-xl bg-cyan-600/10 border border-cyan-500/20 flex items-center justify-center text-3xl shadow-inner group-hover:scale-110 transition-transform duration-300"
+          >
+            📚
+          </div>
+          <div class="space-y-1.5">
+            <h2 class="text-2xl font-black font-display text-white tracking-wide">Thèmes</h2>
+            <p class="text-xs font-bold text-cyan-400 uppercase tracking-wider font-display">
+              Entraînement Libre
+            </p>
+          </div>
+          <p class="text-xs text-gray-400 leading-relaxed">
+            Choisissez le thème de votre choix et répondez aux questions à votre rythme. Idéal pour
+            s'échauffer ou parfaire vos connaissances.
+          </p>
+        </div>
+
+        <div class="pt-2 relative z-10">
+          <UButton
+            color="primary"
+            size="lg"
+            block
+            icon="i-heroicons-book-open"
+            class="font-black uppercase font-display tracking-wider py-3 bg-gradient-to-r from-cyan-600 to-blue-600 group-hover:from-cyan-500 group-hover:to-blue-500 shadow-md group-hover:shadow-cyan-600/20"
+          >
+            Voir les thèmes
+          </UButton>
+        </div>
+      </div>
+
+      <!-- Mode 2: Aventure -->
       <div
         class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 md:p-8 flex flex-col justify-between space-y-6 hover:border-emerald-500/40 hover:shadow-[0_0_30px_rgba(16,185,129,0.15)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
         @click="navigateTo('/adventure')"
