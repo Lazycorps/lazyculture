@@ -4,7 +4,7 @@ import { isCorrectAnswer } from "~~/server/services/QuestionService";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 
 export class ResponseService {
-  async validateResponse(body: ResponseDTO, userId: string) {
+  async validateResponse(body: ResponseDTO, userId?: string) {
     const question = await prisma.question.findFirst({
       where: { id: body.questionId },
     });
@@ -12,26 +12,6 @@ export class ResponseService {
     if (!question?.data) return;
 
     const success = isCorrectAnswer(question, body.userResponseId);
-
-    await prisma.questionResponse.create({
-      data: {
-        userId,
-        questionId: question.id,
-        success: success,
-        date: new Date(),
-      },
-    });
-
-    const successCount = await prisma.questionResponse.count({
-      where: {
-        questionId: question.id,
-        userId,
-        success: true,
-        date: {
-          gt: new Date("2024-09-08"),
-        },
-      },
-    });
 
     const questionData = question.data as any;
     const responseResult = {
@@ -46,16 +26,42 @@ export class ResponseService {
       coinsEarned: 0,
     };
 
-    if (success) {
-      const userProgress = await this.updateUserProgress(userId, question.xp_earned, successCount);
-      responseResult.xpEarned = (userProgress.xpEarned ??
-        (userProgress as any).userXpWin ??
-        0) as number;
-      responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
-      responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
-      responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
-      responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
-      await grantCoins(userId, responseResult.coinsEarned);
+    if (userId) {
+      await prisma.questionResponse.create({
+        data: {
+          userId,
+          questionId: question.id,
+          success: success,
+          date: new Date(),
+        },
+      });
+
+      const successCount = await prisma.questionResponse.count({
+        where: {
+          questionId: question.id,
+          userId,
+          success: true,
+          date: {
+            gt: new Date("2024-09-08"),
+          },
+        },
+      });
+
+      if (success) {
+        const userProgress = await this.updateUserProgress(
+          userId,
+          question.xp_earned,
+          successCount,
+        );
+        responseResult.xpEarned = (userProgress.xpEarned ??
+          (userProgress as any).userXpWin ??
+          0) as number;
+        responseResult.xpTot = (userProgress.xpTot ?? 0) as number;
+        responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
+        responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
+        responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
+        await grantCoins(userId, responseResult.coinsEarned);
+      }
     }
 
     return responseResult;
