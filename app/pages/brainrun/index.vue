@@ -54,6 +54,11 @@
         <template v-else>
           <BrainrunDebugPanel :is-admin="userStore.isAdmin" />
 
+          <BrainrunCoefficientsModal
+            v-model:open="showCoefficients"
+            :theme-coefficients="run?.themeCoefficients ?? {}"
+          />
+
           <!-- Rappel visible tant que la run a été touchée par le debug (cf. run.isDebugRun) :
              aucun XP/pièce/Point de Savoir ne sera gagné, ne compte pas dans les achievements. -->
           <p
@@ -80,6 +85,15 @@
               >
                 {{ run?.currentRow ?? 1 }} / {{ roomsPerAct }}
               </span>
+              <!-- Accès en run à la liste des thèmes investis (coef > 0) et à leur poids de tirage. -->
+              <button
+                type="button"
+                title="Mes coefficients de thème"
+                class="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-violet-300 hover:border-violet-500/30 transition-colors"
+                @click.stop="showCoefficients = true"
+              >
+                <UIcon name="i-heroicons-chart-bar" class="text-sm" />
+              </button>
             </div>
 
             <div class="flex items-center space-x-3">
@@ -445,6 +459,18 @@
                 :preview-question="previewQuestion"
               />
 
+              <!-- Carte de thème post-combat : présentée AVANT le récap, après chaque combat gagné
+                   (standard/élite/boss non final). Pilotée directement par l'offre serveur non
+                   résolue (pendingThemeCards) ; une fois choisie/passée, l'offre passe à null et le
+                   récap s'affiche, puis le bonus relique/consommable des Élites/Boss. -->
+              <BrainrunThemeCardSelect
+                v-else-if="pendingThemeCards"
+                :cards="pendingThemeCards"
+                :loading="loading"
+                @pick="handleThemeCardPick"
+                @skip="handleThemeCardSkip"
+              />
+
               <!-- Récap de fin de salle (or gagné, PV perdus) -->
               <div v-else-if="roomRecap && !showBonusStep" class="text-center py-8 px-6 space-y-6">
                 <div
@@ -548,6 +574,18 @@
                 <UIcon name="i-heroicons-arrow-path" class="animate-spin text-2xl text-gray-500" />
               </div>
             </div>
+
+            <!-- Transition d'entrée lancée dès le clic sur un nœud de combat (avant le retour de
+                 l'API), pour masquer la latence de sélection des questions. Overlay téléporté sur
+                 <body>, hors de la chaîne v-else-if ci-dessus : s'affiche par-dessus la carte le
+                 temps que choicePromise se résolve, puis révèle la 1re question. Le nom de
+                 l'ennemi apparaît dès que l'API a répondu (combatIntroName). -->
+            <BrainrunCombatIntro
+              v-if="enteringCombat"
+              :type="enteringCombat.type"
+              :name="combatIntroName"
+              @done="handleEnteringCombatDone"
+            />
           </template>
 
           <!-- Fin de run (victoire ou défaite) -->
@@ -676,6 +714,8 @@ const restBanMode = ref(false);
 // les deux cas côté serveur.
 const lastRestChoice = ref<"HEAL" | "BAN_THEME" | null>(null);
 const lastBannedTheme = ref<string | null>(null);
+// Modale "Mes coefficients" (thèmes investis coef > 0), accessible pendant toute la run.
+const showCoefficients = ref(false);
 // Le Lobby est le point d'entrée par défaut : la run ne s'affiche qu'après "Nouvelle run"/"Reprendre".
 const view = ref<"lobby" | "run">("lobby");
 
@@ -694,6 +734,10 @@ const mapNodes = brainrun.mapNodes;
 const candidateCols = brainrun.candidateCols;
 const loading = brainrun.loading;
 const isRunActive = brainrun.isRunActive;
+// 3 cartes de thème à présenter après un combat gagné (null tant qu'il n'y en a pas / une fois
+// résolues) — pilote directement l'écran de sélection, affiché AVANT le récap tant que l'offre
+// serveur n'est pas résolue.
+const pendingThemeCards = brainrun.pendingThemeCards;
 // Relique Purge Thématique : bloque l'écran courant tant que le thème à bannir n'est pas choisi.
 const pendingThemeBan = computed(() => run.value?.pendingThemeBanChoice ?? false);
 
@@ -726,6 +770,15 @@ const currentBossName = computed(
   () => getBrainrunBossById(currentRoom.value?.bossId)?.name ?? null,
 );
 
+// Entrée en combat : la transition (BrainrunCombatIntro) est lancée dès le clic sur un nœud de
+// combat, AVANT le retour de l'API, pour masquer la latence de sélection des questions derrière
+// l'animation. Le TYPE (Combat/Élite/Boss) est déjà connu du nœud (visible sur la carte) ; le NOM
+// de l'ennemi n'est révélé qu'au retour de l'API (fixé à la génération de carte mais volontairement
+// non exposé au client avant l'entrée), il apparaît donc en cours d'animation. `choicePromise`
+// permet d'attendre la fin de la sélection avant de révéler la 1re question.
+const enteringCombat = ref<{ type: "STANDARD" | "ELITE" | "BOSS" } | null>(null);
+let choicePromise: Promise<void> | null = null;
+
 // Transition d'entrée en combat (BrainrunCombatIntro) : affichée une fois par salle, tant que
 // celle-ci vient de s'activer (aucune réponse encore soumise) et que son intro n'a pas déjà
 // été fermée. Dérivé de l'état serveur plutôt que d'un flag "déjà vue" séparé : responses.length
@@ -733,6 +786,9 @@ const currentBossName = computed(
 // cours de combat.
 const introDismissedRoomId = ref<number | null>(null);
 const combatIntroType = computed(() => {
+  // Pendant l'entrée pilotée côté client (enteringCombat), la transition est déjà rendue via
+  // l'overlay dédié : ne pas la rejouer depuis l'état serveur une fois la salle activée.
+  if (enteringCombat.value) return null;
   const room = currentRoom.value;
   if (!room || room.status !== "ACTIVE") return null;
   if (room.type !== "STANDARD" && room.type !== "ELITE" && room.type !== "BOSS") return null;
@@ -749,6 +805,27 @@ async function handleCombatIntroDone() {
   // Le chrono du combat de boss ne démarre qu'ici (cf. BrainrunService.chooseNode qui ne fixe
   // plus questionStartedAt à l'activation de la salle) : sans ça, l'intro grignoterait le temps
   // de réponse imparti à la 1re question.
+  if (room.type === "BOSS" && !room.questionDeadline) {
+    await brainrun.readyNextBossQuestion();
+  }
+}
+
+/** Fin de la transition d'entrée lancée dès le clic (enteringCombat) : on attend que la sélection
+ * des questions (chooseNode) soit terminée avant de révéler la 1re question, puis on marque la
+ * salle comme déjà introduite pour que la transition serveur ne rejoue pas. */
+async function handleEnteringCombatDone() {
+  try {
+    await choicePromise;
+  } catch {
+    // Échec de la sélection : on sort de la transition, l'écran retombe sur la carte (la salle
+    // n'a pas été activée) plutôt que de rester bloqué sur l'overlay.
+  } finally {
+    choicePromise = null;
+  }
+  const room = currentRoom.value;
+  enteringCombat.value = null;
+  if (!room || room.status !== "ACTIVE") return;
+  introDismissedRoomId.value = room.id;
   if (room.type === "BOSS" && !room.questionDeadline) {
     await brainrun.readyNextBossQuestion();
   }
@@ -882,17 +959,38 @@ async function selectNode(col: number) {
   restBanMode.value = false;
   lastRestChoice.value = null;
   lastBannedTheme.value = null;
+  // Nœud de combat : on lance la transition d'entrée immédiatement (type déjà connu du nœud) et on
+  // laisse la sélection des questions tourner en parallèle côté serveur (choicePromise), pour que
+  // la latence soit masquée par l'animation plutôt que ressentie comme un lag. Nœuds non-combat
+  // (Boutique/Bibliothèque/Événement/Neutre) : comportement classique (await direct).
+  const node = mapNodes.value.find((n) => n.row === (run.value?.currentRow ?? 1) && n.col === col);
+  if (node && (node.type === "STANDARD" || node.type === "ELITE" || node.type === "BOSS")) {
+    enteringCombat.value = { type: node.type };
+    choicePromise = brainrun.chooseNode(col);
+    return;
+  }
   await brainrun.chooseNode(col);
 }
 
-/** "Continuer" du récap : bascule vers l'écran de bonus si la salle Elite/Boss en propose un
- * non résolu, sinon avance directement vers la salle suivante. */
+/** "Continuer" du récap : la carte de thème a déjà été présentée avant le récap, il ne reste donc
+ * qu'à enchaîner sur le bonus relique/consommable (Elite/Boss), sinon avancer vers la salle
+ * suivante. */
 async function handleRecapContinue() {
   if (currentRoom.value?.offersRequireChoice && !currentRoom.value.offersResolved) {
     showBonusStep.value = true;
     return;
   }
   await brainrun.acknowledgeRoom();
+}
+
+// Résoudre la carte (choix ou "Passer") suffit : l'offre serveur passe à null et le récap
+// s'affiche automatiquement à sa place (cf. chaîne v-else-if du template).
+async function handleThemeCardPick(themeSlug: string) {
+  await brainrun.resolveThemeCard(themeSlug);
+}
+
+async function handleThemeCardSkip() {
+  await brainrun.resolveThemeCard("SKIP");
 }
 
 async function handleBonusPick(id: string) {

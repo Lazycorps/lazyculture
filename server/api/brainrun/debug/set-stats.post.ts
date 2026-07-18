@@ -9,5 +9,6 @@ export default defineEventHandler(async (event) => {
     healthPoint: body.healthPoint,
     maxHealthPoint: body.maxHealthPoint,
     gold: body.gold,
+    themeCoefficients: body.themeCoefficients,
   });
 });

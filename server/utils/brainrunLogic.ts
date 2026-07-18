@@ -1,4 +1,8 @@
-import type { BrainrunRoomType } from "#shared/brainrun";
+import type {
+  BrainrunRoomType,
+  BrainrunThemeCardDTO,
+  BrainrunThemeCardRarity,
+} from "#shared/brainrun";
 import {
   brainrunPotentialBossDamage,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
@@ -25,6 +29,8 @@ import {
   BRAINRUN_BACKPACK_BONUS_SLOTS,
   BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
+  BRAINRUN_ENEMY_THEME_BONUS_BY_ACT,
+  BRAINRUN_ENEMY_THEME_BONUS_TIER_MULTIPLIER,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_FLASH_MAX_TIME_REDUCTION_RATIO,
   BRAINRUN_FLASH_TIME_REDUCTION_STEP_RATIO,
@@ -39,6 +45,11 @@ import {
   BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
   BRAINRUN_SIXTH_SENSE_CHANCE,
   BRAINRUN_SPECIALIZATION_HEAL_CHANCE,
+  BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY,
+  BRAINRUN_THEME_CARD_COUNT,
+  BRAINRUN_THEME_CARD_RARITY_WEIGHT,
+  BRAINRUN_THEME_CARD_INVESTED_CHANCE,
+  BRAINRUN_THEME_COEFFICIENT_MAX,
   BRAINRUN_TOTAL_ACTS,
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
@@ -1133,6 +1144,135 @@ export function effectiveThemes(themes: string[], bannedThemes: string[]): strin
   if (bannedThemes.length === 0) return themes;
   const filtered = themes.filter((t) => !bannedThemes.includes(t));
   return filtered.length > 0 ? filtered : themes;
+}
+
+/**
+ * Bonus de coefficient qu'un ennemi applique à chacun de ses thèmes pour la seule durée de son
+ * combat (cf. BRAINRUN_THEME_COEFFICIENTS_PLAN.md) : base par acte × multiplicateur de tier
+ * (Classique ×1, Élite ×2, Boss ×3). Ex. boss Acte 3 → 3 × 3 = 9.
+ */
+export function enemyThemeBonus(act: number, tier: "CLASSIC" | "ELITE" | "BOSS"): number {
+  const base = BRAINRUN_ENEMY_THEME_BONUS_BY_ACT[act] ?? 0;
+  return base * (BRAINRUN_ENEMY_THEME_BONUS_TIER_MULTIPLIER[tier] ?? 1);
+}
+
+/**
+ * Poids de tirage effectif par thème pour un combat. Pool éligible = thèmes de l'ennemi (fournis
+ * déjà filtrés des thèmes bannis via effectiveThemes) ∪ thèmes investis par le joueur (coefficient
+ * > 0, hors bannis). Poids d'un thème = coefficient joueur + bonus de l'ennemi (ce dernier
+ * uniquement sur les thèmes de l'ennemi). Alimente le tirage pondéré par question
+ * (QuestionService.getRandomIdsByDifficulty). Ne renvoie que des thèmes de poids strictement positif.
+ */
+export function buildCombatThemeWeights(
+  playerCoefficients: Record<string, number>,
+  enemyThemes: string[],
+  enemyBonus: number,
+  bannedThemes: string[] = [],
+): { theme: string; weight: number }[] {
+  const enemyThemeSet = new Set(enemyThemes);
+  const eligible = new Set(enemyThemes);
+  for (const [theme, coef] of Object.entries(playerCoefficients)) {
+    if (coef > 0 && !bannedThemes.includes(theme)) eligible.add(theme);
+  }
+  return [...eligible]
+    .map((theme) => ({
+      theme,
+      weight: (playerCoefficients[theme] ?? 0) + (enemyThemeSet.has(theme) ? enemyBonus : 0),
+    }))
+    .filter((entry) => entry.weight > 0);
+}
+
+/** Raretés de carte de thème, dans l'ordre croissant de valeur (pour le tirage pondéré). */
+const BRAINRUN_THEME_CARD_RARITIES: BrainrunThemeCardRarity[] = [
+  "STANDARD",
+  "RARE",
+  "EPIC",
+  "LEGENDARY",
+];
+
+/**
+ * Génère les cartes de thème proposées après un combat gagné. `candidates` (pool des thèmes
+ * d'ennemi) doit déjà être filtré par l'appelant (hors excludedCardThemes/bannis). Pour CHAQUE
+ * carte, il y a `BRAINRUN_THEME_CARD_INVESTED_CHANCE` de tirer plutôt un thème déjà investi
+ * (`investedCandidates`, coef > 0) pour renforcer une spécialisation ; sinon tirage uniforme dans
+ * `candidates`. Les thèmes restent distincts sur l'offre (repli d'un pool sur l'autre si l'un
+ * s'épuise). Chaque carte reçoit une rareté pondérée (BRAINRUN_THEME_CARD_RARITY_WEIGHT) et son
+ * coefBefore→coefAfter. Renvoie moins de `count` cartes seulement si les deux pools réunis en
+ * contiennent moins.
+ */
+export function generateThemeCards(
+  candidates: { slug: string; name: string; image: string }[],
+  currentCoefficients: Record<string, number>,
+  count: number = BRAINRUN_THEME_CARD_COUNT,
+  random: () => number = Math.random,
+  investedCandidates: { slug: string; name: string; image: string }[] = [],
+): BrainrunThemeCardDTO[] {
+  // Fisher-Yates avec le random injecté (testable) → tirage uniforme distinct dans chaque pool.
+  const shuffle = (arr: { slug: string; name: string; image: string }[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [a[i], a[j]] = [a[j]!, a[i]!];
+    }
+    return a;
+  };
+  const normalPool = shuffle(candidates);
+  const investedPool = shuffle(investedCandidates);
+  const picked = new Set<string>();
+  // Dépile le prochain thème encore non retenu (garantit des cartes distinctes, y compris quand un
+  // thème investi figure aussi dans le pool des ennemis).
+  const takeFrom = (pool: { slug: string; name: string; image: string }[]) => {
+    while (pool.length > 0) {
+      const theme = pool.shift()!;
+      if (!picked.has(theme.slug)) return theme;
+    }
+    return undefined;
+  };
+
+  const cards: BrainrunThemeCardDTO[] = [];
+  for (let i = 0; i < count; i++) {
+    // 10 %/carte : privilégier un thème déjà investi (s'il en reste un distinct), sinon pool normal.
+    const preferInvested = random() < BRAINRUN_THEME_CARD_INVESTED_CHANCE;
+    const theme = preferInvested
+      ? (takeFrom(investedPool) ?? takeFrom(normalPool))
+      : (takeFrom(normalPool) ?? takeFrom(investedPool));
+    if (!theme) break;
+    picked.add(theme.slug);
+    const rarity = weightedRandomPick(
+      BRAINRUN_THEME_CARD_RARITIES,
+      (r) => BRAINRUN_THEME_CARD_RARITY_WEIGHT[r],
+      random,
+    );
+    const coefBefore = currentCoefficients[theme.slug] ?? 0;
+    // Plafond de coefficient : le bonus de rareté est tronqué s'il dépasse le maximum de run.
+    const coefAfter = Math.min(
+      BRAINRUN_THEME_COEFFICIENT_MAX,
+      coefBefore + BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY[rarity],
+    );
+    cards.push({
+      themeSlug: theme.slug,
+      themeName: theme.name,
+      themeImage: theme.image,
+      rarity,
+      coefBefore,
+      coefAfter,
+    });
+  }
+  return cards;
+}
+
+/**
+ * Les `n` thèmes aux plus gros coefficients d'une run, triés par coefficient décroissant puis
+ * ordre alphabétique (départage déterministe). Ignore les thèmes à 0. Réutilisé pour
+ * l'anti-répétition des cartes (excludedCardThemes = union des top-3 des 2 dernières runs valides)
+ * et pour le tri de la modale "Mes coefficients".
+ */
+export function topThemes(coefficients: Record<string, number>, n: number = 3): string[] {
+  return Object.entries(coefficients)
+    .filter(([, coef]) => coef > 0)
+    .sort(([aTheme, aCoef], [bTheme, bCoef]) => bCoef - aCoef || aTheme.localeCompare(bTheme))
+    .slice(0, n)
+    .map(([theme]) => theme);
 }
 
 /**

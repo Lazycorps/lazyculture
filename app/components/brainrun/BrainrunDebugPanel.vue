@@ -108,6 +108,36 @@
       >
         Téléporter
       </button>
+
+      <!-- Coefficients de thème : force le coefficient d'un thème investissable (union des thèmes
+           d'ennemis/boss) pour tester le tirage pondéré et les cartes sans jouer une run entière. -->
+      <div class="flex items-center gap-1.5 flex-wrap pt-1 border-t border-white/5">
+        <span class="text-gray-500 w-10">Coef</span>
+        <select
+          v-model="coefTheme"
+          class="flex-1 min-w-[110px] bg-slate-800 border border-white/10 rounded px-1.5 py-0.5 text-white"
+        >
+          <option value="" class="bg-slate-900 text-white">(thème)</option>
+          <option v-for="t in investableThemes" :key="t" :value="t" class="bg-slate-900 text-white">
+            {{ t }}
+          </option>
+        </select>
+        <input
+          v-model.number="coefValue"
+          type="number"
+          min="0"
+          class="w-12 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white"
+        />
+        <button
+          type="button"
+          :disabled="loading || !coefTheme"
+          class="text-violet-400 font-black font-display uppercase tracking-wider disabled:opacity-40"
+          @click="applyCoefficient"
+        >
+          OK
+        </button>
+      </div>
+
       <p v-if="error" class="text-rose-400">{{ error }}</p>
     </div>
   </div>
@@ -120,8 +150,8 @@ import {
   getBrainrunRoomsPerAct,
   type BrainrunRoomType,
 } from "#shared/brainrun";
-import { getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
-import { getBrainrunBossesByAct } from "#shared/brainrunBosses";
+import { BRAINRUN_ENEMIES, getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
+import { BRAINRUN_BOSSES, getBrainrunBossesByAct } from "#shared/brainrunBosses";
 
 /** Panneau visible en développement, ou en production pour les administrateurs (rejeté par le
  * serveur sinon, cf. assertDebugAccess) : force PV/or/téléportation pour tester une situation
@@ -148,6 +178,17 @@ const roomsPerAct = computed(() => getBrainrunRoomsPerAct(act.value));
 const col = ref(0);
 const roomType = ref<BrainrunRoomType | "">("");
 const forcedCombatId = ref("");
+
+// Thèmes investissables (proposables en carte / tirables) = union des thèmes des catalogues
+// ennemis + boss, triés — même pool que generateThemeCardOffer côté serveur.
+const investableThemes = [
+  ...new Set([
+    ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
+    ...BRAINRUN_BOSSES.flatMap((b) => b.themes),
+  ]),
+].sort((a, b) => a.localeCompare(b));
+const coefTheme = ref("");
+const coefValue = ref(3);
 
 /** Liste d'ennemis/boss du catalogue (shared/brainrunEnemies.ts / brainrunBosses.ts) correspondant
  * à l'acte/type choisis, pour remplacer la saisie libre d'id par un select — vide (donc masqué)
@@ -203,6 +244,16 @@ async function applyJump() {
     });
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Échec de la téléportation.";
+  }
+}
+
+async function applyCoefficient() {
+  if (!coefTheme.value) return;
+  error.value = null;
+  try {
+    await brainrun.debugSetStats({ themeCoefficients: { [coefTheme.value]: coefValue.value } });
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Échec de la mise à jour.";
   }
 }
 </script>

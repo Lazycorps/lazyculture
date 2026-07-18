@@ -20,6 +20,13 @@ export type BrainrunBonusChoiceDTO = {
   pick: string;
 };
 
+/** Choix d'une carte de thème post-combat : `pick` = themeSlug de l'une des cartes proposées, ou
+ * "SKIP" pour passer (applique la relique Lot de Consolation si possédée). */
+export type BrainrunThemeCardChoiceDTO = {
+  runId: string;
+  pick: string;
+};
+
 export type BrainrunShopBuyDTO = {
   runId: string;
   offerIndex: number;
@@ -48,12 +55,14 @@ export type BrainrunTalentUnlockDTO = {
 
 /** Debug uniquement (assertDebugAccess côté serveur : dev libre, admin requis en prod) : force
  * PV/or de la run en cours, sans passer par une salle. Les champs omis conservent leur valeur
- * actuelle. */
+ * actuelle. `themeCoefficients` : entrées à fusionner dans les coefficients de la run (un coef ≤ 0
+ * retire le thème), pour tester le tirage pondéré et les cartes sans jouer une run entière. */
 export type BrainrunDebugSetStatsDTO = {
   runId: string;
   healthPoint?: number;
   maxHealthPoint?: number;
   gold?: number;
+  themeCoefficients?: Record<string, number>;
 };
 
 /** Debug uniquement : téléporte la run vers un nœud précis (must be PENDING), en forçant
