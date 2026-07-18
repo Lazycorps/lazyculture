@@ -5,6 +5,7 @@ import { updateShowdownUserRank } from "./showdownRankHelper";
 import { achievementService } from "~~/server/services/AchievementService";
 import { cosmeticService } from "~~/server/services/CosmeticService";
 import { coinsFromXp, grantCoins } from "./walletHelper";
+import { dailyRewardService } from "../services/DailyRewardService";
 
 export interface ShowdownPlayerInMemory {
   userId: string;
@@ -1244,15 +1245,20 @@ class ShowdownManager {
 
     // 2. Mettre à jour l'XP globale des utilisateurs
     for (const player of match.players) {
+      const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(
+        player.userId,
+      );
+      const multipliedXp = Math.ceil(player.xpEarned * activityMultiplier);
+
       await prisma.userProgress
         .update({
           where: { userId: player.userId },
-          data: { xp: { increment: player.xpEarned } },
+          data: { xp: { increment: multipliedXp } },
         })
         .catch(console.error);
 
-      // Créditer les pièces du match
-      await grantCoins(player.userId, coinsFromXp(player.xpEarned)).catch(console.error);
+      // Créditer les pièces du match (une seule fois, sur l'XP totale du match)
+      await grantCoins(player.userId, coinsFromXp(multipliedXp), true, false).catch(console.error);
     }
 
     // 3. Mettre à jour le classement compétitif LP (Elo)

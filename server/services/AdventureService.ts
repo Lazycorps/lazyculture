@@ -1,6 +1,7 @@
 import prisma from "~~/server/utils/prisma";
 import { responseService } from "~~/server/services/ResponseService";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
+import { dailyRewardService } from "./DailyRewardService";
 
 export class AdventureService {
   /**
@@ -327,6 +328,9 @@ export class AdventureService {
     const isReplay = sequence < currentUnlocked || completed;
 
     if (success) {
+      // Increment daily quest progress
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_ADVENTURE", 1);
+
       // Award stage completion bonus XP (only if not a replay)
       let bonusXp = 0;
       if (!isReplay) {
@@ -337,11 +341,14 @@ export class AdventureService {
 
       // Update user progress XP
       if (bonusXp > 0) {
+        const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(userId);
+        const multipliedBonusXp = Math.ceil(bonusXp * activityMultiplier);
+
         const progressRecord = await prisma.userProgress.findFirst({
           where: { userId },
         });
         if (progressRecord) {
-          const userXpTot = progressRecord.xp + bonusXp;
+          const userXpTot = progressRecord.xp + multipliedBonusXp;
           const level = await prisma.level.findFirst({
             where: { xp_threshold: { lte: userXpTot } },
             orderBy: { xp_threshold: "desc" },
@@ -349,12 +356,12 @@ export class AdventureService {
           await prisma.userProgress.update({
             where: { userId },
             data: {
-              xp: { increment: bonusXp },
+              xp: { increment: multipliedBonusXp },
               levelId: level?.id,
             },
           });
         }
-        await grantCoins(userId, coinsFromXp(bonusXp));
+        await grantCoins(userId, coinsFromXp(multipliedBonusXp), true, false);
       }
 
       // 4. Update stage scores map
@@ -365,7 +372,7 @@ export class AdventureService {
             typeof progress.stageScores === "string"
               ? JSON.parse(progress.stageScores)
               : JSON.parse(JSON.stringify(progress.stageScores));
-        } catch (e) {
+        } catch {
           stageScores = {};
         }
       }

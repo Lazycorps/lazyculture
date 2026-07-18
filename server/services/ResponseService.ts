@@ -2,6 +2,7 @@ import prisma from "~~/server/utils/prisma";
 import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import { isCorrectAnswer } from "~~/server/services/QuestionService";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
+import { dailyRewardService } from "~~/server/services/DailyRewardService";
 
 const DAILY_REWARD_CAP = 150;
 
@@ -50,6 +51,9 @@ export class ResponseService {
       });
 
       if (success) {
+        // Incrémente la progression de la quête quotidienne
+        await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+
         let isCapped = false;
         if (!bypassDailyCap) {
           const today = new Date();
@@ -77,10 +81,12 @@ export class ResponseService {
           responseResult.newLevel = userProgress?.levelId ?? 1;
           responseResult.coinsEarned = 0;
         } else {
+          const multiplier = await dailyRewardService.getActivityStreakMultiplier(userId);
           const userProgress = await this.updateUserProgress(
             userId,
             question.xp_earned,
             successCount,
+            multiplier,
           );
           responseResult.xpEarned = (userProgress.xpEarned ??
             (userProgress as any).userXpWin ??
@@ -89,7 +95,9 @@ export class ResponseService {
           responseResult.previousLevel = (userProgress.previousLevel ?? 1) as number;
           responseResult.newLevel = (userProgress.currentLevel ?? 1) as number;
           responseResult.coinsEarned = coinsFromXp(responseResult.xpEarned);
-          await grantCoins(userId, responseResult.coinsEarned);
+          // grantCoins applies the multiplier by default, but since responseResult.xpEarned is already multiplied
+          // and coinsFromXp is computed from it, we pass applyMultiplier = false to avoid double multiplication.
+          await grantCoins(userId, responseResult.coinsEarned, true, false);
         }
       }
     }
@@ -97,12 +105,18 @@ export class ResponseService {
     return responseResult;
   }
 
-  private async updateUserProgress(userId: string, xpEarned: number, successCount: number) {
+  private async updateUserProgress(
+    userId: string,
+    xpEarned: number,
+    successCount: number,
+    multiplier = 1.0,
+  ) {
     const userProgress = await prisma.userProgress.findFirst({
       where: { userId: userId },
     });
 
-    const userXpWin = successCount == 0 ? xpEarned : Math.ceil(xpEarned / successCount);
+    const baseXp = successCount == 0 ? xpEarned : Math.ceil(xpEarned / successCount);
+    const userXpWin = Math.ceil(baseXp * multiplier);
 
     if (userProgress) {
       const userXpTot = userProgress.xp + userXpWin;

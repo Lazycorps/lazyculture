@@ -23,23 +23,21 @@ export function dailyStreakBonus(streak: number): number {
  * "déjà versé aujourd'hui" est persisté sur le portefeuille.
  */
 async function applyDailyActivityBonus(userId: string): Promise<void> {
-  // const today = toLocalDateStr(new Date());
-  // const wallet = await prisma.userWallet.findUnique({
-  //   where: { userId },
-  //   select: { lastBonusDay: true },
-  // });
-  // if (!wallet || wallet.lastBonusDay === today) return;
-  // const streak = Math.max(1, await computeActivityStreak(userId));
-  // const bonus = dailyStreakBonus(streak);
-  // // Guard sur lastBonusDay : deux gains simultanés ne versent le bonus qu'une fois
-  // await prisma.userWallet.updateMany({
-  //   where: { userId, lastBonusDay: { not: today } },
-  //   data: {
-  //     lastBonusDay: today,
-  //     coins: { increment: bonus },
-  //     totalEarned: { increment: bonus },
-  //   },
-  // });
+  const today = toLocalDateStr(new Date());
+  const wallet = await prisma.userWallet.findUnique({
+    where: { userId },
+    select: { lastActivityDay: true },
+  });
+  if (!wallet || wallet.lastActivityDay === today) return;
+  const streak = Math.max(1, await computeActivityStreak(userId));
+
+  await prisma.userWallet.update({
+    where: { userId },
+    data: {
+      lastActivityDay: today,
+      activityStreak: streak,
+    },
+  });
 }
 
 /**
@@ -51,16 +49,32 @@ export async function grantCoins(
   userId: string,
   amount: number,
   countsAsActivity = true,
-): Promise<void> {
-  if (amount <= 0) return;
+  applyMultiplier = true,
+): Promise<number> {
+  if (amount <= 0) return 0;
+
+  let finalAmount = amount;
+  if (applyMultiplier) {
+    const wallet = await prisma.userWallet.findUnique({
+      where: { userId },
+      select: { dailyStreak: true },
+    });
+    const streak = wallet?.dailyStreak || 0;
+    const bonus = streak > 1 ? Math.min((streak - 1) * 0.1, 2.0) : 0;
+    finalAmount = Math.ceil(amount * (1 + bonus));
+  }
+
   await prisma.userWallet.upsert({
     where: { userId },
-    update: { coins: { increment: amount }, totalEarned: { increment: amount } },
-    create: { userId, coins: amount, totalEarned: amount },
+    update: { coins: { increment: finalAmount }, totalEarned: { increment: finalAmount } },
+    create: { userId, coins: finalAmount, totalEarned: finalAmount },
   });
+
   if (countsAsActivity) {
     await applyDailyActivityBonus(userId);
   }
+
+  return finalAmount;
 }
 
 /**
@@ -91,6 +105,53 @@ export async function recalculateWalletsFromXp(): Promise<{
     }
   }
   return { usersCredited, coinsGranted };
+}
+
+/** Recalcule les streaks d'activité et de connexion de tous les portefeuilles à partir des réponses. */
+export async function recalculateStreaksFromResponses(): Promise<{
+  usersStreaksRecalculated: number;
+}> {
+  const wallets = await prisma.userWallet.findMany({ select: { userId: true } });
+
+  const todayStr = toLocalDateStr(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = toLocalDateStr(yesterday);
+
+  let usersStreaksRecalculated = 0;
+  for (const wallet of wallets) {
+    const userId = wallet.userId;
+    const streak = await computeActivityStreak(userId);
+
+    let lastDailyClaimStr: string | null = null;
+    if (streak > 0) {
+      const lastResponse = await prisma.questionResponse.findFirst({
+        where: { userId },
+        orderBy: { date: "desc" },
+        select: { date: true },
+      });
+      if (lastResponse) {
+        const lastRespStr = toLocalDateStr(lastResponse.date);
+        if (lastRespStr === todayStr) {
+          lastDailyClaimStr = todayStr;
+        } else {
+          lastDailyClaimStr = yesterdayStr;
+        }
+      }
+    }
+
+    await prisma.userWallet.update({
+      where: { userId },
+      data: {
+        activityStreak: streak,
+        dailyStreak: streak,
+        lastDailyClaimStr,
+      },
+    });
+    usersStreaksRecalculated++;
+  }
+
+  return { usersStreaksRecalculated };
 }
 
 /**

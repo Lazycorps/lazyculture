@@ -7,6 +7,7 @@ import {
 } from "~~/server/services/QuestionService";
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
+import { dailyRewardService } from "./DailyRewardService";
 import {
   applyBossMalusToDamage,
   applyRelicsToBossDamage,
@@ -358,6 +359,10 @@ export class BrainrunService {
           ? Math.round(BRAINRUN_BOSS_MAX_HP * (1 - talentEffects.bossHpReductionPct / 100))
           : BRAINRUN_BOSS_MAX_HP;
 
+      if (combatType === "BOSS" && run.currentAct === 1) {
+        await dailyRewardService.incrementQuestProgress(userId, "PLAY_BRAINRUN", 1);
+      }
+
       await prisma.brainrunRoom.update({
         where: { id: node.id },
         data: {
@@ -607,6 +612,9 @@ export class BrainrunService {
     const timedOut =
       isBossRoom && !skipTimeoutForFirstAnswer && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
+    if (success) {
+      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+    }
     // Une mauvaise réponse fait toujours perdre exactement 1 PV, quelle que soit la difficulté
     // de la question (plus de palier 1/2/3 PV) — seul un Bouclier peut encore annuler la perte.
     const rawHpLoss = success ? 0 : 1;
@@ -1999,7 +2007,9 @@ export class BrainrunService {
       },
     });
     if (!run.isDebugRun) {
-      await updateUserProgress(run.userId, xpEarned);
+      const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(run.userId);
+      const multipliedXpEarned = Math.ceil(xpEarned * activityMultiplier);
+      await updateUserProgress(run.userId, multipliedXpEarned);
       await grantKnowledgePoints(run.userId, knowledgePointsEarned);
     }
 

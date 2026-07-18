@@ -3,6 +3,7 @@ import type { Question } from "@prisma/client";
 import { updateUserRank } from "./rankHelper";
 import { achievementService } from "~~/server/services/AchievementService";
 import { coinsFromXp, grantCoins } from "./walletHelper";
+import { dailyRewardService } from "../services/DailyRewardService";
 
 export interface BRPlayer {
   userId: string;
@@ -1031,16 +1032,25 @@ class BattleRoyaleManager {
         })
         .catch(console.error);
 
+      // Apply activity multiplier!
+      const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(
+        player.userId,
+      );
+      const multipliedTotalBonus = Math.ceil(totalBonus * activityMultiplier);
+      const multipliedXpEarned = Math.ceil(player.xpEarned * activityMultiplier);
+
       // Ajouter de l'XP globale au profil utilisateur
       await prisma.userProgress
         .update({
           where: { userId: player.userId },
-          data: { xp: { increment: totalBonus } },
+          data: { xp: { increment: multipliedTotalBonus } },
         })
         .catch(console.error);
 
       // Créditer les pièces du match (une seule fois, sur l'XP totale du match)
-      await grantCoins(player.userId, coinsFromXp(player.xpEarned)).catch(console.error);
+      await grantCoins(player.userId, coinsFromXp(multipliedXpEarned), true, false).catch(
+        console.error,
+      );
 
       // Mettre à jour le classement compétitif (LP et rang)
       const rankUpdate = await updateUserRank(

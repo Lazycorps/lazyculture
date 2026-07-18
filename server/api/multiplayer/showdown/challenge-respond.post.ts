@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from "~~/server/utils/auth";
 import { showdownManager } from "~~/server/utils/showdownManager";
+import { dailyRewardService } from "~~/server/services/DailyRewardService";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
@@ -32,5 +33,14 @@ export default defineEventHandler(async (event) => {
     throw createError(error);
   }
 
-  return result.accepted ? { accepted: true, matchId: result.matchId } : { accepted: false };
+  if (result.accepted) {
+    await dailyRewardService.incrementQuestProgress(
+      userConnected.id,
+      "PLAY_MULTIPLAYER_OR_SOLO",
+      1,
+    );
+    return { accepted: true, matchId: result.matchId };
+  }
+
+  return { accepted: false };
 });

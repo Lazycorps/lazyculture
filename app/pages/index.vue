@@ -5,7 +5,7 @@
     <!-- 1. DYNAMIC WELCOME / PROFILE HEADER -->
     <ClientOnly>
       <div
-        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-4 sm:p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6"
+        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-4 sm:p-6 md:p-8 flex flex-col gap-4"
       >
         <!-- Background decorative glows -->
         <div
@@ -15,114 +15,282 @@
           class="absolute -right-16 -bottom-16 w-32 h-32 rounded-full bg-indigo-600/10 blur-3xl"
         ></div>
 
-        <!-- Left: Player Info / Greeting -->
-        <div class="flex items-center space-x-3 sm:space-x-4 relative z-10">
-          <template v-if="user">
-            <UserAvatar
-              :src="userProfile?.equippedAvatar?.imageUrl"
-              :frame="userProfile?.equippedFrame?.styleKey"
-              size="xl"
-              avatar-class="border-2 border-violet-500/40 shadow-neon"
-            />
-            <div class="space-y-1">
-              <h2
-                class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+        <!-- Top part: player info & badges -->
+        <div
+          class="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 relative z-10"
+        >
+          <!-- Left: Player Info / Greeting -->
+          <div class="flex items-center space-x-3 sm:space-x-4 relative z-10">
+            <template v-if="user">
+              <UserAvatar
+                :src="userProfile?.equippedAvatar?.imageUrl"
+                :frame="userProfile?.equippedFrame?.styleKey"
+                size="xl"
+                avatar-class="border-2 border-violet-500/40 shadow-neon"
+              />
+              <div class="space-y-1">
+                <h2
+                  class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+                >
+                  Ravi de vous revoir, {{ userProfile?.name || "Joueur" }} ! 👋
+                </h2>
+              </div>
+            </template>
+            <template v-else>
+              <div
+                class="w-14 h-14 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-2xl text-violet-400"
               >
-                Ravi de vous revoir, {{ userProfile?.name || "Joueur" }} ! 👋
-              </h2>
-              <p class="text-xs text-gray-400 font-medium">
-                Prêt à relever de nouveaux défis de culture générale aujourd'hui ?
-              </p>
-            </div>
-          </template>
-          <template v-else>
+                🚀
+              </div>
+              <div class="space-y-1">
+                <h2
+                  class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+                >
+                  Bienvenue sur LazyCulture !
+                </h2>
+                <p class="text-xs text-gray-400 font-medium">
+                  Testez vos connaissances, explorez nos modes de jeu et défiez la communauté.
+                </p>
+              </div>
+            </template>
+          </div>
+
+          <!-- Right: Stats Capsule / Guest Action -->
+          <div class="relative z-10 shrink-0 w-full md:w-auto">
             <div
-              class="w-14 h-14 rounded-full bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-2xl text-violet-400"
+              v-if="user"
+              class="bg-slate-950/50 border border-white/10 rounded-2xl p-3 min-w-full sm:min-w-[280px] md:min-w-[320px] space-y-2.5 relative overflow-hidden"
             >
-              🚀
+              <!-- Row 1: Coins & Streak Pill -->
+              <div class="flex items-center justify-between">
+                <!-- Coins info -->
+                <div class="flex items-center gap-1.5 text-amber-400">
+                  <UIcon name="i-heroicons-circle-stack-solid" class="text-base animate-pulse" />
+                  <span class="text-sm font-black font-display"
+                    >{{ userProfile?.coins || 0 }} 🪙</span
+                  >
+                </div>
+
+                <!-- Streak Info (only if active) -->
+                <div
+                  v-if="dailyStatus?.activity?.bonusPercent > 0"
+                  class="bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-0.5 flex items-center gap-1 text-red-400 text-[9px] font-black font-display tracking-wider uppercase shrink-0"
+                >
+                  <UIcon name="i-heroicons-fire-solid" class="text-xs text-red-500 animate-pulse" />
+                  <span
+                    >+{{ dailyStatus.activity.bonusPercent }}% ({{
+                      dailyStatus.activity.streak
+                    }}j)</span
+                  >
+                </div>
+              </div>
+
+              <!-- Row 2: Level & XP progress -->
+              <div class="space-y-1.5">
+                <div
+                  class="flex justify-between items-center text-[10px] font-bold font-display leading-none"
+                >
+                  <span class="text-violet-400 uppercase tracking-wider"
+                    >Niveau {{ userProfile?.level || 1 }}</span
+                  >
+                  <span class="text-gray-500"
+                    >{{ userProfile?.xp || 0 }} /
+                    {{ userProfile?.nextLevelTreshold || 100 }} XP</span
+                  >
+                </div>
+                <!-- Progress Bar -->
+                <div
+                  class="w-full h-1.5 bg-slate-900 rounded-full border border-white/5 overflow-hidden"
+                >
+                  <div
+                    class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
+                    :style="{ width: `${xpProgress}%` }"
+                  ></div>
+                </div>
+              </div>
             </div>
-            <div class="space-y-1">
-              <h2
-                class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+
+            <div v-else class="flex gap-3">
+              <UButton
+                to="/login"
+                color="primary"
+                size="lg"
+                class="font-black font-display uppercase tracking-widest px-6"
+                icon="i-heroicons-key"
               >
-                Bienvenue sur LazyCulture !
-              </h2>
-              <p class="text-xs text-gray-400 font-medium">
-                Testez vos connaissances, explorez nos modes de jeu et défiez la communauté.
-              </p>
+                Se Connecter
+              </UButton>
+              <UButton
+                to="/themes"
+                color="white"
+                variant="ghost"
+                size="lg"
+                class="font-black font-display uppercase tracking-widest border border-white/10 hover:bg-white/5"
+              >
+                Visiter
+              </UButton>
             </div>
-          </template>
+          </div>
         </div>
 
-        <!-- Right: Stats Capsule / Guest Action -->
-        <div class="relative z-10 shrink-0 w-full md:w-auto">
+        <!-- Bottom part: Compact Daily claims (only if logged in and status is loaded) -->
+        <div
+          v-if="user && dailyStatus"
+          class="w-full pt-4 mt-2 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10"
+        >
+          <!-- Left: Compact Login Claim -->
           <div
-            v-if="user"
-            class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4"
+            class="flex items-center justify-between gap-3 bg-slate-950/30 border border-white/5 rounded-xl p-3"
           >
-            <!-- Level & XP progress -->
-            <div
-              class="bg-slate-950/60 border border-white/5 rounded-2xl p-3 sm:p-4 min-w-full sm:min-w-[200px] space-y-1.5 sm:space-y-2"
-            >
-              <div class="flex justify-between items-center text-xs font-bold font-display">
-                <span class="text-violet-400 uppercase tracking-wider"
-                  >Niveau {{ userProfile?.level || 1 }}</span
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-base shrink-0">📆</span>
+              <div class="space-y-0.5 min-w-0">
+                <p class="text-xs font-black text-white font-display">
+                  Connexion : Jour
+                  {{
+                    dailyStatus.calendar.streakBroken
+                      ? 1
+                      : dailyStatus.calendar.claimedToday
+                        ? dailyStatus.calendar.dailyStreak
+                        : dailyStatus.calendar.dailyStreak + 1
+                  }}
+                </p>
+                <p class="text-[10px] text-gray-400 truncate">
+                  Récompense :
+                  <span class="text-amber-400 font-bold font-display"
+                    >{{
+                      dailyStatus.calendar.rewards[
+                        ((dailyStatus.calendar.streakBroken
+                          ? 1
+                          : dailyStatus.calendar.claimedToday
+                            ? dailyStatus.calendar.dailyStreak
+                            : dailyStatus.calendar.dailyStreak + 1) -
+                          1) %
+                          7
+                      ]
+                    }}
+                    🪙</span
+                  >
+                </p>
+                <p
+                  v-if="
+                    !dailyStatus.calendar.claimedToday && !dailyStatus.calendar.hasAnsweredToday
+                  "
+                  class="text-[9px] text-violet-400 font-semibold font-display"
                 >
-                <span class="text-gray-400"
-                  >{{ userProfile?.xp || 0 }} / {{ userProfile?.nextLevelTreshold || 100 }} XP</span
-                >
-              </div>
-              <!-- Premium Progress Bar -->
-              <div
-                class="w-full h-2 bg-slate-900 rounded-full border border-white/5 overflow-hidden"
-              >
-                <div
-                  class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
-                  :style="{ width: `${xpProgress}%` }"
-                ></div>
+                  ⚠️ Répondez à 1 question d'abord
+                </p>
               </div>
             </div>
 
-            <!-- Coins Badge -->
-            <div
-              class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-2 sm:gap-3 text-amber-400"
-            >
-              <div class="space-y-0.5">
-                <p
-                  class="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider font-display"
-                >
-                  Porte-monnaie
-                </p>
-                <p class="text-lg font-black font-display tracking-wide leading-none">
-                  {{ userProfile?.coins || 0 }}
-                </p>
-              </div>
-              <UIcon
-                name="i-heroicons-circle-stack-solid"
-                class="text-3xl text-amber-500 animate-pulse"
-              />
+            <div class="shrink-0 flex gap-2">
+              <UButton
+                v-if="dailyStatus.calendar.streakBroken && dailyStatus.calendar.canCatchUp"
+                :color="dailyStatus.calendar.hasAnsweredToday ? 'amber' : 'gray'"
+                :disabled="!dailyStatus.calendar.hasAnsweredToday"
+                variant="soft"
+                size="xs"
+                icon="i-heroicons-arrow-path-solid"
+                class="font-black font-display uppercase text-[9px] tracking-widest"
+                :loading="claimingLogin"
+                @click="claimLogin(true)"
+              >
+                {{
+                  dailyStatus.calendar.hasAnsweredToday
+                    ? "Rattrapage (20 🪙)"
+                    : "Rattrapage verrouillé"
+                }}
+              </UButton>
+              <UButton
+                v-if="!dailyStatus.calendar.claimedToday"
+                :color="dailyStatus.calendar.hasAnsweredToday ? 'primary' : 'gray'"
+                :disabled="!dailyStatus.calendar.hasAnsweredToday"
+                size="xs"
+                icon="i-heroicons-gift-solid"
+                class="font-black font-display uppercase text-[9px] tracking-widest bg-gradient-to-r shadow-md"
+                :class="
+                  dailyStatus.calendar.hasAnsweredToday
+                    ? 'from-violet-600 to-indigo-600 shadow-violet-600/20'
+                    : 'from-slate-800 to-slate-900 border border-white/5 cursor-not-allowed'
+                "
+                :loading="claimingLogin"
+                @click="claimLogin(false)"
+              >
+                {{ dailyStatus.calendar.hasAnsweredToday ? "Réclamer" : "1 quiz requis" }}
+              </UButton>
+              <span
+                v-else
+                class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
+              >
+                <UIcon name="i-heroicons-check-circle-solid" class="text-sm" /> Réclamé
+              </span>
             </div>
           </div>
 
-          <div v-else class="flex gap-3">
-            <UButton
-              to="/login"
-              color="primary"
-              size="lg"
-              class="font-black font-display uppercase tracking-widest px-6"
-              icon="i-heroicons-key"
-            >
-              Se Connecter
-            </UButton>
-            <UButton
-              to="/themes"
-              color="white"
-              variant="ghost"
-              size="lg"
-              class="font-black font-display uppercase tracking-widest border border-white/10 hover:bg-white/5"
-            >
-              Visiter
-            </UButton>
+          <!-- Right: Compact Daily Quest -->
+          <div
+            v-if="dailyStatus.quest"
+            class="flex items-center justify-between gap-3 bg-slate-950/30 border border-white/5 rounded-xl p-3"
+          >
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="text-base shrink-0">🎯</span>
+              <div class="space-y-1 min-w-0 flex-1">
+                <div class="flex justify-between items-center gap-2">
+                  <p class="text-xs font-black text-white font-display truncate">
+                    Quête : {{ dailyStatus.quest.title }}
+                  </p>
+                  <span
+                    class="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 font-black px-1.5 py-0.25 rounded-full font-display shrink-0"
+                  >
+                    {{ dailyStatus.quest.questStreak }} 🔥
+                  </span>
+                </div>
+                <!-- Mini progress & text -->
+                <div class="flex items-center gap-2">
+                  <div
+                    class="flex-1 h-1 bg-slate-900 rounded-full overflow-hidden border border-white/5"
+                  >
+                    <div
+                      class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full"
+                      :style="{
+                        width: `${Math.min((dailyStatus.quest.progress / dailyStatus.quest.target) * 100, 100)}%`,
+                      }"
+                    ></div>
+                  </div>
+                  <span class="text-[9px] text-gray-500 font-bold shrink-0">
+                    {{ dailyStatus.quest.progress }}/{{ dailyStatus.quest.target }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="shrink-0 flex gap-2">
+              <UButton
+                v-if="!dailyStatus.quest.claimed"
+                :disabled="dailyStatus.quest.progress < dailyStatus.quest.target"
+                color="emerald"
+                size="xs"
+                icon="i-heroicons-check-solid"
+                class="font-black font-display uppercase tracking-widest text-[9px]"
+                :class="
+                  dailyStatus.quest.progress >= dailyStatus.quest.target
+                    ? 'animate-bounce bg-emerald-600'
+                    : 'bg-slate-800 text-gray-500 border border-white/5'
+                "
+                :loading="claimingQuest"
+                @click="claimQuest(dailyStatus.quest.id)"
+              >
+                {{
+                  dailyStatus.quest.progress >= dailyStatus.quest.target ? "Réclamer" : "En cours"
+                }}
+              </UButton>
+              <span
+                v-else
+                class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
+              >
+                <UIcon name="i-heroicons-check-circle" /> Réclamée
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -655,6 +823,103 @@ useSeoMeta({
 // 2. Auth & User store fetching
 const userStore = useUserStore();
 const user = useSupabaseUser();
+
+const toast = useToast();
+const claimingLogin = ref(false);
+const claimingQuest = ref(false);
+const showCalendar = ref(false);
+
+const { data: dailyStatus, refresh: refreshDailyStatus } = await useFetch<any>(
+  () => (user.value ? "/api/user/daily/status" : null),
+  { server: false },
+);
+
+const calendarStartDay = computed(() => {
+  if (!dailyStatus.value?.calendar) return 1;
+  const { dailyStreak, claimedToday, streakBroken } = dailyStatus.value.calendar;
+  if (streakBroken) return 1;
+
+  if (claimedToday) {
+    return Math.floor((dailyStreak - 1) / 7) * 7 + 1;
+  } else {
+    return Math.floor(dailyStreak / 7) * 7 + 1;
+  }
+});
+
+const isDayClaimed = (index: number) => {
+  if (!dailyStatus.value?.calendar) return false;
+  const { dailyStreak } = dailyStatus.value.calendar;
+  const dayNum = calendarStartDay.value + index;
+  return dayNum <= dailyStreak;
+};
+
+const isDayActive = (index: number) => {
+  if (!dailyStatus.value?.calendar) return false;
+  const { dailyStreak, claimedToday, streakBroken } = dailyStatus.value.calendar;
+  if (claimedToday) return false;
+
+  const dayNum = calendarStartDay.value + index;
+  const activeDay = streakBroken ? 1 : dailyStreak + 1;
+  return dayNum === activeDay;
+};
+
+const claimLogin = async (catchUp = false) => {
+  if (claimingLogin.value) return;
+  claimingLogin.value = true;
+  try {
+    const res = await $fetch<any>("/api/user/daily/claim-login", {
+      method: "POST",
+      body: { catchUp },
+    });
+    if (res.success) {
+      toast.add({
+        title: "Récompense obtenue !",
+        description: catchUp
+          ? `Série sauvée ! Vous obtenez ${res.coinsEarned} pièces (rattrapage déduit).`
+          : `Félicitations ! Vous obtenez ${res.coinsEarned} pièces.`,
+        color: "green",
+      });
+      await userStore.fetchUser(true);
+      await refreshDailyStatus();
+    }
+  } catch (e: any) {
+    toast.add({
+      title: "Erreur",
+      description: e.data?.statusMessage || "Une erreur est survenue.",
+      color: "red",
+    });
+  } finally {
+    claimingLogin.value = false;
+  }
+};
+
+const claimQuest = async (questId: number) => {
+  if (claimingQuest.value) return;
+  claimingQuest.value = true;
+  try {
+    const res = await $fetch<any>("/api/user/daily/claim-quest", {
+      method: "POST",
+      body: { questId },
+    });
+    if (res.success) {
+      toast.add({
+        title: "Quête validée !",
+        description: `Vous obtenez ${res.coinsEarned} pièces. Série actuelle de quêtes : ${res.questStreak} 🔥`,
+        color: "green",
+      });
+      await userStore.fetchUser(true);
+      await refreshDailyStatus();
+    }
+  } catch (e: any) {
+    toast.add({
+      title: "Erreur",
+      description: e.data?.statusMessage || "Une erreur est survenue.",
+      color: "red",
+    });
+  } finally {
+    claimingQuest.value = false;
+  }
+};
 
 onMounted(async () => {
   await userStore.fetchUser();

@@ -24,6 +24,16 @@
           Recalculer les pièces
         </UButton>
         <UButton
+          color="amber"
+          variant="soft"
+          icon="i-heroicons-fire"
+          :loading="recalculatingStreaks"
+          class="font-black font-display text-xs px-5 py-2.5"
+          @click="recalculateStreaks"
+        >
+          Recalculer les séries
+        </UButton>
+        <UButton
           color="primary"
           icon="i-heroicons-plus"
           class="font-black font-display text-xs px-5 py-2.5 shadow-lg shadow-violet-600/20"
@@ -279,6 +289,7 @@ const saving = ref(false);
 const uploading = ref(false);
 const deletingId = ref<number | null>(null);
 const recalculating = ref(false);
+const recalculatingStreaks = ref(false);
 
 async function recalculateWallets() {
   if (
@@ -299,6 +310,27 @@ async function recalculateWallets() {
     toast.error(e?.data?.statusMessage ?? "Erreur lors du recalcul des pièces.");
   } finally {
     recalculating.value = false;
+  }
+}
+
+async function recalculateStreaks() {
+  if (
+    !confirm(
+      "Recalculer les séries d'activité et de connexion de tous les joueurs à partir de l'historique de leurs réponses ?",
+    )
+  )
+    return;
+  recalculatingStreaks.value = true;
+  try {
+    const result = await $fetch<{ usersStreaksRecalculated: number }>(
+      "/api/admin/cosmetics/recalculate-streaks",
+      { method: "POST" },
+    );
+    toast.success(`Séries recalculées pour ${result.usersStreaksRecalculated} joueur(s).`);
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage ?? "Erreur lors du recalcul des séries.");
+  } finally {
+    recalculatingStreaks.value = false;
   }
 }
 

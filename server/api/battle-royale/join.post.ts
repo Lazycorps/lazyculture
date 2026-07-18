@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from "~~/server/utils/auth";
 import { battleRoyaleManager } from "~~/server/utils/battleRoyaleManager";
+import { dailyRewardService } from "~~/server/services/DailyRewardService";
 
 export default defineEventHandler(async (event) => {
   const userConnected = getAuthenticatedUser(event);
@@ -43,6 +44,9 @@ export default defineEventHandler(async (event) => {
       statusMessage: "Impossible de rejoindre le salon de jeu.",
     });
   }
+
+  // Incrémenter la quête quotidienne
+  await dailyRewardService.incrementQuestProgress(userConnected.id, "PLAY_MULTIPLAYER_OR_SOLO", 1);
 
   return {
     matchId: match.matchId,

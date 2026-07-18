@@ -43,18 +43,26 @@ model User {
     Wallet                 UserWallet?
     UserAvatar             UserAvatar[]
     UserAvatarFrame        UserAvatarFrame[]
+    UserDailyQuest         UserDailyQuest[]
 }
 
 // Porte-monnaie global (pièces) : monnaie transverse à tous les modes de jeu,
 // indépendante du gold et des Points de Savoir de Brainrun
 model UserWallet {
-    userId      String   @id
-    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    coins       Int      @default(0)
-    totalEarned Int      @default(0) // cumul des gains, jamais décrémenté
-    createDate  DateTime @default(now())
-    updateDate  DateTime @default(now()) @updatedAt
+    userId            String   @id
+    user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    coins             Int      @default(0)
+    totalEarned       Int      @default(0) // cumul des gains, jamais décrémenté
+    lastDailyClaimStr String?
+    dailyStreak       Int      @default(0)
+    lastActivityDay   String?
+    activityStreak    Int      @default(0)
+    lastQuestClaimStr String?
+    questStreak       Int      @default(0)
+    createDate        DateTime @default(now())
+    updateDate        DateTime @default(now()) @updatedAt
 }
+
 
 model Avatar {
     id            Int          @id @default(autoincrement())
@@ -480,4 +488,23 @@ model Announcement {
     btnLabel    String?
     btnLink     String?
 }
+
+model UserDailyQuest {
+    id          Int      @id @default(autoincrement())
+    userId      String
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    questType   String   // "ANSWER_QUESTIONS" | "PLAY_SPEEDRUN" | "PLAY_BRAINRUN" | "PLAY_MULTIPLAYER_OR_SOLO" | "PLAY_ADVENTURE"
+    title       String
+    description String
+    target      Int
+    progress    Int      @default(0)
+    claimed     Boolean  @default(false)
+    coinsReward Int      // Gain de base (20)
+    dateStr     String   // "YYYY-MM-DD"
+    createDate  DateTime @default(now())
+    updateDate  DateTime @default(now()) @updatedAt
+
+    @@unique([userId, dateStr]) // Strictement 1 quête par jour par utilisateur
+}
+
 

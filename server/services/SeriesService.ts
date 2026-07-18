@@ -21,6 +21,7 @@ import { QuestionDataDTO } from "#shared/question";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
+import { dailyRewardService } from "./DailyRewardService";
 
 type DailySeriesRankingDTO = {
   userId: string;
@@ -82,6 +83,9 @@ export class SeriesService {
     if (!question?.data) return;
 
     const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+    if (success) {
+      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+    }
 
     const series = await prisma.questionSeries.findFirst({
       where: { id: body.seriesId },
@@ -255,6 +259,9 @@ export class SeriesService {
     if (!question?.data) return;
 
     const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+    if (success) {
+      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+    }
 
     const series = (await prisma.questionSeries.findFirst({
       where: { id: body.seriesId },
@@ -276,6 +283,9 @@ export class SeriesService {
       const seriesHealtPoint = (series.data as QuestionSeriesData).healthPoint;
       const currentHealthPoint = success ? seriesHealtPoint : seriesHealtPoint - 1;
       const seriesEnded = currentHealthPoint == 0;
+      if (seriesEnded) {
+        await dailyRewardService.incrementQuestProgress(userId, "PLAY_MULTIPLAYER_OR_SOLO", 1);
+      }
       return await prisma.questionSeriesResponse.create({
         data: {
           seriesId: body.seriesId,
@@ -312,6 +322,7 @@ export class SeriesService {
       let xpEarned = 0;
       if (responseData.ended) {
         xpEarned = await this.calculAscentUserXP(countSuccessResponse, userId);
+        await dailyRewardService.incrementQuestProgress(userId, "PLAY_MULTIPLAYER_OR_SOLO", 1);
       }
 
       responseData.xpEarned = xpEarned;
@@ -396,7 +407,19 @@ export class SeriesService {
     userId: string,
   ) {
     const multiplicator = 10 * (1 + countSuccessResponse / countSeriesQuestions);
-    const userXpWin = Math.ceil(countSuccessResponse * multiplicator);
+    let userXpWin = Math.ceil(countSuccessResponse * multiplicator);
+
+    // Apply activity multiplier!
+    const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(userId);
+    userXpWin = Math.ceil(userXpWin * activityMultiplier);
+
+    // Perfect bonus (10/10)
+    let perfectCoinBonus = 0;
+    if (countSuccessResponse === countSeriesQuestions && countSeriesQuestions > 0) {
+      const perfectXpBonus = Math.ceil(200 * activityMultiplier);
+      userXpWin += perfectXpBonus;
+      perfectCoinBonus = 50;
+    }
 
     const userProgress = await prisma.userProgress.findFirst({
       where: { userId },
@@ -417,7 +440,7 @@ export class SeriesService {
       });
     }
 
-    await grantCoins(userId, coinsFromXp(userXpWin));
+    await grantCoins(userId, coinsFromXp(userXpWin) + perfectCoinBonus, true, false);
 
     return userXpWin;
   }
@@ -519,7 +542,12 @@ export class SeriesService {
     const twentyFiveXp = Math.floor(countSuccessResponse / 25) * 100;
     const fiftyXp = Math.floor(countSuccessResponse / 50) * 200;
     const hundredXp = Math.floor(countSuccessResponse / 100) * 500;
-    const userXpWin = fiveXp + tenXp + twentyFiveXp + fiftyXp + hundredXp;
+    let userXpWin = fiveXp + tenXp + twentyFiveXp + fiftyXp + hundredXp;
+    if (userXpWin <= 0) return 0;
+
+    // Apply activity multiplier!
+    const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(userId);
+    userXpWin = Math.ceil(userXpWin * activityMultiplier);
 
     const userProgress = await prisma.userProgress.findFirst({
       where: { userId },
@@ -540,8 +568,7 @@ export class SeriesService {
       });
     }
 
-    await grantCoins(userId, coinsFromXp(userXpWin));
-
+    await grantCoins(userId, coinsFromXp(userXpWin), true, false);
     return userXpWin;
   }
 
@@ -720,6 +747,7 @@ export class SeriesService {
 
     if (success) {
       responseData.score++;
+      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
     } else {
       responseData.penalties += 5;
     }
@@ -744,6 +772,8 @@ export class SeriesService {
     if (responseData.ended) {
       const xpEarned = await this.calculSpeedrunUserXP(responseData.score, userId);
       responseData.xpEarned = xpEarned;
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_SPEEDRUN", 1);
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_MULTIPLAYER_OR_SOLO", 1);
     }
 
     return await prisma.questionSeriesResponse.update({
@@ -784,8 +814,12 @@ export class SeriesService {
 
   private async calculSpeedrunUserXP(score: number, userId: string) {
     const xpPerCorrect = 5;
-    const userXpWin = score * xpPerCorrect;
+    let userXpWin = score * xpPerCorrect;
     if (userXpWin <= 0) return 0;
+
+    // Apply activity multiplier!
+    const activityMultiplier = await dailyRewardService.getActivityStreakMultiplier(userId);
+    userXpWin = Math.ceil(userXpWin * activityMultiplier);
 
     const userProgress = await prisma.userProgress.findFirst({
       where: { userId },
@@ -806,7 +840,7 @@ export class SeriesService {
       });
     }
 
-    await grantCoins(userId, coinsFromXp(userXpWin));
+    await grantCoins(userId, coinsFromXp(userXpWin), true, false);
     return userXpWin;
   }
 
@@ -978,6 +1012,7 @@ export class SeriesService {
 
     if (success) {
       responseData.score++;
+      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
     } else {
       responseData.penalties += 5;
     }
@@ -989,6 +1024,9 @@ export class SeriesService {
 
       const xpEarned = await this.calculSpeedrunUserXP(responseData.score, userId);
       responseData.xpEarned = xpEarned;
+
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_SPEEDRUN", 1);
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_MULTIPLAYER_OR_SOLO", 1);
 
       return await prisma.questionSeriesResponse.update({
         where: { id: seriesResponse.id },
