@@ -35,6 +35,14 @@ export const useBrainrunSession = () => {
   const isAlainMemoryIntro = computed(
     () => currentRoom.value?.type === "BOSS" && !currentQuestion.value && !!previewQuestion.value,
   );
+  // Cartes de thème à présenter après un combat gagné, tant qu'elles ne sont pas résolues (choisies
+  // ou passées) ; null sinon. La machine à états (app/pages/brainrun/index.vue) affiche cet écran
+  // AVANT le bonus relique/consommable pour les Élites/Boss.
+  const pendingThemeCards = computed(() =>
+    currentRoom.value?.themeCardOffer && !currentRoom.value.themeCardResolved
+      ? currentRoom.value.themeCardOffer
+      : null,
+  );
 
   function applyState(state: BrainrunStateDTO) {
     run.value = state.run;
@@ -108,6 +116,23 @@ export const useBrainrunSession = () => {
     try {
       applyState(
         await authFetch<BrainrunStateDTO>("/api/brainrun/bonus", {
+          method: "post",
+          body: { runId: run.value.id, pick },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /** pick = slug d'une carte de currentRoom.themeCardOffer, ou "SKIP" pour passer. */
+  async function resolveThemeCard(pick: string) {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/theme-card", {
           method: "post",
           body: { runId: run.value.id, pick },
         }),
@@ -260,6 +285,7 @@ export const useBrainrunSession = () => {
     healthPoint?: number;
     maxHealthPoint?: number;
     gold?: number;
+    themeCoefficients?: Record<string, number>;
   }) {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();
@@ -322,11 +348,13 @@ export const useBrainrunSession = () => {
     isRunActive,
     isRunEnded,
     isAlainMemoryIntro,
+    pendingThemeCards,
     fetchCurrent,
     submitAnswer,
     chooseNode,
     readyNextBossQuestion,
     resolveBonus,
+    resolveThemeCard,
     buyShopItem,
     leaveShop,
     resolveThemeBan,

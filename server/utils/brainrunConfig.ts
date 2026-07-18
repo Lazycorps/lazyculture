@@ -1,4 +1,4 @@
-import type { BrainrunRoomType } from "#shared/brainrun";
+import type { BrainrunRoomType, BrainrunThemeCardRarity } from "#shared/brainrun";
 import {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
@@ -44,28 +44,85 @@ export const BRAINRUN_QUESTIONS_PER_ROOM: Record<"STANDARD" | "ELITE", number> =
   ELITE: 5,
 };
 
-/** Plage de difficulté (inclusive, échelle Question.difficulty 1-5) par acte et type de salle de
- * combat — même plage élargie pour STANDARD/ELITE/BOSS au sein d'un acte (plus de redondance de
- * questions d'une run à l'autre qu'avec l'ancienne plage resserrée par type). */
-export const BRAINRUN_DIFFICULTY_BY_ACT: Record<
-  number,
-  Record<"STANDARD" | "ELITE" | "BOSS", [number, number]>
+/** Plage de difficulté (inclusive, échelle Question.difficulty 1-5) par TYPE de combat, à plat sur
+ * les 3 actes : la difficulté suit désormais le palier de rencontre (standard < élite < boss) et
+ * non plus la profondeur dans la run. Bandes larges → viviers de questions plus grands, ce qui
+ * soulage l'anti-répétition inter-runs (cf. BRAINRUN_THEME_COEFFICIENTS_PLAN.md). Seule exception :
+ * culture_generale garde une modulation par acte (constante ci-dessous). */
+export const BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE: Record<
+  "STANDARD" | "ELITE" | "BOSS",
+  [number, number]
 > = {
-  1: { STANDARD: [1, 2], ELITE: [1, 2], BOSS: [1, 2] },
-  2: { STANDARD: [2, 4], ELITE: [2, 4], BOSS: [2, 4] },
-  3: { STANDARD: [3, 5], ELITE: [3, 5], BOSS: [3, 5] },
+  STANDARD: [1, 3],
+  ELITE: [1, 4],
+  BOSS: [2, 5],
 };
 
-/** Plage de difficulté propre au thème culture_generale, par acte — resserrée par rapport à
- * BRAINRUN_DIFFICULTY_BY_ACT (même bornée à ses deux extrémités) pour accentuer la progression
- * ressentie sur ce thème quasi systématique (présent dans la plupart des ennemis/boss, cf.
- * shared/brainrunEnemies.ts / brainrunBosses.ts) : facile en Acte 1, corsé en Acte 3.
- * Appliquée via QuestionService.getRandomIdsByDifficulty (themeDifficultyOverrides). */
+/** Plage de difficulté propre au thème culture_generale, par acte — seul thème dont la difficulté
+ * suit encore l'acte (il porte la sensation de progression de la run) : facile en Acte 1, corsé en
+ * Acte 3. Appliquée via QuestionService.getRandomIdsByDifficulty (themeDifficultyOverrides). */
 export const BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT: Record<number, [number, number]> = {
   1: [1, 2],
   2: [2, 3],
-  3: [4, 5],
+  3: [3, 5],
 };
+
+/** Bonus de coefficient qu'un ennemi applique à CHACUN de ses thèmes, uniquement pour la durée de
+ * son combat, pour biaiser le tirage des questions vers ses thèmes. Valeur de base indexée par acte
+ * (1-3), multipliée par le tier de la rencontre (cf. ci-dessous). Ex. boss Acte 3 (×3) sur un
+ * thème → +9 de coefficient effectif sur ce thème pour ce combat. */
+export const BRAINRUN_ENEMY_THEME_BONUS_BY_ACT: Record<number, number> = {
+  1: 1,
+  2: 2,
+  3: 3,
+};
+
+/** Multiplicateur du bonus de thème selon le tier de la rencontre (cf. BrainrunEnemyDef.tier +
+ * combat de boss). Classique ×1, Élite ×2, Boss ×3. */
+export const BRAINRUN_ENEMY_THEME_BONUS_TIER_MULTIPLIER: Record<
+  "CLASSIC" | "ELITE" | "BOSS",
+  number
+> = {
+  CLASSIC: 1,
+  ELITE: 2,
+  BOSS: 3,
+};
+
+/** Nombre de cartes de thème proposées après un combat gagné. */
+export const BRAINRUN_THEME_CARD_COUNT = 3;
+
+/** Bonus de coefficient accordé au thème d'une carte selon sa rareté (cf. BrainrunThemeCardRarity,
+ * shared/brainrun.ts). */
+export const BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY: Record<BrainrunThemeCardRarity, number> = {
+  STANDARD: 1,
+  RARE: 2,
+  EPIC: 3,
+  LEGENDARY: 5,
+};
+
+/** Plafond du coefficient d'un thème pour une run : une carte ne peut pas le pousser au-delà (le
+ * bonus de rareté est tronqué), et un thème déjà à ce plafond n'est plus injecté comme « thème
+ * investi » (cf. BRAINRUN_THEME_CARD_INVESTED_CHANCE) — proposer une carte à +0 n'aurait aucun sens. */
+export const BRAINRUN_THEME_COEFFICIENT_MAX = 10;
+
+/** Poids de tirage de la rareté d'une carte de thème (total 100 → lecture directe en %). */
+export const BRAINRUN_THEME_CARD_RARITY_WEIGHT: Record<BrainrunThemeCardRarity, number> = {
+  STANDARD: 65,
+  RARE: 22,
+  EPIC: 10,
+  LEGENDARY: 3,
+};
+
+/** Probabilité, POUR CHAQUE carte proposée, que son thème soit tiré parmi ceux déjà investis par
+ * le joueur (coefficient > 0) plutôt que dans le pool des thèmes d'ennemi — permet de renforcer une
+ * spécialisation en cours. Sans effet si le joueur n'a encore rien investi (repli sur le pool). */
+export const BRAINRUN_THEME_CARD_INVESTED_CHANCE = 0.1;
+
+/** Volume minimal de questions (toutes difficultés confondues) qu'un thème doit atteindre pour être
+ * proposable en carte / tirable dans un combat — écarte les thèmes trop maigres (celeste, jeux_video,
+ * orphelins) qui affameraient le tirage sur une bande de difficulté étroite. Vérifier le volume réel
+ * par une requête Prisma avant de figer un seuil définitif (cf. mémoire question_bank_theme stats). */
+export const BRAINRUN_THEME_MIN_QUESTION_VOLUME = 25;
 
 /** Largeurs des 6 étages "du milieu" d'un acte (entre l'étage 1, forcé Standard, et l'avant-dernière
  * rangée, forcée Bibliothèque) : volontairement variées plutôt qu'uniformes à 4, pour que la carte

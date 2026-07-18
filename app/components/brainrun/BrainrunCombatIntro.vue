@@ -7,21 +7,33 @@
       class="fixed inset-0 z-50 flex items-center justify-center overflow-hidden pointer-events-auto"
     >
       <div class="absolute inset-0" :class="backgroundClass" />
-      <div class="relative text-center px-6 space-y-4" :class="animClass" :style="animStyle">
+      <div class="relative text-center px-6 space-y-4">
+        <!-- Type de rencontre (Combat / Élite / Boss) : affiché immédiatement, avant même que le
+             nom de l'adversaire ne soit connu (récupéré en léger différé, cf. index.vue). -->
         <div
-          class="mx-auto rounded-full flex items-center justify-center border"
+          class="mx-auto rounded-full flex items-center justify-center border animate-combat-badge-in"
           :class="badgeClass"
         >
           <UIcon :name="icon" :class="iconSizeClass" />
         </div>
-        <div class="space-y-1">
-          <p
-            class="text-[11px] font-black uppercase tracking-[0.3em] font-display"
-            :class="labelClass"
+        <p
+          class="text-[11px] font-black uppercase tracking-[0.3em] font-display animate-combat-badge-in"
+          :class="labelClass"
+        >
+          {{ kindLabel }}
+        </p>
+        <!-- Emplacement du nom (hauteur réservée pour éviter tout saut de mise en page pendant
+             l'attente) : dès que le nom est récupéré, il balaie de la gauche, marque une pause au
+             centre, puis repart vers la droite. La fin de ce balayage (nom disparu) clôt la
+             transition (emit "done"). -->
+        <div class="h-11 flex items-center justify-center">
+          <h2
+            v-if="showName"
+            class="font-black font-display text-white tracking-wide whitespace-nowrap animate-combat-name-sweep"
+            :class="nameSizeClass"
+            :style="{ animationDuration: `${sweepDuration}ms` }"
+            @animationend="finish"
           >
-            {{ kindLabel }}
-          </p>
-          <h2 class="font-black font-display text-white tracking-wide" :class="nameSizeClass">
             {{ name }}
           </h2>
         </div>
@@ -31,9 +43,12 @@
 </template>
 
 <script setup lang="ts">
-/** Transition bloquante affichée à l'entrée d'un combat (Standard/Elite/Boss) : présente
- * l'adversaire pendant une durée fixe (≤ 3s, cf. DURATIONS_MS), sans aucune action possible
- * pour le joueur — se ferme d'elle-même (émet "done"), jamais au clic. */
+/** Transition bloquante affichée à l'entrée d'un combat (Standard/Elite/Boss), en deux temps :
+ * 1) le TYPE de rencontre apparaît immédiatement (connu dès le clic) ; 2) le NOM de l'adversaire,
+ * récupéré en léger différé le temps que le serveur tire les questions, balaie de gauche à droite
+ * avec une pause au centre. La transition se termine à la fin de ce balayage (emit "done") — jamais
+ * au clic. Filet de sécurité : si le nom n'arrive jamais (erreur réseau), on termine quand même
+ * après MAX_WAIT_MS pour ne pas rester bloqué sur l'overlay. */
 const props = defineProps<{
   type: "STANDARD" | "ELITE" | "BOSS";
   name: string;
@@ -43,21 +58,32 @@ const emit = defineEmits<{
   done: [];
 }>();
 
-const DURATIONS_MS: Record<typeof props.type, number> = {
-  STANDARD: 1400,
-  ELITE: 2100,
-  BOSS: 2800,
+// Durée du balayage du nom (gauche → pause centre → droite), un peu plus longue pour les paliers
+// les plus solennels.
+const SWEEP_MS: Record<typeof props.type, number> = {
+  STANDARD: 1500,
+  ELITE: 1800,
+  BOSS: 2100,
 };
+// Au-delà de ce délai sans nom (API en échec/anormalement lente), on clôt la transition d'office.
+const MAX_WAIT_MS = 6000;
 
-const duration = computed(() => DURATIONS_MS[props.type]);
-const animStyle = computed(() => ({ animationDuration: `${duration.value}ms` }));
+const sweepDuration = computed(() => SWEEP_MS[props.type]);
+const showName = computed(() => props.name.length > 0);
 
-let timeout: ReturnType<typeof setTimeout> | null = null;
+let done = false;
+let fallback: ReturnType<typeof setTimeout> | null = null;
+function finish() {
+  if (done) return;
+  done = true;
+  if (fallback) clearTimeout(fallback);
+  emit("done");
+}
 onMounted(() => {
-  timeout = setTimeout(() => emit("done"), duration.value);
+  fallback = setTimeout(finish, MAX_WAIT_MS);
 });
 onBeforeUnmount(() => {
-  if (timeout) clearTimeout(timeout);
+  if (fallback) clearTimeout(fallback);
 });
 
 const kindLabel = computed(() => {
@@ -82,8 +108,7 @@ const backgroundClass = computed(() => {
 const badgeClass = computed(() => {
   if (props.type === "STANDARD")
     return "w-16 h-16 bg-violet-500/10 border-violet-500/30 text-violet-400";
-  if (props.type === "ELITE")
-    return "w-20 h-20 bg-amber-500/10 border-amber-500/40 text-amber-400 animate-pulse";
+  if (props.type === "ELITE") return "w-20 h-20 bg-amber-500/10 border-amber-500/40 text-amber-400";
   return "w-24 h-24 bg-rose-500/10 border-rose-500/50 text-rose-400 animate-pulse";
 });
 
@@ -104,99 +129,53 @@ const labelClass = computed(() => {
   if (props.type === "ELITE") return "text-amber-400";
   return "text-rose-400";
 });
-
-const animClass = computed(() => {
-  if (props.type === "STANDARD") return "animate-combat-intro-standard";
-  if (props.type === "ELITE") return "animate-combat-intro-elite";
-  return "animate-combat-intro-boss";
-});
 </script>
 
 <style scoped>
-@keyframes combat-intro-standard {
+/* Entrée immédiate du badge + libellé de type. */
+@keyframes combat-badge-in {
   0% {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
-  }
-  15% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  85% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(0.82) translateY(6px);
   }
   100% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
-@keyframes combat-intro-elite {
-  0% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  10% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-  20% {
-    transform: scale(1);
-  }
-  88% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.94);
-  }
-}
-
-@keyframes combat-intro-boss {
-  0% {
-    opacity: 0;
-    transform: scale(0.55);
-  }
-  8% {
-    opacity: 1;
-    transform: scale(1.18);
-  }
-  14% {
-    transform: scale(0.96);
-  }
-  20% {
-    transform: scale(1.05);
-  }
-  26% {
-    transform: scale(1);
-  }
-  90% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.06);
-  }
-}
-
-.animate-combat-intro-standard {
-  animation-name: combat-intro-standard;
+.animate-combat-badge-in {
+  animation-name: combat-badge-in;
+  animation-duration: 400ms;
   animation-timing-function: ease-out;
   animation-fill-mode: both;
 }
 
-.animate-combat-intro-elite {
-  animation-name: combat-intro-elite;
-  animation-timing-function: ease-out;
-  animation-fill-mode: both;
+/* Balayage du nom : arrive de la gauche, s'immobilise au centre, repart vers la droite. La
+   disparition est portée par l'opacité (fade aux deux extrémités), indépendante de la longueur du
+   nom, et l'overlay parent (overflow-hidden) coupe tout débordement horizontal. */
+@keyframes combat-name-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-160%);
+  }
+  22% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  68% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(160%);
+  }
 }
 
-.animate-combat-intro-boss {
-  animation-name: combat-intro-boss;
-  animation-timing-function: ease-out;
+.animate-combat-name-sweep {
+  animation-name: combat-name-sweep;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
   animation-fill-mode: both;
 }
 </style>

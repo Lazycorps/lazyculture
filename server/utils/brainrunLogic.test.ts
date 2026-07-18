@@ -10,6 +10,10 @@ import {
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   brainrunGlobalFloor,
+  buildCombatThemeWeights,
+  enemyThemeBonus,
+  generateThemeCards,
+  topThemes,
   rankBrainrunPlayers,
   type BrainrunRankRun,
   calculBrainrunUserXP,
@@ -46,6 +50,8 @@ import {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
+  BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
+  BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE,
   BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_MAX_ELITE_PER_ROUTE,
   BRAINRUN_MIN_EVENT_OFFERS,
@@ -53,6 +59,8 @@ import {
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
   BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
+  BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY,
+  BRAINRUN_THEME_COEFFICIENT_MAX,
   getBrainrunActRowWidths,
 } from "./brainrunConfig";
 import {
@@ -1401,5 +1409,165 @@ describe("rankBrainrunPlayers", () => {
     // Meilleur étage = la run la plus avancée (acte 2 rangée 6).
     expect(solo.bestAct).toBe(2);
     expect(solo.bestRow).toBe(6);
+  });
+});
+
+describe("BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE", () => {
+  it("applique la difficulté à plat par type de combat (indépendante de l'acte)", () => {
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.STANDARD).toEqual([1, 3]);
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.ELITE).toEqual([1, 4]);
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.BOSS).toEqual([2, 5]);
+  });
+
+  it("garde l'override culture_generale par acte, acte 3 relâché à [3,5]", () => {
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[1]).toEqual([1, 2]);
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[2]).toEqual([2, 3]);
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[3]).toEqual([3, 5]);
+  });
+});
+
+describe("enemyThemeBonus", () => {
+  it("multiplie la base d'acte par le multiplicateur de tier", () => {
+    expect(enemyThemeBonus(1, "CLASSIC")).toBe(1);
+    expect(enemyThemeBonus(1, "ELITE")).toBe(2);
+    expect(enemyThemeBonus(1, "BOSS")).toBe(3);
+    expect(enemyThemeBonus(2, "CLASSIC")).toBe(2);
+    expect(enemyThemeBonus(2, "ELITE")).toBe(4);
+    expect(enemyThemeBonus(3, "ELITE")).toBe(6);
+    // Boss Acte 3 → 3 × 3 = 9 (exemple de la spec).
+    expect(enemyThemeBonus(3, "BOSS")).toBe(9);
+  });
+
+  it("retourne 0 pour un acte hors barème", () => {
+    expect(enemyThemeBonus(0, "BOSS")).toBe(0);
+    expect(enemyThemeBonus(4, "CLASSIC")).toBe(0);
+  });
+});
+
+describe("buildCombatThemeWeights", () => {
+  const asRecord = (entries: { theme: string; weight: number }[]) =>
+    Object.fromEntries(entries.map((e) => [e.theme, e.weight]));
+
+  it("pondère un thème par coef joueur + bonus ennemi (bonus sur les seuls thèmes de l'ennemi)", () => {
+    // history : investi (2) ET porté par l'ennemi (+3) → 5 ; sport : ennemi seul → 3 ;
+    // cinema : investi seul → 4 (pas de bonus, pas un thème de l'ennemi).
+    const weights = asRecord(
+      buildCombatThemeWeights({ history: 2, cinema: 4 }, ["history", "sport"], 3),
+    );
+    expect(weights).toEqual({ history: 5, sport: 3, cinema: 4 });
+  });
+
+  it("écarte les thèmes de poids nul (ennemi sans bonus, thème non investi)", () => {
+    const weights = asRecord(buildCombatThemeWeights({}, ["sport"], 0));
+    expect(weights).toEqual({});
+  });
+
+  it("n'ajoute pas un thème investi mais banni (les thèmes d'ennemi arrivent déjà filtrés)", () => {
+    const weights = asRecord(
+      buildCombatThemeWeights({ banned: 5, cinema: 2 }, ["sport"], 3, ["banned"]),
+    );
+    expect(weights).toEqual({ sport: 3, cinema: 2 });
+    expect(weights.banned).toBeUndefined();
+  });
+});
+
+describe("generateThemeCards", () => {
+  const candidates = [
+    { slug: "history", name: "Histoire", image: "h.jpg" },
+    { slug: "sport", name: "Sport", image: "s.jpg" },
+    { slug: "cinema", name: "Cinéma", image: "c.jpg" },
+    { slug: "music", name: "Musique", image: "m.jpg" },
+    { slug: "science", name: "Science", image: "sc.jpg" },
+  ];
+
+  it("propose `count` cartes de thèmes distincts", () => {
+    const cards = generateThemeCards(candidates, {}, 3, () => 0);
+    expect(cards).toHaveLength(3);
+    expect(new Set(cards.map((c) => c.themeSlug)).size).toBe(3);
+  });
+
+  it("filet : renvoie moins de cartes quand les candidats sont trop peu nombreux", () => {
+    const cards = generateThemeCards(candidates.slice(0, 2), {}, 3, () => 0);
+    expect(cards).toHaveLength(2);
+  });
+
+  it("calcule coefBefore depuis les coefficients courants, coefAfter = before + valeur de rareté", () => {
+    // random = 0 → rareté STANDARD (première du barème pondéré) → +1.
+    const cards = generateThemeCards(candidates, { history: 2 }, 5, () => 0);
+    const history = cards.find((c) => c.themeSlug === "history")!;
+    expect(history.rarity).toBe("STANDARD");
+    expect(history.coefBefore).toBe(2);
+    expect(history.coefAfter).toBe(2 + BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.STANDARD);
+    // Thème non encore investi → coefBefore 0.
+    const sport = cards.find((c) => c.themeSlug === "sport")!;
+    expect(sport.coefBefore).toBe(0);
+    expect(sport.coefAfter).toBe(BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.STANDARD);
+  });
+
+  it("tire une rareté LÉGENDAIRE quand le random pointe le haut du barème pondéré", () => {
+    // random ≈ 1 → dernière rareté du barème (LEGENDARY) → +5.
+    const cards = generateThemeCards(candidates, {}, 1, () => 0.999);
+    expect(cards[0]!.rarity).toBe("LEGENDARY");
+    expect(cards[0]!.coefAfter).toBe(BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.LEGENDARY);
+  });
+
+  it("injecte un thème déjà investi quand le tirage privilégie l'investissement", () => {
+    const invested = [{ slug: "history", name: "Histoire", image: "h.jpg" }];
+    // random = 0 → 0 < 10 % → chaque carte privilégie le pool investi ; le 1er thème est l'investi,
+    // avec son coefBefore courant.
+    const cards = generateThemeCards(
+      [{ slug: "sport", name: "Sport", image: "s.jpg" }],
+      { history: 4 },
+      1,
+      () => 0,
+      invested,
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.themeSlug).toBe("history");
+    expect(cards[0]!.coefBefore).toBe(4);
+  });
+
+  it("plafonne coefAfter au maximum de coefficient de run", () => {
+    // coefBefore 9 + LEGENDARY (+5) = 14 → tronqué à BRAINRUN_THEME_COEFFICIENT_MAX (10).
+    const cards = generateThemeCards(
+      [{ slug: "history", name: "Histoire", image: "h.jpg" }],
+      { history: 9 },
+      1,
+      () => 0.999,
+    );
+    expect(cards[0]!.rarity).toBe("LEGENDARY");
+    expect(cards[0]!.coefAfter).toBe(BRAINRUN_THEME_COEFFICIENT_MAX);
+  });
+
+  it("n'injecte pas de thème investi quand le tirage ne le privilégie pas (repli pool normal)", () => {
+    const invested = [{ slug: "history", name: "Histoire", image: "h.jpg" }];
+    // random = 0.5 → 0.5 ≥ 10 % → pas d'injection ; la carte vient du pool normal, pas de l'investi.
+    const cards = generateThemeCards(
+      [{ slug: "sport", name: "Sport", image: "s.jpg" }],
+      { history: 4 },
+      1,
+      () => 0.5,
+      invested,
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.themeSlug).toBe("sport");
+  });
+});
+
+describe("topThemes", () => {
+  it("trie par coefficient décroissant puis alphabétique, ignore les thèmes à 0", () => {
+    expect(topThemes({ alpha: 1, bravo: 3, charlie: 3, delta: 0 })).toEqual([
+      "bravo",
+      "charlie",
+      "alpha",
+    ]);
+  });
+
+  it("limite au top `n`", () => {
+    expect(topThemes({ a: 5, b: 4, c: 3, d: 2 }, 2)).toEqual(["a", "b"]);
+  });
+
+  it("renvoie un tableau vide quand aucun thème n'est investi", () => {
+    expect(topThemes({ a: 0, b: 0 })).toEqual([]);
   });
 });
