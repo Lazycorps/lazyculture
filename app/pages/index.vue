@@ -1,9 +1,11 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto py-6 px-4 space-y-8 select-none">
+  <div
+    class="w-full max-w-5xl mx-auto py-4 px-3 sm:py-6 sm:px-4 space-y-5 sm:space-y-8 select-none"
+  >
     <!-- 1. DYNAMIC WELCOME / PROFILE HEADER -->
     <ClientOnly>
       <div
-        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6"
+        class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-4 sm:p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6"
       >
         <!-- Background decorative glows -->
         <div
@@ -14,7 +16,7 @@
         ></div>
 
         <!-- Left: Player Info / Greeting -->
-        <div class="flex items-center space-x-4 relative z-10">
+        <div class="flex items-center space-x-3 sm:space-x-4 relative z-10">
           <template v-if="user">
             <UserAvatar
               :src="userProfile?.equippedAvatar?.imageUrl"
@@ -23,7 +25,9 @@
               avatar-class="border-2 border-violet-500/40 shadow-neon"
             />
             <div class="space-y-1">
-              <h2 class="text-xl md:text-2xl font-black font-display text-white tracking-wide">
+              <h2
+                class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+              >
                 Ravi de vous revoir, {{ userProfile?.name || "Joueur" }} ! 👋
               </h2>
               <p class="text-xs text-gray-400 font-medium">
@@ -38,7 +42,9 @@
               🚀
             </div>
             <div class="space-y-1">
-              <h2 class="text-xl md:text-2xl font-black font-display text-white tracking-wide">
+              <h2
+                class="text-lg sm:text-xl md:text-2xl font-black font-display text-white tracking-wide"
+              >
                 Bienvenue sur LazyCulture !
               </h2>
               <p class="text-xs text-gray-400 font-medium">
@@ -49,11 +55,14 @@
         </div>
 
         <!-- Right: Stats Capsule / Guest Action -->
-        <div class="relative z-10 shrink-0">
-          <div v-if="user" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        <div class="relative z-10 shrink-0 w-full md:w-auto">
+          <div
+            v-if="user"
+            class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4"
+          >
             <!-- Level & XP progress -->
             <div
-              class="bg-slate-950/60 border border-white/5 rounded-2xl p-4 min-w-[200px] space-y-2"
+              class="bg-slate-950/60 border border-white/5 rounded-2xl p-3 sm:p-4 min-w-full sm:min-w-[200px] space-y-1.5 sm:space-y-2"
             >
               <div class="flex justify-between items-center text-xs font-bold font-display">
                 <span class="text-violet-400 uppercase tracking-wider"
@@ -76,7 +85,7 @@
 
             <!-- Coins Badge -->
             <div
-              class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between gap-3 text-amber-400"
+              class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-2 sm:gap-3 text-amber-400"
             >
               <div class="space-y-0.5">
                 <p
@@ -121,51 +130,43 @@
 
     <!-- 2. HIGH-ENGAGEMENT DAILY CHALLENGE HERO SECTION -->
     <div
-      class="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-[#1e1b4b]/30 via-[#111827]/60 to-[#070a13]/80 backdrop-blur-xl p-6 md:p-8 hover:border-violet-500/40 transition-all duration-300 group"
+      class="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-[#1e1b4b]/30 via-[#111827]/60 to-[#070a13]/80 backdrop-blur-xl p-4 sm:p-6 md:p-8 hover:border-violet-500/40 transition-all duration-300 group"
     >
       <!-- Background radial glow -->
       <div
         class="absolute -right-24 -top-24 w-48 h-48 rounded-full bg-violet-600/15 blur-3xl group-hover:bg-violet-600/25 transition-colors"
       ></div>
 
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-        <div class="space-y-4 max-w-xl">
-          <!-- Mini Badge -->
-          <div
-            class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs font-black uppercase text-violet-400 font-display tracking-widest"
-          >
-            <span class="animate-pulse">📅</span>
-            <span>Défi Quotidien</span>
+      <div
+        class="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 relative z-10"
+      >
+        <div class="space-y-2.5 sm:space-y-4 max-w-xl">
+          <!-- Mini Badge & Stats Inline -->
+          <div class="flex items-center justify-between gap-4">
+            <div
+              class="inline-flex items-center space-x-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-[10px] sm:text-xs font-black uppercase text-violet-400 font-display tracking-widest"
+            >
+              <span class="animate-pulse">📅</span>
+              <span>Défi Quotidien</span>
+            </div>
+
+            <div
+              class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold font-display text-gray-300"
+            >
+              <UIcon name="i-heroicons-users" class="text-violet-400 text-xs" />
+              <span>{{ dailyStats?.participants ?? 0 }} participants</span>
+            </div>
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <h3
-              class="text-2xl md:text-3xl font-black font-display text-white tracking-wide uppercase"
+              class="text-xl sm:text-2xl md:text-3xl font-black font-display text-white tracking-wide uppercase"
             >
               {{ dailyTitle }}
             </h3>
-            <p class="text-sm text-gray-400 leading-relaxed">
-              Une série unique de 10 questions de culture générale, commune à tous les joueurs. Une
-              tentative quotidienne pour accumuler de l'XP et monter au classement !
+            <p class="text-xs sm:text-sm text-gray-400 leading-relaxed">
+              Une série unique de 10 questions de culture générale, commune à tous les joueurs.
             </p>
-          </div>
-
-          <!-- Live stats counters -->
-          <div
-            class="flex flex-wrap items-center gap-4 text-xs font-bold font-display text-gray-300"
-          >
-            <div
-              class="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full"
-            >
-              <UIcon name="i-heroicons-users" class="text-violet-400 text-sm" />
-              <span>{{ dailyStats?.participants ?? 0 }} participants</span>
-            </div>
-            <div
-              class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full text-emerald-400"
-            >
-              <UIcon name="i-heroicons-check-circle" class="text-emerald-400 text-sm" />
-              <span>{{ dailyStats?.finishers ?? 0 }} finishers</span>
-            </div>
           </div>
         </div>
 
@@ -173,9 +174,8 @@
         <div class="shrink-0 w-full md:w-auto">
           <ClientOnly>
             <div
-              class="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 text-center space-y-4 max-w-sm mx-auto md:max-w-none"
+              class="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-5 md:p-6 text-center space-y-2.5 sm:space-y-4 max-w-sm mx-auto md:max-w-none"
             >
-              <!-- States logic -->
               <template v-if="!user">
                 <p class="text-xs text-gray-400 font-medium">
                   Connectez-vous pour enregistrer votre score
@@ -272,7 +272,7 @@
     </div>
 
     <!-- 3. GAME MODES EXPLORATION HUBS -->
-    <div class="space-y-6">
+    <div class="space-y-5 sm:space-y-6">
       <div class="space-y-1">
         <h3 class="text-xl font-black font-display text-white tracking-wide uppercase">
           Explorez les Modes de Jeu
@@ -284,7 +284,7 @@
       </div>
 
       <!-- Section: Solo Modes -->
-      <div class="space-y-4">
+      <div class="space-y-3 sm:space-y-4">
         <div
           class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
         >
@@ -292,11 +292,13 @@
           <span>Modes Solo</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+          class="flex overflow-x-auto pb-4 gap-3 snap-x snap-mandatory scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 sm:pb-0"
+        >
           <!-- Aventure -->
           <div
             @click="navigateTo('/adventure')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[250px] shrink-0 snap-start sm:w-auto sm:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-5 flex flex-col justify-between h-40 sm:h-48 hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-emerald-600/10 blur-xl group-hover:bg-emerald-600/15"
@@ -311,7 +313,7 @@
                 </span>
               </div>
               <h4 class="text-base font-black font-display text-white tracking-wide">Aventure</h4>
-              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-2 sm:line-clamp-3">
                 Parcourez des chemins thématiques, validez chaque étape et progressez à votre propre
                 rythme.
               </p>
@@ -327,7 +329,7 @@
           <!-- Brainrun -->
           <div
             @click="navigateTo('/brainrun')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-orange-500/40 hover:shadow-[0_0_20px_rgba(249,115,22,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[250px] shrink-0 snap-start sm:w-auto sm:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-5 flex flex-col justify-between h-40 sm:h-48 hover:border-orange-500/40 hover:shadow-[0_0_20px_rgba(249,115,22,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-orange-600/10 blur-xl group-hover:bg-orange-600/15"
@@ -342,7 +344,7 @@
                 </span>
               </div>
               <h4 class="text-base font-black font-display text-white tracking-wide">Brainrun</h4>
-              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-2 sm:line-clamp-3">
                 Grimpez les 3 actes, affrontez des boss, collectez des reliques et tentez de
                 survivre le plus loin possible.
               </p>
@@ -358,7 +360,7 @@
           <!-- Speedrun -->
           <div
             @click="navigateTo('/series/speedrun')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-violet-500/40 hover:shadow-[0_0_20px_rgba(139,92,246,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[250px] shrink-0 snap-start sm:w-auto sm:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-5 flex flex-col justify-between h-40 sm:h-48 hover:border-violet-500/40 hover:shadow-[0_0_20px_rgba(139,92,246,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-violet-600/10 blur-xl group-hover:bg-violet-600/15"
@@ -373,7 +375,7 @@
                 </span>
               </div>
               <h4 class="text-base font-black font-display text-white tracking-wide">Speedrun</h4>
-              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-2 sm:line-clamp-3">
                 Un maximum de questions dans un temps chronométré. Attention, chaque erreur réduit
                 votre temps restant !
               </p>
@@ -389,7 +391,7 @@
           <!-- Ascension -->
           <div
             @click="navigateTo('/series/ascent')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-5 flex flex-col justify-between h-48 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[250px] shrink-0 snap-start sm:w-auto sm:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-5 flex flex-col justify-between h-40 sm:h-48 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-10 -top-10 w-20 h-20 rounded-full bg-indigo-600/10 blur-xl group-hover:bg-indigo-600/15"
@@ -404,7 +406,7 @@
                 </span>
               </div>
               <h4 class="text-base font-black font-display text-white tracking-wide">Ascension</h4>
-              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-3">
+              <p class="text-[11px] text-gray-400 leading-relaxed line-clamp-2 sm:line-clamp-3">
                 Grimpez vers le sommet de la culture générale en gérant vos points de vie à chaque
                 étape difficile.
               </p>
@@ -420,7 +422,7 @@
       </div>
 
       <!-- Section: Multiplayer Modes -->
-      <div class="space-y-4">
+      <div class="space-y-3 sm:space-y-4">
         <div
           class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
         >
@@ -428,11 +430,13 @@
           <span>Modes Multijoueur</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          class="flex overflow-x-auto pb-4 gap-3 snap-x snap-mandatory scrollbar-none -mx-3 px-3 md:mx-0 md:px-0 md:grid md:grid-cols-2 md:gap-4 md:pb-0"
+        >
           <!-- Battle Royale -->
           <div
             @click="navigateTo('/series/battle-royale')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-6 flex flex-col justify-between h-44 hover:border-red-500/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[270px] shrink-0 snap-start md:w-auto md:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-6 flex flex-col justify-between h-40 sm:h-44 hover:border-red-500/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-red-600/10 blur-xl group-hover:bg-red-600/15"
@@ -449,7 +453,7 @@
               <h4 class="text-lg font-black font-display text-white tracking-wide">
                 Battle Royale
               </h4>
-              <p class="text-xs text-gray-400 leading-relaxed">
+              <p class="text-xs text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-none">
                 Survivez en temps réel face à 19 autres combattants. Le dernier joueur avec des
                 points de vie l'emporte !
               </p>
@@ -465,7 +469,7 @@
           <!-- Showdown -->
           <div
             @click="navigateTo('/series/showdown')"
-            class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-6 flex flex-col justify-between h-44 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+            class="w-[270px] shrink-0 snap-start md:w-auto md:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-6 flex flex-col justify-between h-40 sm:h-44 hover:border-pink-500/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
           >
             <div
               class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-pink-600/10 blur-xl group-hover:bg-pink-600/15"
@@ -480,7 +484,7 @@
                 </span>
               </div>
               <h4 class="text-lg font-black font-display text-white tracking-wide">Showdown</h4>
-              <p class="text-xs text-gray-400 leading-relaxed">
+              <p class="text-xs text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-none">
                 Affrontez un adversaire dans un duel tactique de points de vie. Choisissez vos
                 thèmes stratégiquement.
               </p>
@@ -497,9 +501,9 @@
     </div>
 
     <!-- 4. TWO COLUMN: NEWS / UPDATES & QUICK PLAY -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       <!-- Latest updates column (Takes 2 cols) -->
-      <div class="lg:col-span-2 space-y-4">
+      <div class="lg:col-span-2 space-y-3 sm:space-y-4">
         <div
           class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
         >
@@ -507,55 +511,66 @@
           <span>Dernières Nouveautés</span>
         </div>
 
-        <div class="space-y-3">
+        <div
+          class="flex overflow-x-auto pb-4 gap-3 snap-x snap-mandatory scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-col sm:space-y-3 sm:pb-0"
+        >
           <template v-if="announcements && announcements.length > 0">
             <div
               v-for="news in announcements"
               :key="news.id"
-              class="bg-white/5 border border-white/10 rounded-2xl p-4 flex gap-4 hover:bg-white/10 transition-colors"
+              class="w-[280px] shrink-0 snap-start sm:w-auto sm:shrink bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4 flex gap-3 sm:gap-4 hover:bg-white/10 transition-colors"
             >
               <div
-                class="w-10 h-10 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center shrink-0 text-violet-400 text-lg"
+                class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center shrink-0 text-violet-400 text-lg"
               >
                 <UIcon :name="news.icon || 'i-heroicons-megaphone'" />
               </div>
-              <div class="space-y-1.5 flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2">
-                  <h5 class="text-sm font-black font-display text-white truncate">
-                    {{ news.title }}
-                  </h5>
-                  <span
-                    class="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 border"
-                    :class="
-                      news.tagColor || 'bg-violet-500/20 text-violet-300 border-violet-500/30'
-                    "
+              <div class="flex-1 min-w-0 flex flex-col justify-between">
+                <div class="space-y-1.5">
+                  <div
+                    class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2"
                   >
-                    {{ news.tag }}
-                  </span>
-                </div>
-                <p class="text-xs text-gray-400 leading-relaxed">
-                  {{ news.description }}
-                </p>
-                <div v-if="news.btnLabel && news.btnLink" class="pt-2">
-                  <UButton
-                    :to="news.btnLink"
-                    size="xs"
-                    color="primary"
-                    variant="solid"
-                    class="font-black font-display uppercase tracking-widest px-3.5 py-1.5"
+                    <h5 class="text-sm font-black font-display text-white leading-tight">
+                      {{ news.title }}
+                    </h5>
+                    <span
+                      class="self-start sm:self-auto text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 border"
+                      :class="
+                        news.tagColor || 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                      "
+                    >
+                      {{ news.tag }}
+                    </span>
+                  </div>
+                  <p
+                    class="text-[11px] sm:text-xs text-gray-400 leading-relaxed line-clamp-3 sm:line-clamp-none"
                   >
-                    {{ news.btnLabel }}
-                  </UButton>
+                    {{ news.description }}
+                  </p>
                 </div>
-                <div class="text-[10px] text-gray-500 font-semibold font-display">
-                  {{ formatDate(news.createDate) }}
+
+                <div class="flex items-center justify-between gap-2 pt-2 mt-auto">
+                  <div class="text-[10px] text-gray-500 font-semibold font-display">
+                    {{ formatDate(news.createDate) }}
+                  </div>
+                  <div v-if="news.btnLabel && news.btnLink">
+                    <UButton
+                      :to="news.btnLink"
+                      size="xs"
+                      color="primary"
+                      variant="solid"
+                      class="font-black font-display uppercase tracking-widest px-3.5 py-1.5"
+                    >
+                      {{ news.btnLabel }}
+                    </UButton>
+                  </div>
                 </div>
               </div>
             </div>
           </template>
           <div
             v-else
-            class="bg-white/5 border border-white/10 rounded-2xl p-6 text-center text-xs text-gray-500 italic"
+            class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 text-center text-xs text-gray-500 italic"
           >
             Aucune actualité disponible pour le moment.
           </div>
@@ -563,7 +578,7 @@
       </div>
 
       <!-- Quick Play CTA / Training Column (Takes 1 col) -->
-      <div class="space-y-4">
+      <div class="space-y-3 sm:space-y-4">
         <div
           class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
         >
@@ -572,7 +587,7 @@
         </div>
 
         <div
-          class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-6 flex flex-col justify-between gap-6 hover:border-violet-500/40 transition-all duration-300 group h-[calc(100%-2rem)]"
+          class="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/40 backdrop-blur-xl p-4 sm:p-6 flex flex-col justify-between gap-4 sm:gap-6 hover:border-violet-500/40 transition-all duration-300 group lg:h-[calc(100%-2rem)]"
         >
           <div
             class="absolute -right-12 -bottom-12 w-28 h-28 rounded-full bg-violet-600/15 blur-xl group-hover:bg-violet-600/20"
@@ -716,5 +731,12 @@ const formatDate = (dateStr: string) => {
 <style scoped>
 .shadow-neon {
   box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 </style>
