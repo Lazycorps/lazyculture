@@ -235,12 +235,19 @@
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <span class="text-base shrink-0">🎯</span>
               <div class="space-y-1 min-w-0 flex-1">
-                <div class="flex justify-between items-center gap-2">
-                  <p class="text-xs font-black text-white font-display truncate">
-                    Quête : {{ dailyStatus.quest.title }}
-                  </p>
+                <div class="flex justify-between items-start gap-2">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-black text-white font-display truncate">
+                      Quête : {{ dailyStatus.quest.title }}
+                    </p>
+                    <p
+                      class="text-[9px] text-gray-400 font-medium font-display mt-0.5 leading-tight"
+                    >
+                      {{ dailyStatus.quest.description }}
+                    </p>
+                  </div>
                   <span
-                    class="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 font-black px-1.5 py-0.25 rounded-full font-display shrink-0"
+                    class="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 font-black px-1.5 py-0.25 rounded-full font-display shrink-0 mt-0.5"
                   >
                     {{ dailyStatus.quest.questStreak }} 🔥
                   </span>
