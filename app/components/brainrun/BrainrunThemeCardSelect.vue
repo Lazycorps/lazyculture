@@ -71,7 +71,10 @@
       </button>
     </div>
 
+    <!-- La sélection d'une carte est obligatoire ; "Passer" n'apparaît qu'avec la relique Libre
+         Arbitre (canSkip). -->
     <UButton
+      v-if="canSkip"
       variant="ghost"
       color="neutral"
       :disabled="loading"
@@ -89,12 +92,15 @@ import type { BrainrunThemeCardDTO, BrainrunThemeCardRarity } from "#shared/brai
 defineProps<{
   cards: BrainrunThemeCardDTO[];
   loading: boolean;
+  /** Relique Libre Arbitre possédée : affiche le bouton "Passer" (sinon sélection obligatoire). */
+  canSkip: boolean;
 }>();
 
 defineEmits<{
   /** slug du thème de la carte choisie. */
   pick: [themeSlug: string];
-  /** Passer sans prendre de carte (applique la relique Lot de Consolation si possédée). */
+  /** Passer sans prendre de carte (nécessite la relique Libre Arbitre ; applique aussi Lot de
+   * Consolation si possédée). */
   skip: [];
 }>();
 

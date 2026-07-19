@@ -467,6 +467,7 @@
                 v-else-if="pendingThemeCards"
                 :cards="pendingThemeCards"
                 :loading="loading"
+                :can-skip="canSkipThemeCard"
                 @pick="handleThemeCardPick"
                 @skip="handleThemeCardSkip"
               />
@@ -738,6 +739,9 @@ const isRunActive = brainrun.isRunActive;
 // résolues) — pilote directement l'écran de sélection, affiché AVANT le récap tant que l'offre
 // serveur n'est pas résolue.
 const pendingThemeCards = brainrun.pendingThemeCards;
+// Relique Libre Arbitre : autorise à passer la carte de thème (sinon la sélection est obligatoire) —
+// même patron client que hasForesight (lecture directe de run.relics).
+const canSkipThemeCard = computed(() => run.value?.relics.includes("THEME_CARD_SKIP") ?? false);
 // Relique Purge Thématique : bloque l'écran courant tant que le thème à bannir n'est pas choisi.
 const pendingThemeBan = computed(() => run.value?.pendingThemeBanChoice ?? false);
 

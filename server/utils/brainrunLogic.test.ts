@@ -675,6 +675,7 @@ describe("getActiveRelicEffects", () => {
       autoHintChance: 0,
       healChanceOnCombatEnd: 0,
       bonusConsumableSlots: 0,
+      canSkipThemeCard: false,
     });
   });
 
@@ -693,6 +694,12 @@ describe("getActiveRelicEffects", () => {
     expect(effects.goldOnBonusSkip).toBe(15);
     expect(effects.autoHintChance).toBeCloseTo(0.05);
     expect(effects.bonusConsumableSlots).toBe(2);
+    expect(effects.canSkipThemeCard).toBe(true);
+  });
+
+  it("Libre Arbitre autorise à passer la carte de thème", () => {
+    expect(getActiveRelicEffects([]).canSkipThemeCard).toBe(false);
+    expect(getActiveRelicEffects(["THEME_CARD_SKIP"]).canSkipThemeCard).toBe(true);
   });
 
   it("ignores unknown ids", () => {

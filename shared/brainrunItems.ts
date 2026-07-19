@@ -17,7 +17,8 @@ export type BrainrunRelicId =
   | "EVENT_MAGNET"
   | "HAGGLER"
   | "RESTOCK"
-  | "BACKPACK";
+  | "BACKPACK"
+  | "THEME_CARD_SKIP";
 
 /** Reliques pouvant être obtenues/proposées même une fois déjà possédées (exception à la règle
  * d'unicité des reliques) : chaque exemplaire supplémentaire cumule son effet. */
@@ -248,6 +249,13 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
     name: "Sac à Dos",
     description: "+2 emplacements de consommables (5 au lieu de 3).",
     icon: "i-heroicons-briefcase",
+    rarity: "RARE",
+  },
+  THEME_CARD_SKIP: {
+    id: "THEME_CARD_SKIP",
+    name: "Libre Arbitre",
+    description: "Autorise à passer une carte de thème (la sélection est sinon obligatoire).",
+    icon: "i-heroicons-forward",
     rarity: "RARE",
   },
 };

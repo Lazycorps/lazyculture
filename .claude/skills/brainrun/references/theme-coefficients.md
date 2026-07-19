@@ -77,8 +77,12 @@ sinon tirage uniforme (Fisher-Yates) dans le pool d'ennemi ; puis rareté pondé
 (progression visible côté UI).
 
 `resolveThemeCard(runId, pick, userId)` : `pick` = slug → `themeCoefficients[slug] = coefAfter`
-persisté ; `pick` = `"SKIP"` → applique la relique **Lot de Consolation** (`goldOnBonusSkip`, réutilise
-`getActiveRelicEffects`, exactement comme un bonus passé). Ne fait **pas** avancer la salle — c'est
+persisté ; `pick` = `"SKIP"` → **sélection obligatoire par défaut**, le SKIP est refusé (403) sauf
+si la relique **Libre Arbitre** (`canSkipThemeCard`) est possédée, auquel cas il applique **aussi**
+**Lot de Consolation** (`goldOnBonusSkip`, réutilise `getActiveRelicEffects`, comme un bonus passé).
+Côté client, le bouton « Passer » (`BrainrunThemeCardSelect.vue`) n'est rendu qu'avec la relique
+(`canSkip`, dérivé de `run.relics` dans `index.vue`, même patron que `hasForesight`). Ne fait **pas**
+avancer la salle — c'est
 `acknowledgeRoom` qui le fait, une fois carte ET bonus éventuel résolus. `acknowledgeRoom` **bloque**
 tant que `themeCardOffer` non-null et non résolu (même patron bloquant que `offersRequireChoice`).
 Route : `POST /api/brainrun/theme-card` → `resolveThemeCard`.

@@ -2,7 +2,7 @@
 
 Catalogue commun : `shared/brainrunItems.ts`. Rareté à 2 niveaux (`BrainrunRarity` = `COMMON` | `RARE`), poids de tirage `BRAINRUN_RARITY_WEIGHT` = COMMON 3 / RARE 1 (RARE ~4x moins fréquent), modulable par le talent **Œil affûté** (`rareWeightBonus`, ajouté au poids RARE dans `weightedRandomPick`).
 
-## Reliques (`BRAINRUN_RELICS`, 15 aujourd'hui)
+## Reliques (`BRAINRUN_RELICS`, 16 aujourd'hui)
 
 Passives, possédées pour le reste de la run, agrégées via **`getActiveRelicEffects(relicIds)`** (`brainrunLogic.ts`) — additif sur un objet `BrainrunRelicEffects`, valeurs neutres si aucune relique. **Toute nouvelle relique qui modifie une mécanique existante doit passer par ce champ d'effets**, jamais par un `if (relics.includes(...))` ailleurs dans le code.
 
@@ -23,6 +23,7 @@ Passives, possédées pour le reste de la run, agrégées via **`getActiveRelicE
 | `EXTRA_HEART`        | Cœur Supplémentaire   | RARE   | +1 PV max immédiat — **seule relique stackable** (`BRAINRUN_STACKABLE_RELIC_IDS`), plafonnée par `BRAINRUN_ABSOLUTE_MAX_HP` (8) ; HUD (`app/pages/brainrun/index.vue`) : une seule icône affichée quel que soit le nombre d'exemplaires, avec un badge `xN` superposé (contrairement aux consommables, où chaque exemplaire garde son propre emplacement) |
 | `THEME_PURGE`        | Purge Thématique      | RARE   | bannit un thème au choix du joueur — **flux spécial en 2 temps**, voir ci-dessous                                                                                                                                                                                                                                                                         |
 | `BACKPACK`           | Sac à Dos             | RARE   | +2 emplacements de consommables, 5 au lieu de 3 (`bonusConsumableSlots`)                                                                                                                                                                                                                                                                                  |
+| `THEME_CARD_SKIP`    | Libre Arbitre         | RARE   | autorise à passer une carte de thème (`canSkipThemeCard`) — la sélection est **obligatoire** sans elle ; le bouton "Passer" n'apparaît qu'avec la relique et `resolveThemeCard` refuse un SKIP (403) autrement                                                                                                                                            |
 
 Une mauvaise réponse fait toujours perdre **exactement 1 PV**, quelle que soit la difficulté de la question (`brainrunHpLossForDifficulty` a été retiré — plus de palier 1/2/3 PV) ; seul le consommable Bouclier peut encore annuler cette perte. C'est ce qui a rendu l'ancien effet de Spécialisation (réduction de la perte) inutile et a motivé son recyclage en soin de fin de combat.
 
@@ -63,7 +64,7 @@ Deux générateurs distincts dans `brainrunLogic.ts`, à ne pas confondre :
 
 - **`generateBonusOffers`** — bonus post Elite/Boss, gratuit, toujours `BRAINRUN_BONUS_OFFER_COUNT` = 3 options (jamais moins), priorité reliques non possédées pondérées par rareté, complété par des consommables puis de l'or si le pool de reliques est épuisé. Le joueur peut aussi cliquer "Passer" (`SKIP`) → relique Lot de Consolation. **Exception** : le Boss du dernier acte (celui qui gagne la run) ne déclenche **aucun** bonus — `submitAnswer` calcule `isRunWinningBoss` via `nextRowAfterClear(...).kind === "RUN_WON"` et met `grantsBonus = false` (la run est finie, une récompense serait inutilisable).
 - **`generateShopOffers`** — Librairie, avec prix (détail dans `events-shop-library.md`).
-- **`generateThemeCardOffer`** (coefficients de thème) — étape distincte des offres ci-dessus : 3 **cartes de thème** proposées après **chaque** combat gagné (standard/élite/boss non final), séquencée **avant** le bonus relique/consommable pour les Elite/Boss. Passer (`SKIP`) applique **aussi** la relique Lot de Consolation (`goldOnBonusSkip`, même effet qu'un bonus passé). Système complet → `theme-coefficients.md`.
+- **`generateThemeCardOffer`** (coefficients de thème) — étape distincte des offres ci-dessus : 3 **cartes de thème** proposées après **chaque** combat gagné (standard/élite/boss non final), séquencée **avant** le bonus relique/consommable pour les Elite/Boss. La sélection d'une carte est **obligatoire** — passer (`SKIP`) n'est possible qu'avec la relique **Libre Arbitre** (`canSkipThemeCard`), auquel cas ça applique **aussi** Lot de Consolation (`goldOnBonusSkip`). Système complet → `theme-coefficients.md`.
 
 ## Glossaire (encyclopédie des objets découverts)
 

@@ -123,6 +123,8 @@ export type BrainrunRelicEffects = {
   healChanceOnCombatEnd: number;
   /** Sac à Dos : emplacements de consommables supplémentaires, au-delà du plafond de base. */
   bonusConsumableSlots: number;
+  /** Libre Arbitre : autorise à passer une carte de thème (sinon la sélection est obligatoire). */
+  canSkipThemeCard: boolean;
 };
 
 const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
@@ -139,6 +141,7 @@ const NEUTRAL_RELIC_EFFECTS: BrainrunRelicEffects = {
   autoHintChance: 0,
   healChanceOnCombatEnd: 0,
   bonusConsumableSlots: 0,
+  canSkipThemeCard: false,
 };
 
 export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects {
@@ -173,6 +176,8 @@ export function getActiveRelicEffects(relicIds: string[]): BrainrunRelicEffects 
         return { ...effects, goldOnBonusSkip: effects.goldOnBonusSkip + BRAINRUN_CONSOLATION_GOLD };
       case "SIXTH_SENSE":
         return { ...effects, autoHintChance: BRAINRUN_SIXTH_SENSE_CHANCE };
+      case "THEME_CARD_SKIP":
+        return { ...effects, canSkipThemeCard: true };
       default:
         return effects;
     }

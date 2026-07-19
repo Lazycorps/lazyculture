@@ -17,6 +17,7 @@ import {
   assignEventIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
+  brainrunGlobalFloor,
   buildCombatThemeWeights,
   calculBrainrunUserXP,
   consumeShieldCharge,
@@ -61,6 +62,7 @@ import {
   BRAINRUN_BASE_CONSUMABLE_SLOTS,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
+  BRAINRUN_COMBAT_ROOM_TYPES,
   BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
   BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE,
   BRAINRUN_EVENT_MAGNET_CHANCE,
@@ -79,8 +81,10 @@ import {
   BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CHRONO_BOOST_MS,
   BRAINRUN_DAMAGE_BOOST_AMOUNT,
+  BRAINRUN_CONSUMABLES,
   BRAINRUN_EVENT_MIN_MAX_HP,
   BRAINRUN_EVENTS,
+  BRAINRUN_RELICS,
   getBrainrunEventIdsByAct,
   type BrainrunConsumableId,
   type BrainrunConsumableReveal,
@@ -97,7 +101,7 @@ import {
   getBrainrunBossesByAct,
   getBrainrunBossById,
 } from "#shared/brainrunBosses";
-import type { BrainrunTalentId } from "#shared/brainrunTalents";
+import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 import { BRAINRUN_ALAIN_INTRO_MS } from "#shared/brainrun";
 import type {
   BrainrunEventOutcomeDTO,
@@ -258,11 +262,8 @@ export class BrainrunService {
     });
     if (!run.isDebugRun) {
       await grantKnowledgePoints(userId, knowledgePointsEarned);
+      await this.awardBrainrunProgressAchievements(userId);
     }
-    const totalGames = await prisma.brainrunRun.count({
-      where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] }, isDebugRun: false },
-    });
-    await checkAndAwardAchievements(userId, "brainrunGames", totalGames);
   }
 
   /** col = colonne du nœud choisi sur run.currentRow, parmi les candidats accessibles depuis la
@@ -1102,9 +1103,11 @@ export class BrainrunService {
 
   /**
    * Résout la carte de thème post-combat : `pick` est le slug d'une carte proposée (monte son
-   * coefficient de +rareté, persisté dans themeCoefficients) ou "SKIP" pour passer (applique la
-   * relique Lot de Consolation, exactement comme resolveBonus). N'avance PAS la salle — c'est
-   * acknowledgeRoom() qui le fait, une fois carte ET bonus éventuel résolus.
+   * coefficient de +rareté, persisté dans themeCoefficients) ou "SKIP" pour passer. La sélection
+   * d'une carte est **obligatoire** par défaut : "SKIP" n'est autorisé qu'avec la relique Libre
+   * Arbitre (`canSkipThemeCard`), auquel cas il applique aussi la relique Lot de Consolation (comme
+   * resolveBonus). N'avance PAS la salle — c'est acknowledgeRoom() qui le fait, une fois carte ET
+   * bonus éventuel résolus.
    */
   async resolveThemeCard(runId: string, pick: string, userId: string): Promise<BrainrunStateDTO> {
     const run = await this.getOwnedInProgressRun(runId, userId);
@@ -1130,8 +1133,16 @@ export class BrainrunService {
         data: { themeCoefficients: coefficients },
       });
     } else {
-      // Lot de Consolation : de l'or pour compenser une carte ignorée (même effet qu'un bonus passé).
+      // Passer une carte n'est possible qu'avec la relique Libre Arbitre — sinon la sélection est
+      // obligatoire (garde côté serveur : le client masque déjà le bouton "Passer" en son absence).
       const effects = getActiveRelicEffects(run.relics);
+      if (!effects.canSkipThemeCard) {
+        throw createError({
+          statusCode: 403,
+          statusMessage: "La sélection d'une carte de thème est obligatoire.",
+        });
+      }
+      // Lot de Consolation : de l'or pour compenser une carte ignorée (même effet qu'un bonus passé).
       if (effects.goldOnBonusSkip > 0) {
         await prisma.brainrunRun.update({
           where: { id: run.id },
@@ -2023,6 +2034,17 @@ export class BrainrunService {
 
   async unlockTalent(userId: string, talentId: BrainrunTalentId): Promise<BrainrunMetaProgressDTO> {
     const progress = await unlockTalentPersist(userId, talentId);
+    await checkAndAwardAchievements(
+      userId,
+      "brainrunTalentsUnlocked",
+      progress.unlockedTalents.length,
+    );
+    // « Esprit accompli » : tous les talents du catalogue courant débloqués (s'adapte si on en
+    // ajoute).
+    const allTalents = Object.keys(BRAINRUN_TALENTS).every((id) =>
+      progress.unlockedTalents.includes(id),
+    );
+    await checkAndAwardAchievements(userId, "brainrunAllTalentsUnlocked", allTalents ? 1 : 0);
     const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
@@ -2212,21 +2234,135 @@ export class BrainrunService {
       await grantKnowledgePoints(run.userId, knowledgePointsEarned);
     }
 
-    const totalGames = await prisma.brainrunRun.count({
-      where: {
-        userId: run.userId,
-        status: { in: ["WON", "LOST", "ABANDONED"] },
-        isDebugRun: false,
-      },
-    });
-    await checkAndAwardAchievements(run.userId, "brainrunGames", totalGames);
+    // Une run de debug ne débloque aucun haut fait (mêmes règles que XP/pièces/PS ci-dessus).
+    if (!run.isDebugRun) {
+      await this.awardBrainrunProgressAchievements(run.userId);
+      await this.awardBrainrunRunRecordAchievements(run.userId, run.rooms);
 
-    if (status === "WON") {
-      const totalWins = await prisma.brainrunRun.count({
-        where: { userId: run.userId, status: "WON", isDebugRun: false },
-      });
-      await checkAndAwardAchievements(run.userId, "brainrunWins", totalWins);
+      if (status === "WON") {
+        const totalWins = await prisma.brainrunRun.count({
+          where: { userId: run.userId, status: "WON", isDebugRun: false },
+        });
+        await checkAndAwardAchievements(run.userId, "brainrunWins", totalWins);
+
+        const combatResponses = this.collectCombatResponses(run.rooms);
+        // « Sans une égratignure » : run gagnée sans jamais perdre de PV (Bouclier inclus, qui
+        // ramène hpLoss à 0 — cf. consumeShieldCharge).
+        if (!combatResponses.some((r) => r.hpLoss > 0)) {
+          await checkAndAwardAchievements(run.userId, "brainrunFlawlessWin", 1);
+        }
+        // « Sur le fil du rasoir » : victoire en terminant à 1 PV.
+        if (run.healthPoint === 1) {
+          await checkAndAwardAchievements(run.userId, "brainrunLowHpWin", 1);
+        }
+        // « Marche forcée » : victoire sans avoir nettoyé la moindre Bibliothèque (REST).
+        if (!run.rooms.some((r) => r.type === "REST" && r.status === "CLEARED")) {
+          await checkAndAwardAchievements(run.userId, "brainrunNoRestWin", 1);
+        }
+        // « Revenant » : victoire après avoir déclenché au moins un filet de résurrection
+        // (consommable Dernier Souffle, relique Seconde Chance ou talent Second Souffle —
+        // tous trois marquent la réponse d'un extraLifeUsed).
+        if (combatResponses.some((r) => r.extraLifeUsed)) {
+          await checkAndAwardAchievements(run.userId, "brainrunReviveWin", 1);
+        }
+      }
     }
+  }
+
+  /** Aplati les réponses des salles de combat d'une run, dans l'ordre de progression
+   * (acte → rangée → colonne), pour dériver les records d'une partie. */
+  private collectCombatResponses(
+    rooms: { act: number; row: number; col: number; type: string; responses: unknown }[],
+  ): BrainrunRoomResponse[] {
+    return rooms
+      .filter((r) => BRAINRUN_COMBAT_ROOM_TYPES.includes(r.type as BrainrunRoomType))
+      .sort((a, b) => a.act - b.act || a.row - b.row || a.col - b.col)
+      .flatMap((r) => (r.responses as BrainrunRoomResponse[] | null) ?? []);
+  }
+
+  /** Hauts faits « record dans une seule run » (bonnes réponses, plus longue série, or amassé) —
+   * comptent quel que soit le résultat de la run (victoire comme défaite). */
+  private async awardBrainrunRunRecordAchievements(
+    userId: string,
+    rooms: {
+      act: number;
+      row: number;
+      col: number;
+      type: string;
+      goldEarned: number;
+      responses: unknown;
+    }[],
+  ): Promise<void> {
+    const combatResponses = this.collectCombatResponses(rooms);
+
+    const correct = combatResponses.filter((r) => r.success).length;
+    await checkAndAwardAchievements(userId, "brainrunRunCorrect", correct);
+
+    let streak = 0;
+    let bestStreak = 0;
+    for (const response of combatResponses) {
+      streak = response.success ? streak + 1 : 0;
+      bestStreak = Math.max(bestStreak, streak);
+    }
+    await checkAndAwardAchievements(userId, "brainrunRunStreak", bestStreak);
+
+    const gold = rooms.reduce((sum, r) => sum + r.goldEarned, 0);
+    await checkAndAwardAchievements(userId, "brainrunRunGold", gold);
+  }
+
+  /**
+   * Hauts faits dérivés de l'ensemble des runs terminées et du métagame : assiduité, étage max
+   * atteint, PV max, élites/boss vaincus, découvertes complètes de catalogue. Déclenchés aussi
+   * bien en fin de run qu'à l'abandon ; l'appelant garantit que la run n'est pas une run de debug.
+   * Les « toutes/tous » comparent au catalogue courant, donc s'adaptent automatiquement si on
+   * ajoute une relique/consommable/talent.
+   */
+  private async awardBrainrunProgressAchievements(userId: string): Promise<void> {
+    const finishedRunFilter = {
+      userId,
+      status: { in: ["WON", "LOST", "ABANDONED"] },
+      isDebugRun: false,
+    };
+
+    const finishedRuns = await prisma.brainrunRun.findMany({
+      where: finishedRunFilter,
+      select: { currentAct: true, currentRow: true, maxHealthPoint: true },
+    });
+    await checkAndAwardAchievements(userId, "brainrunGames", finishedRuns.length);
+
+    const maxFloor = finishedRuns.reduce(
+      (max, r) => Math.max(max, brainrunGlobalFloor(r.currentAct, r.currentRow)),
+      0,
+    );
+    await checkAndAwardAchievements(userId, "brainrunMaxFloor", maxFloor);
+
+    const maxHp = finishedRuns.reduce((max, r) => Math.max(max, r.maxHealthPoint), 0);
+    await checkAndAwardAchievements(userId, "brainrunMaxHp", maxHp);
+
+    const [elitesDefeated, bossesDefeated] = await Promise.all([
+      prisma.brainrunRoom.count({
+        where: { type: "ELITE", status: "CLEARED", run: finishedRunFilter },
+      }),
+      prisma.brainrunRoom.count({
+        where: { type: "BOSS", status: "CLEARED", run: finishedRunFilter },
+      }),
+    ]);
+    await checkAndAwardAchievements(userId, "brainrunElitesDefeated", elitesDefeated);
+    await checkAndAwardAchievements(userId, "brainrunBossesDefeated", bossesDefeated);
+
+    const meta = await getMetaProgress(userId);
+    const allRelics = Object.keys(BRAINRUN_RELICS).every((id) =>
+      meta.discoveredRelics.includes(id),
+    );
+    await checkAndAwardAchievements(userId, "brainrunAllRelicsDiscovered", allRelics ? 1 : 0);
+    const allConsumables = Object.keys(BRAINRUN_CONSUMABLES).every((id) =>
+      meta.discoveredConsumables.includes(id),
+    );
+    await checkAndAwardAchievements(
+      userId,
+      "brainrunAllConsumablesDiscovered",
+      allConsumables ? 1 : 0,
+    );
   }
 
   /**
