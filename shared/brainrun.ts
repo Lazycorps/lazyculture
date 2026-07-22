@@ -8,14 +8,17 @@ import type {
 import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression).
- * La forme détaillée de la carte (nœuds par rangée) est définie par acte dans
- * server/utils/brainrunConfig.ts (getBrainrunActRowWidths) ; le client n'a besoin que du décompte
- * de rangées par acte pour la progression, via getBrainrunRoomsPerAct ci-dessous. */
+ * La forme détaillée de la carte (nœuds par rangée) est TIRÉE à la génération de chaque acte, côté
+ * serveur (pickBrainrunActRowWidths, server/utils/brainrunConfig.ts) : elle diffère d'un acte à
+ * l'autre et n'est pas recalculable ici. Le client n'a besoin que du décompte de rangées par acte,
+ * qui lui reste fixe, via getBrainrunRoomsPerAct ci-dessous. */
 export const BRAINRUN_TOTAL_ACTS = 3;
 
 /** Nombre de rangées d'un acte : l'acte 1 a une rangée Neutre en plus en tête (10 rangées : 1
  * Neutre + 9 étages), les actes 2/3 n'en ont pas (9 rangées : 9 étages), le nœud de boss de l'acte
- * précédent tenant lieu de point de départ visuel — cf. references/map.md. */
+ * précédent tenant lieu de point de départ visuel — cf. references/map.md. Ces valeurs sont en dur
+ * ici mais doivent rester égales à BRAINRUN_MID_FLOOR_COUNT + 4 (+1 pour l'acte 1) côté serveur ;
+ * nextRowAfterClear en dépend pour détecter la fin d'un acte. */
 export function getBrainrunRoomsPerAct(act: number): number {
   return act === 1 ? 10 : 9;
 }

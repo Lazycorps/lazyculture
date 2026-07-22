@@ -326,6 +326,24 @@ export const useBrainrunSession = () => {
     }
   }
 
+  /** Debug uniquement : rejette la carte de l'acte en cours (nouveau graphe, nouveaux types de
+   * salle, nouveaux ennemis) et replace le joueur à son entrée — PV/or/reliques conservés. */
+  async function debugRegenerateMap() {
+    if (!run.value) return;
+    const { authFetch } = useAuthFetch();
+    loading.value = true;
+    try {
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/debug/regenerate-map", {
+          method: "post",
+          body: { runId: run.value.id },
+        }),
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
   function reset() {
     run.value = null;
     currentRoom.value = null;
@@ -368,5 +386,6 @@ export const useBrainrunSession = () => {
     reset,
     debugSetStats,
     debugJump,
+    debugRegenerateMap,
   };
 };

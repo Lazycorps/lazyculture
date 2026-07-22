@@ -75,3 +75,9 @@ export type BrainrunDebugJumpDTO = {
   roomType?: BrainrunRoomType;
   forcedCombatId?: string;
 };
+
+/** Debug uniquement : rejette la carte de l'acte en cours et replace le joueur à son entrée
+ * (PV/or/reliques/consommables conservés) — pour inspecter plusieurs tirages de génération. */
+export type BrainrunDebugRegenerateMapDTO = {
+  runId: string;
+};

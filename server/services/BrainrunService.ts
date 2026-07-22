@@ -73,7 +73,6 @@ import {
   BRAINRUN_QUESTIONS_PER_ROOM,
   BRAINRUN_START_HP,
   BRAINRUN_TOTAL_ACTS,
-  getBrainrunActRowWidths,
 } from "~~/server/utils/brainrunConfig";
 import { assertDebugAccess } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
@@ -514,6 +513,26 @@ export class BrainrunService {
     return this.getStateById(runId);
   }
 
+  /** Debug uniquement (assertDebugAccess) : rejette la carte de l'acte en cours — nouveau graphe,
+   * nouveaux types de salle, nouveaux ennemis/événements — et replace le joueur à son entrée. Sert
+   * à inspecter rapidement plusieurs tirages de génération sans rejouer une run entière. PV, or,
+   * reliques, consommables et coefficients de thème sont conservés : seule la carte change. */
+  async debugRegenerateMap(runId: string, userId: string): Promise<BrainrunStateDTO> {
+    await assertDebugAccess(userId);
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const effects = getActiveRelicEffects(run.relics);
+
+    await prisma.brainrunRoom.deleteMany({ where: { runId, act: run.currentAct } });
+    // Les salles déjà nettoyées de cet acte n'existent plus : le joueur repart de son entrée.
+    // seedActGraph repositionne lui-même currentRow à 2 pour l'acte 1 (rangée Neutre pré-nettoyée).
+    await prisma.brainrunRun.update({
+      where: { id: runId },
+      data: { currentRow: 1, currentCol: null, isDebugRun: true },
+    });
+    await this.seedActGraph(runId, run.currentAct, effects.eventBonusChance);
+    return this.getStateById(runId);
+  }
+
   /** Debug uniquement : téléporte la run vers un nœud précis (doit être PENDING — pas de
    * ré-résolution d'une salle déjà traitée), en forçant optionnellement son type et/ou
    * l'ennemi/boss tiré pour le combat. Génère l'acte cible s'il n'est pas encore semé. */
@@ -534,15 +553,17 @@ export class BrainrunService {
     if (target.act < 1 || target.act > BRAINRUN_TOTAL_ACTS) {
       throw createError({ statusCode: 400, statusMessage: "Acte invalide." });
     }
-    const actRowWidths = getBrainrunActRowWidths(target.act);
-    const lastRow = actRowWidths.length;
-    if (target.row < 1 || target.row > lastRow) {
-      throw createError({ statusCode: 400, statusMessage: "Rangée invalide." });
+    // La silhouette d'un acte est tirée à sa génération (largeurs des étages du milieu variables,
+    // cf. pickBrainrunActRowWidths) : les bornes de rangée/colonne se lisent donc sur les salles
+    // réellement persistées, jamais sur une forme théorique recalculée.
+    let actRooms = run.rooms.filter((r) => r.act === target.act);
+    if (actRooms.length === 0) {
+      const effects = getActiveRelicEffects(run.relics);
+      await this.seedActGraph(runId, target.act, effects.eventBonusChance);
+      actRooms = await prisma.brainrunRoom.findMany({ where: { runId, act: target.act } });
     }
-    const width = actRowWidths[target.row - 1]!;
-    if (target.col < 0 || target.col >= width) {
-      throw createError({ statusCode: 400, statusMessage: "Colonne invalide pour cette rangée." });
-    }
+    const lastRow = Math.max(...actRooms.map((r) => r.row));
+
     // La dernière rangée est toujours (et seulement) le Boss, cf. references/map.md — invariant
     // dont dépend nextRowAfterClear pour détecter la fin d'acte/de run.
     if (target.roomType === "BOSS" && target.row !== lastRow) {
@@ -558,17 +579,11 @@ export class BrainrunService {
       });
     }
 
-    let actRooms = run.rooms.filter((r) => r.act === target.act);
-    if (actRooms.length === 0) {
-      const effects = getActiveRelicEffects(run.relics);
-      await this.seedActGraph(runId, target.act, effects.eventBonusChance);
-      actRooms = await prisma.brainrunRoom.findMany({ where: { runId, act: target.act } });
-    }
     let node = actRooms.find((r) => r.row === target.row && r.col === target.col);
     if (!node) {
       throw createError({
-        statusCode: 500,
-        statusMessage: "Nœud introuvable après génération de l'acte.",
+        statusCode: 400,
+        statusMessage: `Nœud (rangée ${target.row}, colonne ${target.col}) inexistant sur cette carte.`,
       });
     }
     if (node.status !== "PENDING") {

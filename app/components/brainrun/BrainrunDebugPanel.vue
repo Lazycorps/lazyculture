@@ -109,6 +109,23 @@
         Téléporter
       </button>
 
+      <!-- Régénération de carte : rejette le graphe de l'acte en cours pour inspecter plusieurs
+           tirages de génération d'affilée (cf. references/map.md). -->
+      <div class="pt-1 border-t border-white/5">
+        <button
+          type="button"
+          :disabled="loading"
+          class="w-full text-amber-400 font-black font-display uppercase tracking-wider py-1 disabled:opacity-40"
+          @click="applyRegenerateMap"
+        >
+          Régénérer la carte
+        </button>
+        <p class="text-gray-500 leading-tight">
+          Nouveau graphe de l'acte {{ run?.currentAct ?? 1 }} ; retour à l'entrée de l'acte, PV/or/
+          reliques conservés.
+        </p>
+      </div>
+
       <!-- Coefficients de thème : force le coefficient d'un thème investissable (union des thèmes
            d'ennemis/boss) pour tester le tirage pondéré et les cartes sans jouer une run entière. -->
       <div class="flex items-center gap-1.5 flex-wrap pt-1 border-t border-white/5">
@@ -244,6 +261,15 @@ async function applyJump() {
     });
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Échec de la téléportation.";
+  }
+}
+
+async function applyRegenerateMap() {
+  error.value = null;
+  try {
+    await brainrun.debugRegenerateMap();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Échec de la régénération.";
   }
 }
 

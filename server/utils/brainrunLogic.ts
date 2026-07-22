@@ -27,8 +27,9 @@ import {
 } from "#shared/brainrunItems";
 import {
   BRAINRUN_BACKPACK_BONUS_SLOTS,
-  BRAINRUN_BRANCH_CHANCE,
   BRAINRUN_CONSOLATION_GOLD,
+  BRAINRUN_MAX_CONSECUTIVE_MONO_NODES,
+  BRAINRUN_MAX_TARGET_DRIFT,
   BRAINRUN_ENEMY_THEME_BONUS_BY_ACT,
   BRAINRUN_ENEMY_THEME_BONUS_TIER_MULTIPLIER,
   BRAINRUN_EVENT_MAGNET_CHANCE,
@@ -53,7 +54,7 @@ import {
   BRAINRUN_TOTAL_ACTS,
   BRAINRUN_WIN_BONUS_XP,
   BRAINRUN_XP_BY_ROOM_TYPE,
-  getBrainrunActRowWidths,
+  pickBrainrunActRowWidths,
 } from "./brainrunConfig";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 import type { BrainrunBossMalusId } from "#shared/brainrunBosses";
@@ -731,24 +732,190 @@ function proportionalCol(col: number, fromWidth: number, toWidth: number): numbe
 
 export type BrainrunGraphEdge = { row: number; col: number; nextCols: number[] };
 
-function pickInitialTargets(
+/**
+ * L'adjacence stricte (`BRAINRUN_MAX_TARGET_DRIFT` : une arête ne saute jamais par-dessus un nœud)
+ * n'est satisfiable que si les deux rangées ont des largeurs voisines. Sinon la géométrie
+ * l'interdit, et il faut l'assouplir sous peine de rendre la rangée entière insoluble :
+ * - `fromWidth > toWidth + 1` : des nœuds source n'auraient aucune cible atteignable — c'est le cas
+ *   de la rangée avant-Boss (3 nœuds), qui doit converger vers l'unique nœud de Boss ;
+ * - `toWidth > fromWidth + 1` : des nœuds cible resteraient inaccessibles — c'est le cas du nœud
+ *   Neutre seul de l'acte 1, qui doit alimenter les 3 nœuds de l'étage 1.
+ *
+ * Entre étages du milieu, `pickBrainrunMidFloorWidths` lisse la silhouette (marche ≤ 1), donc
+ * l'adjacence s'applique toujours là où le joueur a de vrais choix de trajet.
+ */
+function canEnforceTargetDrift(fromWidth: number, toWidth: number): boolean {
+  return Math.abs(fromWidth - toWidth) <= BRAINRUN_MAX_TARGET_DRIFT;
+}
+
+/** Nombre de cibles maximum d'un nœud, sauf si la rangée suivante est trop large pour être couverte
+ * par la rangée courante (ex. nœud Neutre seul vers 3 nœuds : il doit tous les alimenter). */
+const BRAINRUN_MAX_TARGETS_PER_NODE = 2;
+
+/** Colonnes que le nœud `col` d'une rangée de `fromWidth` peut viser dans la rangée suivante, une
+ * fois l'adjacence appliquée (bornes incluses). */
+function allowedTargetRange(
   col: number,
   fromWidth: number,
   toWidth: number,
-  random: () => number,
-): number[] {
-  const center = proportionalCol(col, fromWidth, toWidth);
-  const neighbors = [center - 1, center, center + 1].filter((c) => c >= 0 && c < toWidth);
-  const extraCandidates = [...new Set(neighbors)].filter((c) => c !== center);
-  const targets = [center];
-  if (extraCandidates.length > 0 && random() < BRAINRUN_BRANCH_CHANCE) {
-    targets.push(extraCandidates[Math.floor(random() * extraCandidates.length)]!);
+): { first: number; last: number } {
+  if (!canEnforceTargetDrift(fromWidth, toWidth)) return { first: 0, last: toWidth - 1 };
+  return {
+    first: Math.max(0, col - BRAINRUN_MAX_TARGET_DRIFT),
+    last: Math.min(toWidth - 1, col + BRAINRUN_MAX_TARGET_DRIFT),
+  };
+}
+
+/**
+ * Longueur de la chaîne de nœuds mono-cible **inévitable** partant de chaque nœud, par rangée.
+ *
+ * Certains nœuds ne peuvent structurellement pas offrir de choix : sur une rangée qui rétrécit
+ * (3 → 2), l'adjacence ne laisse qu'une seule cible au nœud le plus à droite ; de même, toute
+ * l'avant-dernière rangée converge vers l'unique Boss. Ces mono-cibles-là ne se « corrigent » pas
+ * sur place — il faut les connaître **à l'avance** pour brancher plus tôt, sinon la contrainte de
+ * cadence n'est détectée que sur une rangée incapable de la satisfaire.
+ *
+ * Récurrence descendante : un nœud qui peut brancher vaut 0 ; un nœud qui ne le peut pas vaut 1 +
+ * la valeur de son unique cible (déterminée, puisqu'il n'a qu'une colonne atteignable).
+ */
+function computeForcedMonoDepths(widths: number[]): number[][] {
+  const depths: number[][] = widths.map((width) => Array.from({ length: width }, () => 0));
+
+  for (let row = widths.length - 1; row >= 1; row--) {
+    const fromWidth = widths[row - 1]!;
+    const toWidth = widths[row]!;
+    for (let col = 0; col < fromWidth; col++) {
+      const { first, last } = allowedTargetRange(col, fromWidth, toWidth);
+      // Deux colonnes atteignables ⇒ l'intervalle {first, first+1} est un branchement valide.
+      if (last > first) continue;
+      depths[row - 1]![col] = 1 + depths[row]![first]!;
+    }
   }
-  return [...new Set(targets)];
+  return depths;
+}
+
+type BrainrunTargetSpan = { start: number; end: number };
+
+/**
+ * Résout d'un coup les cibles de TOUS les nœuds d'une rangée, au lieu de les tirer indépendamment
+ * nœud par nœud. Chaque nœud reçoit un intervalle contigu de colonnes de la rangée suivante, sous
+ * contraintes qui donnent des « voies » lisibles plutôt qu'un maillage où tout mène à tout :
+ * - **monotonie** (`start`/`end` croissants de gauche à droite) : les arêtes ne se croisent jamais ;
+ * - **unicité** (`requireDistinct`) : deux nœuds d'une même rangée ne peuvent pas viser exactement
+ *   la même combinaison de nœuds — c'est ce qui donnait l'impression que tous les chemins menaient
+ *   aux mêmes endroits (une rangée 2→2 produisait `{0,1}` et `{0,1}`) ;
+ * - **couverture sans trou** : l'union des intervalles couvre toute la rangée suivante, donc aucun
+ *   nœud orphelin à rattraper ;
+ * - **cadence de branchement** (`mustBranch`) : un nœud marqué doit avoir au moins 2 cibles. C'est
+ *   ce qui garantit au joueur un vrai choix au moins tous les `BRAINRUN_MAX_CONSECUTIVE_MONO_NODES`
+ *   nœuds ; le calcul de la chaîne se fait dans `generateActEdges`, rangée par rangée.
+ *
+ * Retourne `null` si aucune combinaison ne satisfait les contraintes (rangée suivante trop étroite
+ * pour offrir assez d'intervalles distincts) — l'appelant relâche alors les contraintes une à une.
+ */
+function solveRowTargets(
+  fromWidth: number,
+  toWidth: number,
+  maxSize: number,
+  requireDistinct: boolean,
+  mustBranch: boolean[],
+  random: () => number,
+): BrainrunTargetSpan[] | null {
+  const spans: BrainrunTargetSpan[] = [];
+  const enforceDrift = canEnforceTargetDrift(fromWidth, toWidth);
+
+  const step = (index: number): boolean => {
+    if (index === fromWidth) return true;
+    const previous = spans[index - 1];
+    const center = proportionalCol(index, fromWidth, toWidth);
+    // Aucune préférence pour 1 ou 2 sorties : les mono-routes sont désormais assumées (façon Slay
+    // the Spire), la cadence de branchement étant garantie structurellement par `mustBranch`. Ce
+    // tirage ne sert plus qu'à varier l'allure des rangées.
+    const desiredSize = random() < 0.5 ? 2 : 1;
+    const candidates: Array<BrainrunTargetSpan & { score: number }> = [];
+
+    for (let start = 0; start < toWidth; start++) {
+      for (let size = 1; size <= maxSize; size++) {
+        const end = start + size - 1;
+        if (end >= toWidth) break;
+        if (mustBranch[index] && size < 2) continue; // cadence : ce nœud doit offrir un choix
+        if (index === 0 && start !== 0) continue; // couvre la colonne 0
+        if (index === fromWidth - 1 && end !== toWidth - 1) continue; // couvre la dernière colonne
+        if (previous) {
+          if (start < previous.start || end < previous.end) continue; // monotonie
+          if (start > previous.end + 1) continue; // pas de trou de couverture
+          if (requireDistinct && start === previous.start && end === previous.end) continue;
+        }
+        // Les nœuds restants doivent encore pouvoir atteindre la dernière colonne.
+        if (end + (fromWidth - 1 - index) * maxSize < toWidth - 1) continue;
+        if (enforceDrift) {
+          if (start < index - BRAINRUN_MAX_TARGET_DRIFT) continue;
+          if (end > index + BRAINRUN_MAX_TARGET_DRIFT) continue;
+        }
+        // Reprendre exactement les cibles du voisin de gauche reste possible quand la cadence de
+        // branchement l'exige sur une rangée étroite (cf. buildRowTargets), mais doit être le
+        // dernier recours : pénalité écrasante plutôt qu'interdiction, pour n'y tomber que si
+        // aucune autre combinaison ne convient.
+        const duplicatesPrevious =
+          previous !== undefined && start === previous.start && end === previous.end;
+        candidates.push({
+          start,
+          end,
+          // Le nombre de sorties prime sur la longueur de l'arête : la monotonie interdit déjà les
+          // croisements, le centrage ne sert plus qu'à raccourcir visuellement les traits.
+          score:
+            (duplicatesPrevious ? 1000 : 0) +
+            Math.abs(size - desiredSize) * 4 +
+            Math.abs((start + end) / 2 - center) +
+            random(),
+        });
+      }
+    }
+
+    candidates.sort((a, b) => a.score - b.score);
+    for (const candidate of candidates) {
+      spans[index] = { start: candidate.start, end: candidate.end };
+      if (step(index + 1)) return true;
+    }
+    spans.length = index;
+    return false;
+  };
+
+  return step(0) ? spans : null;
+}
+
+/**
+ * Cibles de chaque nœud d'une rangée vers la rangée suivante (cf. solveRowTargets). Les contraintes
+ * sont relâchées une à une quand la forme des deux rangées les rend impossibles à satisfaire.
+ *
+ * Ordre de relâchement : la **cadence** est une garantie de jeu, elle passe avant l'unicité, qui
+ * n'est qu'une lisibilité. Mais `generateActEdges` ne demande jamais plus de branchements qu'une
+ * rangée ne peut en offrir sans doublon, donc les deux ne se disputent que dans les cas
+ * géométriquement forcés — sinon on retomberait sur une rangée entière partageant la même
+ * combinaison, exactement le défaut « tous les chemins mènent partout ».
+ */
+function buildRowTargets(
+  fromWidth: number,
+  toWidth: number,
+  mustBranch: boolean[],
+  random: () => number,
+): number[][] {
+  const maxSize = Math.max(BRAINRUN_MAX_TARGETS_PER_NODE, Math.ceil(toWidth / fromWidth));
+  const noBranch = Array.from({ length: fromWidth }, () => false);
+  const spans =
+    solveRowTargets(fromWidth, toWidth, maxSize, true, mustBranch, random) ??
+    solveRowTargets(fromWidth, toWidth, maxSize, false, mustBranch, random) ??
+    solveRowTargets(fromWidth, toWidth, maxSize, true, noBranch, random) ??
+    solveRowTargets(fromWidth, toWidth, maxSize, false, noBranch, random);
+  if (!spans) return Array.from({ length: fromWidth }, () => [proportionalCol(0, 1, toWidth)]);
+  return spans.map(({ start, end }) =>
+    Array.from({ length: end - start + 1 }, (_, offset) => start + offset),
+  );
 }
 
 /** Rattache tout nœud sans arête entrante au nœud le plus proche (par position proportionnelle)
- * de la rangée précédente, pour qu'aucun nœud de la carte ne soit inaccessible. */
+ * de la rangée précédente, pour qu'aucun nœud de la carte ne soit inaccessible. Filet de sécurité :
+ * buildRowTargets garantit déjà la couverture, sauf sur son repli de dernier recours. */
 function attachOrphans(edges: BrainrunGraphEdge[], widths: number[]): void {
   for (let row = 1; row < widths.length; row++) {
     const fromWidth = widths[row - 1]!;
@@ -773,26 +940,87 @@ function attachOrphans(edges: BrainrunGraphEdge[], widths: number[]): void {
   }
 }
 
-/** Construit la forme du graphe d'un acte (nœuds + arêtes vers la rangée suivante), sans les
- * types de salle. Chaque nœud a toujours au moins une arête sortante (sauf la dernière rangée,
- * le Boss) et au moins une arête entrante (sauf la rangée 1) — jamais de nœud inaccessible. */
+/**
+ * Construit la forme du graphe d'un acte (nœuds + arêtes vers la rangée suivante), sans les types
+ * de salle, à partir d'une silhouette `widths` déjà tirée (cf. pickBrainrunActRowWidths — elle est
+ * tirée une seule fois par acte dans generateActGraph, puis partagée par toutes les étapes). Chaque
+ * nœud a toujours au moins une arête sortante (sauf la dernière rangée, le Boss) et au moins une
+ * arête entrante (sauf la rangée 1) — jamais de nœud inaccessible.
+ *
+ * Les rangées sont résolues **de bas en haut, l'une après l'autre**, parce que la cadence de
+ * branchement se propage : on suit, pour chaque nœud, la plus longue chaîne de nœuds mono-cible
+ * consécutifs qui y mène (tous trajets confondus), et on impose un embranchement dès qu'elle
+ * atteindrait `BRAINRUN_MAX_CONSECUTIVE_MONO_NODES`.
+ */
 export function generateActEdges(
-  act: number,
+  widths: number[],
   random: () => number = Math.random,
 ): BrainrunGraphEdge[] {
-  const widths = getBrainrunActRowWidths(act);
   const edges: BrainrunGraphEdge[] = [];
+  const forcedMonoDepths = computeForcedMonoDepths(widths);
+  // monoRun[col] = longueur de la plus longue chaîne de nœuds mono-cible consécutifs se terminant
+  // sur le nœud (rangée courante, col), en remontant les trajets qui y mènent.
+  let monoRun = Array.from({ length: widths[0]! }, () => 0);
+
   for (let row = 1; row <= widths.length; row++) {
     const width = widths[row - 1]!;
     const nextWidth = widths[row];
-    for (let col = 0; col < width; col++) {
-      edges.push({
-        row,
-        col,
-        nextCols: nextWidth === undefined ? [] : pickInitialTargets(col, width, nextWidth, random),
-      });
+    if (nextWidth === undefined) {
+      for (let col = 0; col < width; col++) edges.push({ row, col, nextCols: [] });
+      break;
     }
+
+    // Urgence de branchement de chaque nœud : longueur qu'atteindrait sa chaîne s'il restait
+    // mono-cible, en comptant ce qui est déjà condamné à l'être en amont de lui.
+    const urgency = Array.from({ length: width }, (_, col) => {
+      const { first, last } = allowedTargetRange(col, width, nextWidth);
+      let forcedAhead = 0;
+      for (let target = first; target <= last; target++) {
+        forcedAhead = Math.max(forcedAhead, forcedMonoDepths[row]![target]!);
+      }
+      return monoRun[col]! + 1 + forcedAhead;
+    });
+
+    // Une rangée ne peut pas offrir un choix à tous ses nœuds : l'unicité des combinaisons limite
+    // le nombre d'intervalles de 2 colonnes distincts disponibles (une rangée cible de 3 nœuds n'en
+    // a que deux : {0,1} et {1,2}). Tout exiger d'un coup rendrait la rangée insoluble et ferait
+    // relâcher les contraintes en bloc. On distingue donc deux niveaux :
+    // - **impératif** (urgence > limite) : ne pas brancher ici dépasserait la limite, y compris en
+    //   tenant compte de ce qui est condamné à rester mono-cible en amont. Aucun rattrapage
+    //   possible plus haut ;
+    // - **souhaitable** (urgence == limite) : la chaîne atteint la limite sans la dépasser ; ces
+    //   nœuds peuvent attendre une rangée, on ne les sert que dans la place restante.
+    const branchableCount = Math.max(1, nextWidth - 1);
+    const mustBranch = Array.from({ length: width }, () => false);
+    const columns = Array.from({ length: width }, (_, col) => col);
+
+    const required = columns.filter((col) => urgency[col]! > BRAINRUN_MAX_CONSECUTIVE_MONO_NODES);
+    for (const col of required) mustBranch[col] = true;
+
+    // Départage aléatoire des candidats souhaitables, pour que ce ne soit pas toujours la même
+    // colonne qui patiente (sans quoi une voie resterait mono-cible tout le long de l'acte).
+    const preferred = shuffle(
+      columns.filter((col) => urgency[col]! === BRAINRUN_MAX_CONSECUTIVE_MONO_NODES),
+      random,
+    );
+    for (const col of preferred.slice(0, Math.max(0, branchableCount - required.length))) {
+      mustBranch[col] = true;
+    }
+    const rowTargets = buildRowTargets(width, nextWidth, mustBranch, random);
+
+    const nextMonoRun = Array.from({ length: nextWidth }, () => 0);
+    for (let col = 0; col < width; col++) {
+      const nextCols = rowTargets[col]!;
+      edges.push({ row, col, nextCols });
+      // Un nœud qui offre un choix remet la chaîne à zéro pour tout ce qu'il alimente.
+      const chain = nextCols.length === 1 ? monoRun[col]! + 1 : 0;
+      for (const target of nextCols) {
+        nextMonoRun[target] = Math.max(nextMonoRun[target]!, chain);
+      }
+    }
+    monoRun = nextMonoRun;
   }
+
   attachOrphans(edges, widths);
   return edges;
 }
@@ -819,8 +1047,10 @@ export function maybeConvertNodeToEvent(
 /** Rangées "spéciales" (fixes, hors Boss) de la forme d'un acte : la rangée Neutre (acte 1
  * uniquement), l'étage 1 (toujours forcé 3x Standard), l'étage forcé 100% Élite (garantit qu'aucune
  * route ne peut éviter une Élite) et l'avant-dernière rangée (toujours forcée 100% Bibliothèque). */
-function getActFloorLayout(act: number): {
-  widths: number[];
+function getActFloorLayout(
+  widths: number[],
+  act: number,
+): {
   typedWidths: number[];
   neutralRow: number | null;
   floor1Row: number;
@@ -828,7 +1058,6 @@ function getActFloorLayout(act: number): {
   restRow: number;
   bossRow: number;
 } {
-  const widths = getBrainrunActRowWidths(act);
   const typedWidths = widths.slice(0, -1); // toutes les rangées hors Boss
   const hasNeutral = act === 1;
   const neutralRow = hasNeutral ? 1 : null;
@@ -837,7 +1066,6 @@ function getActFloorLayout(act: number): {
   const midRows = Array.from({ length: restRow - floor1Row - 1 }, (_, i) => floor1Row + 1 + i);
   const forcedEliteRow = midRows[BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX - 1]!;
   return {
-    widths,
     typedWidths,
     neutralRow,
     floor1Row,
@@ -856,11 +1084,15 @@ function getActFloorLayout(act: number): {
  * `random` est injectable pour des tests déterministes.
  */
 export function assignNodeTypes(
+  widths: number[],
   act: number,
   random: () => number = Math.random,
   eventBonusChance: number = 0,
 ): BrainrunNodeTypeAssignment[] {
-  const { typedWidths, neutralRow, floor1Row, forcedEliteRow, restRow } = getActFloorLayout(act);
+  const { typedWidths, neutralRow, floor1Row, forcedEliteRow, restRow } = getActFloorLayout(
+    widths,
+    act,
+  );
   // La rangée Neutre (acte 1 uniquement) n'est ni typée ici ni comptée dans les quotas : elle est
   // gérée à part dans generateActGraph.
   const fixedRows = new Set(
@@ -969,16 +1201,18 @@ export function enforceEliteRouteBounds(
 }
 
 /** Génère la carte complète d'un acte (graphe + types), prête à être persistée en base
- * (un BrainrunRoom par nœud). Combine generateActEdges et assignNodeTypes, force la rangée Neutre
+ * (un BrainrunRoom par nœud). Tire la silhouette de l'acte (largeurs des étages du milieu — chaque
+ * acte a donc sa propre forme), combine generateActEdges et assignNodeTypes, force la rangée Neutre
  * pour l'acte 1, puis fait respecter la garantie 1-4 Élites par route (enforceEliteRouteBounds). */
 export function generateActGraph(
   act: number,
   random: () => number = Math.random,
   eventBonusChance: number = 0,
 ): BrainrunGraphNode[] {
-  const { neutralRow, forcedEliteRow, bossRow } = getActFloorLayout(act);
-  const edges = generateActEdges(act, random);
-  const types = assignNodeTypes(act, random, eventBonusChance);
+  const widths = pickBrainrunActRowWidths(act, random);
+  const { neutralRow, forcedEliteRow, bossRow } = getActFloorLayout(widths, act);
+  const edges = generateActEdges(widths, random);
+  const types = assignNodeTypes(widths, act, random, eventBonusChance);
   const typeByKey = new Map(types.map((t) => [`${t.row}:${t.col}`, t.type]));
   const nodes = edges.map((e) => ({
     row: e.row,
