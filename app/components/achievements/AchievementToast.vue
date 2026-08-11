@@ -33,6 +33,9 @@
         <span class="text-emerald-400 font-bold font-display ml-1"
           >+{{ achievement?.xpEarned }} XP</span
         >
+        <span v-if="achievement?.coinsEarned" class="text-amber-400 font-bold font-display ml-2"
+          >+{{ achievement.coinsEarned }} pièces</span
+        >
       </p>
     </div>
   </div>

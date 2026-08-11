@@ -10,6 +10,10 @@ import {
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
   brainrunGlobalFloor,
+  buildCombatThemeWeights,
+  enemyThemeBonus,
+  generateThemeCards,
+  topThemes,
   rankBrainrunPlayers,
   type BrainrunRankRun,
   calculBrainrunUserXP,
@@ -46,6 +50,10 @@ import {
   BRAINRUN_BOSS_BASE_DAMAGE,
   BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER,
   BRAINRUN_BOSS_QUESTION_TIME_MS,
+  BRAINRUN_MAX_CONSECUTIVE_MONO_NODES,
+  BRAINRUN_MAX_TARGET_DRIFT,
+  BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
+  BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE,
   BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_MAX_ELITE_PER_ROUTE,
   BRAINRUN_MIN_EVENT_OFFERS,
@@ -53,7 +61,11 @@ import {
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
   BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
-  getBrainrunActRowWidths,
+  BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY,
+  BRAINRUN_THEME_COEFFICIENT_MAX,
+  getBrainrunRoomsPerAct,
+  pickBrainrunActRowWidths,
+  pickBrainrunMidFloorWidths,
 } from "./brainrunConfig";
 import {
   BRAINRUN_BONUS_OFFER_COUNT,
@@ -226,14 +238,53 @@ describe("calculBrainrunUserXP", () => {
   });
 });
 
+describe("pickBrainrunMidFloorWidths", () => {
+  it("keeps the row count of an act constant despite varying widths", () => {
+    for (const act of [1, 2, 3]) {
+      for (let i = 0; i < 200; i++) {
+        expect(pickBrainrunActRowWidths(act)).toHaveLength(getBrainrunRoomsPerAct(act));
+      }
+    }
+  });
+
+  it("draws a smooth silhouette with rare wide rows", () => {
+    for (let i = 0; i < 500; i++) {
+      const mid = pickBrainrunMidFloorWidths();
+      expect(mid).toHaveLength(6);
+      // Les étages fixes qui encadrent (3 nœuds) comptent comme voisins : aucune marche > 1.
+      const withFixedNeighbours = [3, ...mid, 3];
+      for (let floor = 1; floor < withFixedNeighbours.length; floor++) {
+        const step = Math.abs(withFixedNeighbours[floor]! - withFixedNeighbours[floor - 1]!);
+        expect(step).toBeLessThanOrEqual(1);
+      }
+      mid.forEach((width) => {
+        expect(width).toBeGreaterThanOrEqual(2);
+        expect(width).toBeLessThanOrEqual(4);
+      });
+      const wideRows = mid.filter((w) => w === 4).length;
+      expect(wideRows).toBeGreaterThanOrEqual(1); // sinon aucune voie de traverse possible
+      expect(wideRows).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("actually varies from one draw to the next", () => {
+    const shapes = new Set(
+      Array.from({ length: 200 }, () => pickBrainrunMidFloorWidths().join(",")),
+    );
+    // Le repli ([2,3,4,4,3,2]) est une forme parmi d'autres : si le tirage échouait
+    // systématiquement, on n'en verrait qu'une seule.
+    expect(shapes.size).toBeGreaterThan(5);
+  });
+});
+
 describe("generateActEdges", () => {
   const acts = [1, 2, 3];
 
-  it("produces exactly the node counts declared by getBrainrunActRowWidths, for every act", () => {
+  it("produces exactly the node counts of the silhouette it was given, for every act", () => {
     for (const act of acts) {
-      const widths = getBrainrunActRowWidths(act);
       for (let i = 0; i < 50; i++) {
-        const edges = generateActEdges(act);
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
         widths.forEach((width, idx) => {
           const row = idx + 1;
           expect(edges.filter((e) => e.row === row)).toHaveLength(width);
@@ -244,11 +295,11 @@ describe("generateActEdges", () => {
 
   it("never leaves a non-terminal node without an outgoing edge", () => {
     for (const act of acts) {
-      const lastRow = getBrainrunActRowWidths(act).length;
       for (let i = 0; i < 50; i++) {
-        const edges = generateActEdges(act);
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
         edges
-          .filter((e) => e.row < lastRow)
+          .filter((e) => e.row < widths.length)
           .forEach((e) => expect(e.nextCols.length).toBeGreaterThanOrEqual(1));
       }
     }
@@ -256,9 +307,9 @@ describe("generateActEdges", () => {
 
   it("never leaves a node without an incoming edge (no orphans after row 2+)", () => {
     for (const act of acts) {
-      const widths = getBrainrunActRowWidths(act);
       for (let i = 0; i < 50; i++) {
-        const edges = generateActEdges(act);
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
         for (let row = 2; row <= widths.length; row++) {
           const width = widths[row - 1]!;
           const incoming = Array.from({ length: width }, () => 0);
@@ -273,8 +324,9 @@ describe("generateActEdges", () => {
 
   it("converges every node of the penultimate row onto the single Boss node", () => {
     for (const act of acts) {
-      const edges = generateActEdges(act);
-      const lastRow = getBrainrunActRowWidths(act).length;
+      const widths = pickBrainrunActRowWidths(act);
+      const edges = generateActEdges(widths);
+      const lastRow = widths.length;
       const bossNode = edges.find((e) => e.row === lastRow)!;
       expect(bossNode.col).toBe(0);
       expect(bossNode.nextCols).toEqual([]);
@@ -282,26 +334,130 @@ describe("generateActEdges", () => {
     }
   });
 
-  it("is deterministic given a fixed random source", () => {
+  it("is deterministic given a fixed random source and silhouette", () => {
     const fixedRandom = () => 0.42;
-    expect(generateActEdges(1, fixedRandom)).toEqual(generateActEdges(1, fixedRandom));
+    const widths = pickBrainrunActRowWidths(1, fixedRandom);
+    expect(generateActEdges(widths, fixedRandom)).toEqual(generateActEdges(widths, fixedRandom));
   });
 
-  it("branches to 2 nodes at least 80% of the time (mono-routes stay rare)", () => {
-    // La rangée avant-Boss converge toujours seule vers le Boss (cf. test précédent) : elle ne
-    // représente pas un vrai choix de trajet, donc exclue de ce ratio.
-    const branchableRow = getBrainrunActRowWidths(2).length - 1;
-    let branchable = 0;
-    let dualTarget = 0;
-    for (let i = 0; i < 200; i++) {
-      generateActEdges(2)
-        .filter((e) => e.row < branchableRow)
-        .forEach((e) => {
-          branchable++;
-          if (e.nextCols.length >= 2) dualTarget++;
-        });
+  it("never chains more than BRAINRUN_MAX_CONSECUTIVE_MONO_NODES single-target nodes on a route", () => {
+    // Le joueur doit retrouver un vrai choix au moins tous les 3 nœuds en montant. On mesure sur
+    // les trajets réels (pas rangée par rangée) : la chaîne se propage d'un nœud à ses successeurs.
+    for (const act of acts) {
+      for (let i = 0; i < 200; i++) {
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
+        const byKey = new Map(edges.map((e) => [`${e.row}:${e.col}`, e]));
+
+        const longestChain = (edge: (typeof edges)[number], inherited: number): number => {
+          const chain = edge.nextCols.length === 1 ? inherited + 1 : 0;
+          if (edge.nextCols.length === 0) return chain;
+          return Math.max(
+            chain,
+            ...edge.nextCols.map((col) =>
+              longestChain(byKey.get(`${edge.row + 1}:${col}`)!, chain),
+            ),
+          );
+        };
+
+        const worst = Math.max(...edges.filter((e) => e.row === 1).map((e) => longestChain(e, 0)));
+        expect(worst).toBeLessThanOrEqual(BRAINRUN_MAX_CONSECUTIVE_MONO_NODES);
+      }
     }
-    expect(dualTarget / branchable).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it("never lets a whole row share one combination of targets", () => {
+    // Le défaut d'origine : une rangée où tous les nœuds mènent au même endroit, d'où l'impression
+    // que tous les chemins se valent. Deux nœuds mono-cible qui convergent vers le même nœud
+    // suivant restent normaux (des trajets qui fusionnent) — ce n'est un problème que si TOUTE la
+    // rangée le fait.
+    for (const act of acts) {
+      for (let i = 0; i < 200; i++) {
+        const widths = pickBrainrunActRowWidths(act);
+        // La convergence de l'avant-dernière rangée vers l'unique Boss est légitime.
+        const lastBranchingRow = widths.length - 2;
+        const edges = generateActEdges(widths);
+        for (let row = 1; row <= lastBranchingRow; row++) {
+          const signatures = edges
+            .filter((e) => e.row === row)
+            .map((e) => [...e.nextCols].sort((a, b) => a - b).join(","));
+          if (signatures.length < 2) continue;
+          expect(new Set(signatures).size).toBeGreaterThan(1);
+        }
+      }
+    }
+  });
+
+  it("almost never offers two nodes of a row the exact same choice", () => {
+    // Deux nœuds proposant la MÊME paire d'options est le cas qui brouille vraiment la lecture.
+    // Ce n'est pas éliminable à 100% : sur une rangée qui rétrécit (3 → 2), si la cadence de
+    // branchement oblige deux nœuds voisins à offrir un choix, l'adjacence ne laisse qu'un seul
+    // intervalle possible aux deux. La cadence prime alors sur l'unicité (cf. buildRowTargets),
+    // mais un score de pénalité réserve ce cas au strict inévitable.
+    let rows = 0;
+    let duplicatedChoices = 0;
+    for (const act of acts) {
+      for (let i = 0; i < 300; i++) {
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
+        for (let row = 1; row <= widths.length - 2; row++) {
+          rows++;
+          const choices = edges
+            .filter((e) => e.row === row && e.nextCols.length >= 2)
+            .map((e) => e.nextCols.join(","));
+          if (new Set(choices).size !== choices.length) duplicatedChoices++;
+        }
+      }
+    }
+    expect(duplicatedChoices / rows).toBeLessThan(0.01);
+  });
+
+  it("never lets an edge jump over a node (targets stay adjacent, no 1 -> 3)", () => {
+    for (const act of acts) {
+      for (let i = 0; i < 200; i++) {
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
+        for (let row = 1; row < widths.length; row++) {
+          const fromWidth = widths[row - 1]!;
+          const toWidth = widths[row]!;
+          edges
+            .filter((e) => e.row === row)
+            .forEach((e) => {
+              // Les cibles d'un nœud forment toujours un bloc contigu : jamais [1, 3].
+              const sorted = [...e.nextCols].sort((a, b) => a - b);
+              sorted.forEach((c, idx) => {
+                if (idx > 0) expect(c - sorted[idx - 1]!).toBe(1);
+              });
+              // Et la colonne visée reste adjacente à celle du nœud source (indices bruts) : aucun
+              // trait ne passe au-dessus d'un nœud intermédiaire. Seules les deux transitions dont
+              // la géométrie l'interdit sont exemptées : le nœud Neutre seul vers l'étage 1, et la
+              // convergence de l'avant-dernière rangée vers l'unique Boss (cf. canEnforceTargetDrift).
+              if (Math.abs(fromWidth - toWidth) > BRAINRUN_MAX_TARGET_DRIFT) return;
+              sorted.forEach((c) => {
+                expect(Math.abs(c - e.col)).toBeLessThanOrEqual(BRAINRUN_MAX_TARGET_DRIFT);
+              });
+            });
+        }
+      }
+    }
+  });
+
+  it("never crosses two routes (targets stay monotonic from left to right)", () => {
+    for (const act of acts) {
+      for (let i = 0; i < 200; i++) {
+        const widths = pickBrainrunActRowWidths(act);
+        const edges = generateActEdges(widths);
+        for (let row = 1; row < widths.length; row++) {
+          const rowEdges = edges.filter((e) => e.row === row).sort((a, b) => a.col - b.col);
+          for (let col = 1; col < rowEdges.length; col++) {
+            const previous = rowEdges[col - 1]!.nextCols;
+            const current = rowEdges[col]!.nextCols;
+            expect(Math.min(...current)).toBeGreaterThanOrEqual(Math.min(...previous));
+            expect(Math.max(...current)).toBeGreaterThanOrEqual(Math.max(...previous));
+          }
+        }
+      }
+    }
   });
 });
 
@@ -311,18 +467,23 @@ describe("assignNodeTypes", () => {
   // sont exclus des quotas libres — cf. assignNodeTypes/getActFloorLayout dans brainrunLogic.ts.
   // Reproduit ici le même calcul de rangées (déterministe, indépendant du tirage aléatoire).
   const floor1Row = (act: number) => (act === 1 ? 2 : 1);
-  const restRow = (act: number) => getBrainrunActRowWidths(act).length - 1;
+  // Le NOMBRE de rangées est fixe même si leurs largeurs sont tirées : ces trois rangées gardent
+  // donc une position déterministe, seule leur largeur varie d'une silhouette à l'autre.
+  const restRow = (widths: number[]) => widths.length - 1;
   const forcedEliteRow = (act: number) => floor1Row(act) + BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX;
-  const nonBossNonNeutralNodeCount = (act: number) =>
-    getBrainrunActRowWidths(act)
-      .slice(0, -1)
-      .reduce((sum, w) => sum + w, 0) - (act === 1 ? 1 : 0);
-  const freeNodeCount = (act: number) => nonBossNonNeutralNodeCount(act) - 3 - 4 - 3; // floor1 + étage Élite + Repos
+  const nonBossNonNeutralNodeCount = (widths: number[], act: number) =>
+    widths.slice(0, -1).reduce((sum, w) => sum + w, 0) - (act === 1 ? 1 : 0);
+  const freeNodeCount = (widths: number[], act: number) =>
+    nonBossNonNeutralNodeCount(widths, act) -
+    widths[floor1Row(act) - 1]! -
+    widths[forcedEliteRow(act) - 1]! -
+    widths[restRow(widths) - 1]!;
 
   it("assigns exactly one type per non-Boss, non-Neutral node, on every act", () => {
     for (const act of acts) {
       for (let i = 0; i < 50; i++) {
-        expect(assignNodeTypes(act)).toHaveLength(nonBossNonNeutralNodeCount(act));
+        const widths = pickBrainrunActRowWidths(act);
+        expect(assignNodeTypes(widths, act)).toHaveLength(nonBossNonNeutralNodeCount(widths, act));
       }
     }
   });
@@ -330,10 +491,11 @@ describe("assignNodeTypes", () => {
   it("respects the minimum quotas on the free mid-floors, across many random draws", () => {
     for (const act of acts) {
       for (let i = 0; i < 200; i++) {
-        const assignments = assignNodeTypes(act);
+        const widths = pickBrainrunActRowWidths(act);
+        const assignments = assignNodeTypes(widths, act);
         const freeAssignments = assignments.filter(
           (a) =>
-            a.row !== floor1Row(act) && a.row !== restRow(act) && a.row !== forcedEliteRow(act),
+            a.row !== floor1Row(act) && a.row !== restRow(widths) && a.row !== forcedEliteRow(act),
         );
         const combatCount = freeAssignments.filter(
           (a) => a.type === "STANDARD" || a.type === "ELITE",
@@ -343,7 +505,7 @@ describe("assignNodeTypes", () => {
         const eventCount = freeAssignments.filter((a) => a.type === "EVENT").length;
 
         expect(combatCount).toBeGreaterThanOrEqual(
-          Math.ceil(freeNodeCount(act) * BRAINRUN_MIN_PURE_COMBAT_RATIO),
+          Math.ceil(freeNodeCount(widths, act) * BRAINRUN_MIN_PURE_COMBAT_RATIO),
         );
         expect(shopCount).toBeGreaterThanOrEqual(BRAINRUN_MIN_SHOP_OFFERS);
         expect(restCount).toBeGreaterThanOrEqual(BRAINRUN_MIN_REST_OFFERS);
@@ -352,15 +514,18 @@ describe("assignNodeTypes", () => {
     }
   });
 
-  it("is deterministic given a fixed random source", () => {
+  it("is deterministic given a fixed random source and silhouette", () => {
     const fixedRandom = () => 0.42;
-    expect(assignNodeTypes(1, fixedRandom)).toEqual(assignNodeTypes(1, fixedRandom));
+    const widths = pickBrainrunActRowWidths(1, fixedRandom);
+    expect(assignNodeTypes(widths, 1, fixedRandom)).toEqual(
+      assignNodeTypes(widths, 1, fixedRandom),
+    );
   });
 
   it("forces floor 1 to exactly 3 Standard nodes, on every act", () => {
     for (const act of acts) {
       for (let i = 0; i < 50; i++) {
-        const assignments = assignNodeTypes(act);
+        const assignments = assignNodeTypes(pickBrainrunActRowWidths(act), act);
         const types = assignments.filter((a) => a.row === floor1Row(act)).map((a) => a.type);
         expect(types).toEqual(["STANDARD", "STANDARD", "STANDARD"]);
       }
@@ -370,8 +535,9 @@ describe("assignNodeTypes", () => {
   it("forces the row right before the Boss to 100% Rest, on every act", () => {
     for (const act of acts) {
       for (let i = 0; i < 50; i++) {
-        const assignments = assignNodeTypes(act);
-        const types = assignments.filter((a) => a.row === restRow(act)).map((a) => a.type);
+        const widths = pickBrainrunActRowWidths(act);
+        const assignments = assignNodeTypes(widths, act);
+        const types = assignments.filter((a) => a.row === restRow(widths)).map((a) => a.type);
         expect(types.length).toBeGreaterThan(0);
         types.forEach((type) => expect(type).toBe("REST"));
       }
@@ -380,9 +546,10 @@ describe("assignNodeTypes", () => {
 
   it("forces at least one mid-floor to 100% Elite, guaranteeing every route crosses one", () => {
     for (const act of acts) {
-      const assignments = assignNodeTypes(act);
+      const widths = pickBrainrunActRowWidths(act);
+      const assignments = assignNodeTypes(widths, act);
       const midRows = [...new Set(assignments.map((a) => a.row))].filter(
-        (row) => row > floor1Row(act) && row < restRow(act),
+        (row) => row > floor1Row(act) && row < restRow(widths),
       );
       const fullyEliteRows = midRows.filter((row) =>
         assignments.filter((a) => a.row === row).every((a) => a.type === "ELITE"),
@@ -395,10 +562,11 @@ describe("assignNodeTypes", () => {
     // eventBonusChance à 1 convertirait normalement tout Standard/Elite en Événement : ces 3
     // étages fixes doivent rester intacts malgré ça (cf. fixedRows dans assignNodeTypes).
     for (const act of acts) {
-      const assignments = assignNodeTypes(act, Math.random, 1);
+      const widths = pickBrainrunActRowWidths(act);
+      const assignments = assignNodeTypes(widths, act, Math.random, 1);
       const floor1Types = assignments.filter((a) => a.row === floor1Row(act)).map((a) => a.type);
       expect(floor1Types).toEqual(["STANDARD", "STANDARD", "STANDARD"]);
-      const restTypes = assignments.filter((a) => a.row === restRow(act)).map((a) => a.type);
+      const restTypes = assignments.filter((a) => a.row === restRow(widths)).map((a) => a.type);
       restTypes.forEach((type) => expect(type).toBe("REST"));
     }
   });
@@ -408,7 +576,10 @@ describe("generateActGraph", () => {
   it("combines edges and types into one node per slot, with the Boss on the last row", () => {
     for (const act of [1, 2, 3]) {
       const nodes = generateActGraph(act);
-      const lastRow = getBrainrunActRowWidths(act).length;
+      // La silhouette est tirée dans generateActGraph, mais le NOMBRE de rangées reste fixe :
+      // c'est l'invariant dont dépend nextRowAfterClear pour détecter la fin d'acte.
+      const lastRow = getBrainrunRoomsPerAct(act);
+      expect(Math.max(...nodes.map((n) => n.row))).toBe(lastRow);
       expect(nodes.find((n) => n.row === lastRow)!.type).toBe("BOSS");
       nodes.filter((n) => n.row !== lastRow).forEach((n) => expect(n.type).not.toBe("BOSS"));
     }
@@ -444,7 +615,7 @@ describe("generateActGraph", () => {
     for (const act of [1, 2, 3]) {
       for (let i = 0; i < 50; i++) {
         const nodes = generateActGraph(act);
-        const bossRow = getBrainrunActRowWidths(act).length;
+        const bossRow = getBrainrunRoomsPerAct(act);
         expect(countMaxElitesOnAnyRoute(nodes, bossRow)).toBeLessThanOrEqual(
           BRAINRUN_MAX_ELITE_PER_ROUTE,
         );
@@ -667,6 +838,7 @@ describe("getActiveRelicEffects", () => {
       autoHintChance: 0,
       healChanceOnCombatEnd: 0,
       bonusConsumableSlots: 0,
+      canSkipThemeCard: false,
     });
   });
 
@@ -685,6 +857,12 @@ describe("getActiveRelicEffects", () => {
     expect(effects.goldOnBonusSkip).toBe(15);
     expect(effects.autoHintChance).toBeCloseTo(0.05);
     expect(effects.bonusConsumableSlots).toBe(2);
+    expect(effects.canSkipThemeCard).toBe(true);
+  });
+
+  it("Libre Arbitre autorise à passer la carte de thème", () => {
+    expect(getActiveRelicEffects([]).canSkipThemeCard).toBe(false);
+    expect(getActiveRelicEffects(["THEME_CARD_SKIP"]).canSkipThemeCard).toBe(true);
   });
 
   it("ignores unknown ids", () => {
@@ -1401,5 +1579,165 @@ describe("rankBrainrunPlayers", () => {
     // Meilleur étage = la run la plus avancée (acte 2 rangée 6).
     expect(solo.bestAct).toBe(2);
     expect(solo.bestRow).toBe(6);
+  });
+});
+
+describe("BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE", () => {
+  it("applique la difficulté à plat par type de combat (indépendante de l'acte)", () => {
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.STANDARD).toEqual([1, 3]);
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.ELITE).toEqual([1, 4]);
+    expect(BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.BOSS).toEqual([2, 5]);
+  });
+
+  it("garde l'override culture_generale par acte, acte 3 relâché à [3,5]", () => {
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[1]).toEqual([1, 2]);
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[2]).toEqual([2, 3]);
+    expect(BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[3]).toEqual([3, 5]);
+  });
+});
+
+describe("enemyThemeBonus", () => {
+  it("multiplie la base d'acte par le multiplicateur de tier", () => {
+    expect(enemyThemeBonus(1, "CLASSIC")).toBe(1);
+    expect(enemyThemeBonus(1, "ELITE")).toBe(2);
+    expect(enemyThemeBonus(1, "BOSS")).toBe(3);
+    expect(enemyThemeBonus(2, "CLASSIC")).toBe(2);
+    expect(enemyThemeBonus(2, "ELITE")).toBe(4);
+    expect(enemyThemeBonus(3, "ELITE")).toBe(6);
+    // Boss Acte 3 → 3 × 3 = 9 (exemple de la spec).
+    expect(enemyThemeBonus(3, "BOSS")).toBe(9);
+  });
+
+  it("retourne 0 pour un acte hors barème", () => {
+    expect(enemyThemeBonus(0, "BOSS")).toBe(0);
+    expect(enemyThemeBonus(4, "CLASSIC")).toBe(0);
+  });
+});
+
+describe("buildCombatThemeWeights", () => {
+  const asRecord = (entries: { theme: string; weight: number }[]) =>
+    Object.fromEntries(entries.map((e) => [e.theme, e.weight]));
+
+  it("pondère un thème par coef joueur + bonus ennemi (bonus sur les seuls thèmes de l'ennemi)", () => {
+    // history : investi (2) ET porté par l'ennemi (+3) → 5 ; sport : ennemi seul → 3 ;
+    // cinema : investi seul → 4 (pas de bonus, pas un thème de l'ennemi).
+    const weights = asRecord(
+      buildCombatThemeWeights({ history: 2, cinema: 4 }, ["history", "sport"], 3),
+    );
+    expect(weights).toEqual({ history: 5, sport: 3, cinema: 4 });
+  });
+
+  it("écarte les thèmes de poids nul (ennemi sans bonus, thème non investi)", () => {
+    const weights = asRecord(buildCombatThemeWeights({}, ["sport"], 0));
+    expect(weights).toEqual({});
+  });
+
+  it("n'ajoute pas un thème investi mais banni (les thèmes d'ennemi arrivent déjà filtrés)", () => {
+    const weights = asRecord(
+      buildCombatThemeWeights({ banned: 5, cinema: 2 }, ["sport"], 3, ["banned"]),
+    );
+    expect(weights).toEqual({ sport: 3, cinema: 2 });
+    expect(weights.banned).toBeUndefined();
+  });
+});
+
+describe("generateThemeCards", () => {
+  const candidates = [
+    { slug: "history", name: "Histoire", image: "h.jpg" },
+    { slug: "sport", name: "Sport", image: "s.jpg" },
+    { slug: "cinema", name: "Cinéma", image: "c.jpg" },
+    { slug: "music", name: "Musique", image: "m.jpg" },
+    { slug: "science", name: "Science", image: "sc.jpg" },
+  ];
+
+  it("propose `count` cartes de thèmes distincts", () => {
+    const cards = generateThemeCards(candidates, {}, 3, () => 0);
+    expect(cards).toHaveLength(3);
+    expect(new Set(cards.map((c) => c.themeSlug)).size).toBe(3);
+  });
+
+  it("filet : renvoie moins de cartes quand les candidats sont trop peu nombreux", () => {
+    const cards = generateThemeCards(candidates.slice(0, 2), {}, 3, () => 0);
+    expect(cards).toHaveLength(2);
+  });
+
+  it("calcule coefBefore depuis les coefficients courants, coefAfter = before + valeur de rareté", () => {
+    // random = 0 → rareté STANDARD (première du barème pondéré) → +1.
+    const cards = generateThemeCards(candidates, { history: 2 }, 5, () => 0);
+    const history = cards.find((c) => c.themeSlug === "history")!;
+    expect(history.rarity).toBe("STANDARD");
+    expect(history.coefBefore).toBe(2);
+    expect(history.coefAfter).toBe(2 + BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.STANDARD);
+    // Thème non encore investi → coefBefore 0.
+    const sport = cards.find((c) => c.themeSlug === "sport")!;
+    expect(sport.coefBefore).toBe(0);
+    expect(sport.coefAfter).toBe(BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.STANDARD);
+  });
+
+  it("tire une rareté LÉGENDAIRE quand le random pointe le haut du barème pondéré", () => {
+    // random ≈ 1 → dernière rareté du barème (LEGENDARY) → +5.
+    const cards = generateThemeCards(candidates, {}, 1, () => 0.999);
+    expect(cards[0]!.rarity).toBe("LEGENDARY");
+    expect(cards[0]!.coefAfter).toBe(BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY.LEGENDARY);
+  });
+
+  it("injecte un thème déjà investi quand le tirage privilégie l'investissement", () => {
+    const invested = [{ slug: "history", name: "Histoire", image: "h.jpg" }];
+    // random = 0 → 0 < 10 % → chaque carte privilégie le pool investi ; le 1er thème est l'investi,
+    // avec son coefBefore courant.
+    const cards = generateThemeCards(
+      [{ slug: "sport", name: "Sport", image: "s.jpg" }],
+      { history: 4 },
+      1,
+      () => 0,
+      invested,
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.themeSlug).toBe("history");
+    expect(cards[0]!.coefBefore).toBe(4);
+  });
+
+  it("plafonne coefAfter au maximum de coefficient de run", () => {
+    // coefBefore 9 + LEGENDARY (+5) = 14 → tronqué à BRAINRUN_THEME_COEFFICIENT_MAX (10).
+    const cards = generateThemeCards(
+      [{ slug: "history", name: "Histoire", image: "h.jpg" }],
+      { history: 9 },
+      1,
+      () => 0.999,
+    );
+    expect(cards[0]!.rarity).toBe("LEGENDARY");
+    expect(cards[0]!.coefAfter).toBe(BRAINRUN_THEME_COEFFICIENT_MAX);
+  });
+
+  it("n'injecte pas de thème investi quand le tirage ne le privilégie pas (repli pool normal)", () => {
+    const invested = [{ slug: "history", name: "Histoire", image: "h.jpg" }];
+    // random = 0.5 → 0.5 ≥ 10 % → pas d'injection ; la carte vient du pool normal, pas de l'investi.
+    const cards = generateThemeCards(
+      [{ slug: "sport", name: "Sport", image: "s.jpg" }],
+      { history: 4 },
+      1,
+      () => 0.5,
+      invested,
+    );
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.themeSlug).toBe("sport");
+  });
+});
+
+describe("topThemes", () => {
+  it("trie par coefficient décroissant puis alphabétique, ignore les thèmes à 0", () => {
+    expect(topThemes({ alpha: 1, bravo: 3, charlie: 3, delta: 0 })).toEqual([
+      "bravo",
+      "charlie",
+      "alpha",
+    ]);
+  });
+
+  it("limite au top `n`", () => {
+    expect(topThemes({ a: 5, b: 4, c: 3, d: 2 }, 2)).toEqual(["a", "b"]);
+  });
+
+  it("renvoie un tableau vide quand aucun thème n'est investi", () => {
+    expect(topThemes({ a: 0, b: 0 })).toEqual([]);
   });
 });

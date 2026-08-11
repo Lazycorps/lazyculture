@@ -8,14 +8,17 @@ import type {
 import type { BrainrunTalentId } from "./brainrunTalents";
 
 /** Constantes de structure de run partagées entre client et serveur (affichage de la progression).
- * La forme détaillée de la carte (nœuds par rangée) est définie par acte dans
- * server/utils/brainrunConfig.ts (getBrainrunActRowWidths) ; le client n'a besoin que du décompte
- * de rangées par acte pour la progression, via getBrainrunRoomsPerAct ci-dessous. */
+ * La forme détaillée de la carte (nœuds par rangée) est TIRÉE à la génération de chaque acte, côté
+ * serveur (pickBrainrunActRowWidths, server/utils/brainrunConfig.ts) : elle diffère d'un acte à
+ * l'autre et n'est pas recalculable ici. Le client n'a besoin que du décompte de rangées par acte,
+ * qui lui reste fixe, via getBrainrunRoomsPerAct ci-dessous. */
 export const BRAINRUN_TOTAL_ACTS = 3;
 
 /** Nombre de rangées d'un acte : l'acte 1 a une rangée Neutre en plus en tête (10 rangées : 1
  * Neutre + 9 étages), les actes 2/3 n'en ont pas (9 rangées : 9 étages), le nœud de boss de l'acte
- * précédent tenant lieu de point de départ visuel — cf. references/map.md. */
+ * précédent tenant lieu de point de départ visuel — cf. references/map.md. Ces valeurs sont en dur
+ * ici mais doivent rester égales à BRAINRUN_MID_FLOOR_COUNT + 4 (+1 pour l'acte 1) côté serveur ;
+ * nextRowAfterClear en dépend pour détecter la fin d'un acte. */
 export function getBrainrunRoomsPerAct(act: number): number {
   return act === 1 ? 10 : 9;
 }
@@ -68,6 +71,23 @@ export type BrainrunRoomType =
   | "EVENT";
 export type BrainrunRoomStatus = "PENDING" | "ACTIVE" | "CLEARED" | "FAILED" | "SKIPPED";
 export type BrainrunRunStatus = "IN_PROGRESS" | "WON" | "LOST" | "ABANDONED";
+
+/** Rareté d'une carte de thème (récompense post-combat qui monte le coefficient d'un thème).
+ * Rendu client : STANDARD = couleur classique, RARE = bleuté, EPIC = mauve, LEGENDARY = orange.
+ * Bonus de coefficient associé : cf. BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY (brainrunConfig.ts). */
+export type BrainrunThemeCardRarity = "STANDARD" | "RARE" | "EPIC" | "LEGENDARY";
+
+/** Une carte de thème proposée en récompense post-combat : monte le coefficient de tirage du thème
+ * `themeSlug` de `coefBefore` à `coefAfter` (delta = bonus de la rareté). Le client affiche l'image
+ * et le libellé du thème + la progression "coefBefore → coefAfter", teinté selon `rarity`. */
+export type BrainrunThemeCardDTO = {
+  themeSlug: string;
+  themeName: string;
+  themeImage: string;
+  rarity: BrainrunThemeCardRarity;
+  coefBefore: number;
+  coefAfter: number;
+};
 
 /** Nœud de la carte d'acte tel qu'exposé au client : toutes les salles d'un acte sont toujours
  * visibles (position, tracé, type), plus de brouillard de guerre — cf. BrainrunService.buildState. */
@@ -180,6 +200,12 @@ export type BrainrunRoomDTO = {
   /** true uniquement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu. */
   offersRequireChoice: boolean;
   offersResolved: boolean;
+  /** 3 cartes de thème proposées après un combat gagné (standard/élite/boss non final) ; null si
+   * pas d'étape carte. Résolue AVANT `offers` pour élite/boss. */
+  themeCardOffer: BrainrunThemeCardDTO[] | null;
+  /** true une fois la carte choisie ou passée ; tant que `themeCardOffer` est non-null et non
+   * résolu, bloque acknowledgeRoom (comme offersRequireChoice pour le bonus). */
+  themeCardResolved: boolean;
   /** Clé dans le catalogue BRAINRUN_EVENTS (uniquement salle EVENT active). */
   eventId: string | null;
   /** Résultat réellement appliqué de l'option choisie (uniquement salle EVENT CLEARED). */
@@ -227,6 +253,10 @@ export type BrainrunRunDTO = {
    * à la prochaine question de combat présentée puis se consomme. Persistent entre les combats,
    * contrairement au Bouclier. */
   fiftyFiftyCharges: number;
+  /** Coefficient de tirage par thème pour cette run (thème absent = 0). Monté par les cartes de
+   * thème post-combat ; pondère quels thèmes tombent en combat. Affiché par la modale
+   * "Mes coefficients" (thèmes coef > 0, triés coef décroissant puis alphabétique). */
+  themeCoefficients: Record<string, number>;
   /** Thèmes bannis pour le reste de la run (relique Purge Thématique). */
   bannedThemes: string[];
   /** true entre l'octroi de Purge Thématique et le choix du thème par le joueur ; bloque

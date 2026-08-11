@@ -1,6 +1,7 @@
 import { UserAchievementDTO } from "#shared/DTO/achievementDTO";
 import prisma from "~~/server/utils/prisma";
 import { updateUserProgress } from "./userProgressHelper";
+import { coinsFromXp, grantCoins } from "./walletHelper";
 
 type ActionType =
   | "answer"
@@ -21,6 +22,21 @@ type ActionType =
   | "showdownWins"
   | "brainrunGames"
   | "brainrunWins"
+  | "brainrunMaxFloor"
+  | "brainrunMaxHp"
+  | "brainrunElitesDefeated"
+  | "brainrunBossesDefeated"
+  | "brainrunAllRelicsDiscovered"
+  | "brainrunAllConsumablesDiscovered"
+  | "brainrunTalentsUnlocked"
+  | "brainrunAllTalentsUnlocked"
+  | "brainrunRunCorrect"
+  | "brainrunRunStreak"
+  | "brainrunRunGold"
+  | "brainrunFlawlessWin"
+  | "brainrunLowHpWin"
+  | "brainrunNoRestWin"
+  | "brainrunReviveWin"
   | "brPerfectWin"
   | "brClutchWin"
   | "brRounds"
@@ -63,14 +79,22 @@ export async function checkAndAwardAchievements(
         title: achievement.title,
         userId: userId,
         xpEarned: achievement.xpEarned,
+        coinsEarned: coinsFromXp(achievement.xpEarned),
         icon: achievement.icon,
       });
     }
   }
 
   let xpEarned = 0;
-  newAchievements.forEach((a) => (xpEarned += a.xpEarned));
+  let coinsGranted = 0;
+  newAchievements.forEach((a) => {
+    xpEarned += a.xpEarned;
+    coinsGranted += a.coinsEarned;
+  });
   await updateUserProgress(userId, xpEarned);
+  if (coinsGranted > 0) {
+    await grantCoins(userId, coinsGranted);
+  }
 
   return newAchievements;
 }

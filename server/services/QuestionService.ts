@@ -3,6 +3,11 @@ import prisma from "~~/server/utils/prisma";
 import { QuestionDataDTO, QuestionDTO, QuestionReportingDTO } from "#shared/question";
 import type { ReportingDTO } from "#shared/DTO/reportingDTO";
 
+// Tirage pondéré par thème (getRandomIdsByThemeWeights) : nombre max de thèmes traités en parallèle.
+// Chaque thème lance 2 requêtes ; borner à 5 plafonne à 10 connexions simultanées, sous la limite
+// du pooler Supabase en session mode (pool_size 15), avec de la marge pour les autres requêtes.
+const THEME_QUERY_CONCURRENCY = 5;
+
 /** Vrai si la réponse donnée correspond à la réponse attendue de la question. Source unique de vérité, réutilisée par ResponseService et BrainrunService. */
 export function isCorrectAnswer(question: { data: unknown }, userResponseId: number): boolean {
   return (question.data as unknown as QuestionDataDTO).response === userResponseId;
@@ -184,6 +189,111 @@ export class QuestionService {
     }
 
     return this.shuffleArray(candidates.map((c) => c.id)).slice(0, count);
+  }
+
+  /**
+   * Variante Brainrun de getRandomIdsByDifficulty où le thème de CHAQUE question est tiré de façon
+   * PONDÉRÉE par coefficient (`themeWeights`, cf. buildCombatThemeWeights) plutôt qu'uniformément
+   * sur le volume de questions : pour chaque question, un thème est tiré au poids, puis une question
+   * de ce thème est piochée (fraîches d'abord, cf. ci-dessous).
+   *
+   * Deux niveaux d'exclusion, comme le veut l'anti-répétition inter-runs :
+   * - `excludeIds` (dur) : questions déjà servies dans la run en cours, jamais retirées.
+   * - `softExcludeIds` (souple) : questions vues sur les runs précédentes ; préférées absentes mais
+   *   réintroduites par thème si le vivier « frais » de ce thème est épuisé (fresh-first par thème),
+   *   pour ne jamais bloquer un combat faute de question.
+   *
+   * `themeDifficultyOverrides` (culture_generale) et `excludeThemes` (Purge Thématique) sont
+   * respectés par thème. Filet ultime : si le tirage pondéré ne remplit pas `count` (vivier global
+   * trop maigre), on complète via getRandomIdsByDifficulty (cascade d'élargissement éprouvée).
+   */
+  async getRandomIdsByThemeWeights(
+    themeWeights: { theme: string; weight: number }[],
+    minDifficulty: number,
+    maxDifficulty: number,
+    count: number,
+    excludeIds: number[],
+    userId?: string,
+    themeDifficultyOverrides?: Record<string, [number, number]>,
+    excludeThemes?: string[],
+    softExcludeIds?: number[],
+  ): Promise<number[]> {
+    if (themeWeights.length === 0) {
+      return this.getRandomIdsByDifficulty(
+        minDifficulty,
+        maxDifficulty,
+        count,
+        excludeIds,
+        userId,
+        undefined,
+        themeDifficultyOverrides,
+        excludeThemes,
+      );
+    }
+
+    const hardAndSoftExclude = [...excludeIds, ...(softExcludeIds ?? [])];
+    // Par thème : file de candidats « fraîches d'abord » (jamais vues récemment + jamais réussies),
+    // puis le reste (vues sur d'autres runs / déjà réussies) en repli.
+    // Concurrence BORNÉE (chaque thème = 2 requêtes) : une Élite/Boss riche en thèmes lancerait
+    // sinon 2×N requêtes d'un coup et saturerait le pool de connexions (session mode limité à 15).
+    const perTheme = await this.mapWithConcurrency(
+      themeWeights,
+      THEME_QUERY_CONCURRENCY,
+      async ({ theme }) => {
+        const [tMin, tMax] = themeDifficultyOverrides?.[theme] ?? [minDifficulty, maxDifficulty];
+        const [fresh, wide] = await Promise.all([
+          this.fetchThemeCandidateIds(theme, tMin, tMax, hardAndSoftExclude, excludeThemes, userId),
+          this.fetchThemeCandidateIds(theme, tMin, tMax, excludeIds, excludeThemes),
+        ]);
+        const freshSet = new Set(fresh);
+        const candidates = [
+          ...this.shuffleArray(fresh),
+          ...this.shuffleArray(wide.filter((id) => !freshSet.has(id))),
+        ];
+        return { theme, candidates };
+      },
+    );
+    const candidatesByTheme = new Map(perTheme.map((p) => [p.theme, p.candidates]));
+
+    const picked = new Set<number>();
+    const result: number[] = [];
+    while (result.length < count) {
+      const avail = themeWeights.filter((t) => (candidatesByTheme.get(t.theme)?.length ?? 0) > 0);
+      if (avail.length === 0) break;
+      const chosen = this.weightedPick(avail, (t) => t.weight);
+      const list = candidatesByTheme.get(chosen.theme)!;
+      let id: number | undefined;
+      while (list.length > 0) {
+        const candidate = list.shift()!;
+        if (!picked.has(candidate)) {
+          id = candidate;
+          break;
+        }
+      }
+      if (id === undefined) continue;
+      picked.add(id);
+      result.push(id);
+    }
+
+    if (result.length < count) {
+      const fill = await this.getRandomIdsByDifficulty(
+        minDifficulty,
+        maxDifficulty,
+        count - result.length,
+        [...excludeIds, ...result],
+        userId,
+        themeWeights.map((t) => t.theme),
+        themeDifficultyOverrides,
+        excludeThemes,
+      );
+      for (const id of fill) {
+        if (!picked.has(id)) {
+          picked.add(id);
+          result.push(id);
+        }
+      }
+    }
+    return result.slice(0, count);
   }
 
   async create(question: QuestionDTO, authorName: string) {
@@ -391,6 +501,75 @@ export class QuestionService {
       [array[i], array[j]] = [array[j]!, array[i]!]; // Échange des éléments
     }
     return array;
+  }
+
+  /**
+   * IDs des questions d'un thème donné dans une bande de difficulté, hors `excludeIds` et hors
+   * `excludeThemes` (une question multi-thèmes portant un thème banni est écartée). Si
+   * `userIdForSuccessFilter` est fourni, écarte aussi les questions déjà réussies par ce joueur.
+   * Brique du tirage pondéré getRandomIdsByThemeWeights.
+   */
+  private async fetchThemeCandidateIds(
+    theme: string,
+    minDifficulty: number,
+    maxDifficulty: number,
+    excludeIds: number[],
+    excludeThemes?: string[],
+    userIdForSuccessFilter?: string,
+  ): Promise<number[]> {
+    const rows = await prisma.question.findMany({
+      where: {
+        deleted: false,
+        id: { notIn: excludeIds },
+        difficulty: { gte: minDifficulty, lte: maxDifficulty },
+        data: { path: ["theme"], array_contains: theme },
+        ...(excludeThemes && excludeThemes.length > 0
+          ? {
+              NOT: excludeThemes.map((slug) => ({
+                data: { path: ["theme"], array_contains: slug },
+              })),
+            }
+          : {}),
+        ...(userIdForSuccessFilter
+          ? { Response: { none: { userId: userIdForSuccessFilter, success: true } } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * `Promise.all` à concurrence bornée : traite `items` par `fn` en maintenant au plus `limit`
+   * exécutions en vol, en préservant l'ordre des résultats. Évite de saturer le pool de connexions
+   * quand `fn` déclenche des requêtes DB (cf. getRandomIdsByThemeWeights).
+   */
+  private async mapWithConcurrency<T, R>(
+    items: T[],
+    limit: number,
+    fn: (item: T) => Promise<R>,
+  ): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await fn(items[index]!);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+    return results;
+  }
+
+  /** Tirage pondéré d'un élément (poids > 0). Utilisé pour choisir le thème de chaque question. */
+  private weightedPick<T>(items: T[], weight: (item: T) => number): T {
+    const total = items.reduce((sum, item) => sum + weight(item), 0);
+    let roll = Math.random() * total;
+    for (const item of items) {
+      roll -= weight(item);
+      if (roll <= 0) return item;
+    }
+    return items[items.length - 1]!;
   }
 }
 

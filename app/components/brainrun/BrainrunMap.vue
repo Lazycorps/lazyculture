@@ -38,14 +38,26 @@
       />
     </svg>
 
-    <div class="relative flex flex-col-reverse gap-8" style="z-index: 2">
+    <div class="relative flex flex-col-reverse gap-10" style="z-index: 2">
+      <!-- Chaque rangée occupe la même largeur quel que soit son nombre de nœuds (justify-between),
+           sinon les rangées étroites se ramassent au centre et la carte prend une allure de grappe
+           au lieu de longues voies. Cf. shared/brainrunMapLayout.ts.
+           Pas de transition sur le transform de rangée : les arêtes SVG sont tracées à partir des
+           positions DOM mesurées juste après le rendu. Une transition les ferait mesurer en cours
+           d'animation, et les traits resteraient décalés par rapport aux nœuds. -->
       <div
         v-for="row in rows"
         :key="row.row"
-        class="flex justify-center gap-6 transition-transform duration-300"
-        :style="{ transform: `translateX(${rowOffset(row.row)}px)` }"
+        class="mx-auto flex"
+        :class="row.nodes.length > 1 ? 'justify-between' : 'justify-center'"
+        :style="rowStyle(row.row)"
       >
-        <div v-for="node in row.nodes" :key="node.col" class="flex flex-col items-center gap-1.5">
+        <div
+          v-for="node in row.nodes"
+          :key="node.col"
+          class="relative flex flex-col items-center gap-1.5"
+          :style="nodeStyle(node)"
+        >
           <div class="relative flex flex-col items-center">
             <!-- Marqueur "vous êtes ici" au-dessus du nœud actif. -->
             <div
@@ -98,6 +110,7 @@
 
 <script setup lang="ts">
 import type { BrainrunMapNodeDTO, BrainrunRoomType } from "#shared/brainrun";
+import { BRAINRUN_MAP_ROW_SPAN_PERCENT, computeBrainrunMapLayout } from "#shared/brainrunMapLayout";
 import { useUserStore } from "~/stores/userStore";
 
 const props = defineProps<{
@@ -145,10 +158,30 @@ const rows = computed(() => {
     .map(([row, nodes]) => ({ row, nodes: [...nodes].sort((a, b) => a.col - b.col) }));
 });
 
-// Léger tracé sinueux d'une rangée à l'autre, façon carte Aventure — amplitude réduite car
-// chaque rangée occupe déjà de la largeur avec plusieurs nœuds côte à côte.
-function rowOffset(row: number): number {
-  return Math.sin((row - 1) * 0.9) * 28;
+// Placement des nœuds (cf. shared/brainrunMapLayout.ts). La graine décrit la carte : figée tant que
+// la carte ne change pas, redistribuée dès qu'on en génère une autre. Le statut des nœuds en est
+// volontairement absent — il évolue pendant la run et déplacerait la carte sous les yeux du joueur.
+const layout = computed(() =>
+  computeBrainrunMapLayout(
+    rows.value.map(({ row, nodes }) => ({ row, cols: nodes.map((n) => n.col) })),
+    props.mapNodes.map((n) => `${n.row},${n.col},${n.type}`).join("|"),
+  ),
+);
+
+// Le serpentement s'applique en translateX sur la rangée : les pourcentages d'une translation se
+// rapportent à la taille de l'élément lui-même, donc bien à la largeur d'une rangée.
+function rowStyle(row: number): string {
+  const shift = layout.value.rowShift.get(row) ?? 0;
+  return `width: ${BRAINRUN_MAP_ROW_SPAN_PERCENT}%; transform: translateX(${shift.toFixed(2)}%)`;
+}
+
+// La dispersion s'applique en `left` (positionnement relatif) et non en translateX : c'est le seul
+// moyen d'obtenir un pourcentage rapporté à la largeur de la RANGÉE, en fraction de laquelle
+// l'amplitude est exprimée pour garantir la non-collision quelle que soit la largeur d'écran.
+function nodeStyle(node: BrainrunMapNodeDTO): string {
+  const drift = layout.value.nodeDrift.get(`${node.row}:${node.col}`);
+  if (!drift) return "";
+  return `left: ${drift.xPercent.toFixed(2)}%; top: ${drift.yPx.toFixed(1)}px`;
 }
 
 function isClickable(node: BrainrunMapNodeDTO): boolean {

@@ -17,14 +17,18 @@ import {
   assignEventIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
+  brainrunGlobalFloor,
+  buildCombatThemeWeights,
   calculBrainrunUserXP,
   consumeShieldCharge,
   effectiveThemes,
+  enemyThemeBonus,
   flashMalusBonusTimeMs,
   generateActGraph,
   generateBonusOffers,
   generateShopOffers,
   generateShopReplacementOffer,
+  generateThemeCards,
   getActiveRelicEffects,
   getActiveTalentEffects,
   getCandidateCols,
@@ -42,6 +46,7 @@ import {
   pickRandomConsumable,
   pickRandomStashConsumables,
   resolveEventOption,
+  topThemes,
   type BrainrunRelicEffects,
 } from "~~/server/utils/brainrunLogic";
 import {
@@ -57,15 +62,17 @@ import {
   BRAINRUN_BASE_CONSUMABLE_SLOTS,
   BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
+  BRAINRUN_COMBAT_ROOM_TYPES,
   BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
-  BRAINRUN_DIFFICULTY_BY_ACT,
+  BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE,
   BRAINRUN_EVENT_MAGNET_CHANCE,
   BRAINRUN_GOLD_BY_ROOM_TYPE,
+  BRAINRUN_THEME_CARD_COUNT,
+  BRAINRUN_THEME_COEFFICIENT_MAX,
   BRAINRUN_MAX_HP,
   BRAINRUN_QUESTIONS_PER_ROOM,
   BRAINRUN_START_HP,
   BRAINRUN_TOTAL_ACTS,
-  getBrainrunActRowWidths,
 } from "~~/server/utils/brainrunConfig";
 import { assertDebugAccess } from "~~/server/utils/auth";
 import { QuestionDataDTO } from "#shared/question";
@@ -73,8 +80,10 @@ import {
   BRAINRUN_BONUS_OFFER_COUNT,
   BRAINRUN_CHRONO_BOOST_MS,
   BRAINRUN_DAMAGE_BOOST_AMOUNT,
+  BRAINRUN_CONSUMABLES,
   BRAINRUN_EVENT_MIN_MAX_HP,
   BRAINRUN_EVENTS,
+  BRAINRUN_RELICS,
   getBrainrunEventIdsByAct,
   type BrainrunConsumableId,
   type BrainrunConsumableReveal,
@@ -91,7 +100,7 @@ import {
   getBrainrunBossesByAct,
   getBrainrunBossById,
 } from "#shared/brainrunBosses";
-import type { BrainrunTalentId } from "#shared/brainrunTalents";
+import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 import { BRAINRUN_ALAIN_INTRO_MS } from "#shared/brainrun";
 import type {
   BrainrunEventOutcomeDTO,
@@ -104,6 +113,7 @@ import type {
   BrainrunRoomType,
   BrainrunRunDTO,
   BrainrunStateDTO,
+  BrainrunThemeCardDTO,
 } from "#shared/brainrun";
 
 type CombatRoomType = "STANDARD" | "ELITE" | "BOSS";
@@ -148,12 +158,18 @@ export class BrainrunService {
       : null;
     const startHealthPoint = BRAINRUN_START_HP + talentEffects.bonusStartHp;
     const startMaxHealthPoint = BRAINRUN_MAX_HP + talentEffects.bonusStartHp;
+    // Anti-répétition inter-runs : figée une fois pour toute la run à sa création (cf.
+    // BRAINRUN_THEME_COEFFICIENTS_PLAN.md). abandonRun a déjà persisté l'éventuelle run précédente,
+    // donc elle compte bien parmi les « 2 dernières runs ».
+    const { excludedCardThemes, excludedQuestionIds } = await this.computeRunExclusions(userId);
     const created = await prisma.brainrunRun.create({
       data: {
         userId,
         healthPoint: startHealthPoint,
         maxHealthPoint: startMaxHealthPoint,
         gold: talentEffects.bonusStartGold,
+        excludedCardThemes,
+        excludedQuestionIds,
         relics: startingRelic ? [startingRelic] : [],
         consumables: startingConsumable ? { [startingConsumable]: 1 } : {},
         // Talent Bouclier d'Acte : l'Acte 1 démarre dès la création de la run (les actes suivants
@@ -171,6 +187,41 @@ export class BrainrunService {
     }
     await this.seedActGraph(created.id, 1);
     return this.getStateById(created.id);
+  }
+
+  /**
+   * Exclusions inter-runs figées au démarrage d'une run (anti-répétition, cf.
+   * BRAINRUN_THEME_COEFFICIENTS_PLAN.md) :
+   * - `excludedCardThemes` : union des 3 plus gros coefficients (topThemes) des 2 dernières runs
+   *   VALIDES (reachedFirstBoss) — thèmes jamais proposés en carte cette run, pour forcer la variété.
+   * - `excludedQuestionIds` : union des questions servies (usedQuestionIds) des 2 dernières runs
+   *   quelconques — exclusion SOUPLE des questions (cf. getRandomIdsByThemeWeights).
+   */
+  private async computeRunExclusions(userId: string): Promise<{
+    excludedCardThemes: string[];
+    excludedQuestionIds: number[];
+  }> {
+    const [recentRuns, validRuns] = await Promise.all([
+      prisma.brainrunRun.findMany({
+        where: { userId },
+        orderBy: { createDate: "desc" },
+        take: 2,
+        select: { usedQuestionIds: true },
+      }),
+      prisma.brainrunRun.findMany({
+        where: { userId, reachedFirstBoss: true },
+        orderBy: { createDate: "desc" },
+        take: 2,
+        select: { themeCoefficients: true },
+      }),
+    ]);
+    const excludedQuestionIds = [...new Set(recentRuns.flatMap((r) => r.usedQuestionIds))];
+    const excludedCardThemes = [
+      ...new Set(
+        validRuns.flatMap((r) => topThemes((r.themeCoefficients as Record<string, number>) ?? {})),
+      ),
+    ];
+    return { excludedCardThemes, excludedQuestionIds };
   }
 
   /** Points de Savoir gagnés en fin de run (WON/LOST/ABANDONED) : or converti
@@ -210,11 +261,8 @@ export class BrainrunService {
     });
     if (!run.isDebugRun) {
       await grantKnowledgePoints(userId, knowledgePointsEarned);
+      await this.awardBrainrunProgressAchievements(userId);
     }
-    const totalGames = await prisma.brainrunRun.count({
-      where: { userId, status: { in: ["WON", "LOST", "ABANDONED"] }, isDebugRun: false },
-    });
-    await checkAndAwardAchievements(userId, "brainrunGames", totalGames);
   }
 
   /** col = colonne du nœud choisi sur run.currentRow, parmi les candidats accessibles depuis la
@@ -295,8 +343,7 @@ export class BrainrunService {
       await prisma.brainrunRun.update({ where: { id: run.id }, data: { currentCol: col } });
     } else {
       const combatType = choice as CombatRoomType;
-      const [minDifficulty, maxDifficulty] =
-        BRAINRUN_DIFFICULTY_BY_ACT[run.currentAct]![combatType]!;
+      const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE[combatType]!;
       // Le combat de boss n'a pas de nombre de questions fixe : on n'en tire qu'une seule ici,
       // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
       const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
@@ -337,16 +384,28 @@ export class BrainrunService {
         });
       }
       const combatThemes = effectiveThemes(combatDef.themes, run.bannedThemes);
+      // Poids de tirage par thème = coefficient du joueur + bonus de l'ennemi sur SES thèmes
+      // (acte × tier). Le tier reflète le type de rencontre : STANDARD → CLASSIC, ELITE → ELITE,
+      // BOSS → BOSS (l'ennemi tiré pour un nœud correspond toujours à son type par construction).
+      const combatTier: "CLASSIC" | "ELITE" | "BOSS" =
+        combatType === "BOSS" ? "BOSS" : (combatDef as { tier: "CLASSIC" | "ELITE" }).tier;
+      const themeWeights = buildCombatThemeWeights(
+        (run.themeCoefficients as Record<string, number>) ?? {},
+        combatThemes,
+        enemyThemeBonus(run.currentAct, combatTier),
+        run.bannedThemes,
+      );
 
-      const questionIds = await questionService.getRandomIdsByDifficulty(
+      const questionIds = await questionService.getRandomIdsByThemeWeights(
+        themeWeights,
         minDifficulty,
         maxDifficulty,
         count,
         run.usedQuestionIds,
         userId,
-        combatThemes,
         { culture_generale: BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[run.currentAct]! },
         run.bannedThemes,
+        run.excludedQuestionIds,
       );
       const { reveal: entryReveal, fiftyFiftyConsumed } = await this.computeQuestionEntryReveal(
         questionIds[0],
@@ -389,6 +448,9 @@ export class BrainrunService {
         data: {
           currentCol: col,
           usedQuestionIds: [...run.usedQuestionIds, ...questionIds],
+          // Marque la run comme « valide » dès l'entrée dans le boss de l'Acte 1 : sert au calcul
+          // de excludedCardThemes des runs suivantes (cf. computeRunExclusions).
+          ...(combatType === "BOSS" && run.currentAct === 1 ? { reachedFirstBoss: true } : {}),
           // Charge de 50/50 automatique consommée par la 1re question du combat (récompense
           // d'Événement, cf. computeQuestionEntryReveal).
           ...(fiftyFiftyConsumed ? { fiftyFiftyCharges: { decrement: 1 } } : {}),
@@ -409,7 +471,12 @@ export class BrainrunService {
   async debugSetStats(
     runId: string,
     userId: string,
-    patch: { healthPoint?: number; maxHealthPoint?: number; gold?: number },
+    patch: {
+      healthPoint?: number;
+      maxHealthPoint?: number;
+      gold?: number;
+      themeCoefficients?: Record<string, number>;
+    },
   ): Promise<BrainrunStateDTO> {
     await assertDebugAccess(userId);
     const run = await this.getOwnedInProgressRun(runId, userId);
@@ -424,13 +491,45 @@ export class BrainrunService {
         : Math.min(run.healthPoint, maxHealthPoint);
     const gold = patch.gold !== undefined ? Math.max(0, Math.round(patch.gold)) : run.gold;
 
+    // Fusion des coefficients fournis dans ceux de la run (un coef ≤ 0 retire le thème) ; laissés
+    // intacts si le patch n'en fournit pas.
+    let themeCoefficients = (run.themeCoefficients as Record<string, number>) ?? {};
+    if (patch.themeCoefficients) {
+      themeCoefficients = { ...themeCoefficients };
+      for (const [slug, coef] of Object.entries(patch.themeCoefficients)) {
+        const value = Math.max(0, Math.round(coef));
+        if (value > 0) themeCoefficients[slug] = value;
+        else delete themeCoefficients[slug];
+      }
+    }
+
     await prisma.brainrunRun.update({
       where: { id: runId },
       // isDebugRun : marque la run une fois pour toutes (jamais réinitialisé) — bloque XP/pièces/
       // Points de Savoir et l'incrémentation des achievements en fin de run, cf. finalizeRun/
       // advanceAfterRoomClear/abandonRun.
-      data: { healthPoint, maxHealthPoint, gold, isDebugRun: true },
+      data: { healthPoint, maxHealthPoint, gold, themeCoefficients, isDebugRun: true },
     });
+    return this.getStateById(runId);
+  }
+
+  /** Debug uniquement (assertDebugAccess) : rejette la carte de l'acte en cours — nouveau graphe,
+   * nouveaux types de salle, nouveaux ennemis/événements — et replace le joueur à son entrée. Sert
+   * à inspecter rapidement plusieurs tirages de génération sans rejouer une run entière. PV, or,
+   * reliques, consommables et coefficients de thème sont conservés : seule la carte change. */
+  async debugRegenerateMap(runId: string, userId: string): Promise<BrainrunStateDTO> {
+    await assertDebugAccess(userId);
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const effects = getActiveRelicEffects(run.relics);
+
+    await prisma.brainrunRoom.deleteMany({ where: { runId, act: run.currentAct } });
+    // Les salles déjà nettoyées de cet acte n'existent plus : le joueur repart de son entrée.
+    // seedActGraph repositionne lui-même currentRow à 2 pour l'acte 1 (rangée Neutre pré-nettoyée).
+    await prisma.brainrunRun.update({
+      where: { id: runId },
+      data: { currentRow: 1, currentCol: null, isDebugRun: true },
+    });
+    await this.seedActGraph(runId, run.currentAct, effects.eventBonusChance);
     return this.getStateById(runId);
   }
 
@@ -454,15 +553,17 @@ export class BrainrunService {
     if (target.act < 1 || target.act > BRAINRUN_TOTAL_ACTS) {
       throw createError({ statusCode: 400, statusMessage: "Acte invalide." });
     }
-    const actRowWidths = getBrainrunActRowWidths(target.act);
-    const lastRow = actRowWidths.length;
-    if (target.row < 1 || target.row > lastRow) {
-      throw createError({ statusCode: 400, statusMessage: "Rangée invalide." });
+    // La silhouette d'un acte est tirée à sa génération (largeurs des étages du milieu variables,
+    // cf. pickBrainrunActRowWidths) : les bornes de rangée/colonne se lisent donc sur les salles
+    // réellement persistées, jamais sur une forme théorique recalculée.
+    let actRooms = run.rooms.filter((r) => r.act === target.act);
+    if (actRooms.length === 0) {
+      const effects = getActiveRelicEffects(run.relics);
+      await this.seedActGraph(runId, target.act, effects.eventBonusChance);
+      actRooms = await prisma.brainrunRoom.findMany({ where: { runId, act: target.act } });
     }
-    const width = actRowWidths[target.row - 1]!;
-    if (target.col < 0 || target.col >= width) {
-      throw createError({ statusCode: 400, statusMessage: "Colonne invalide pour cette rangée." });
-    }
+    const lastRow = Math.max(...actRooms.map((r) => r.row));
+
     // La dernière rangée est toujours (et seulement) le Boss, cf. references/map.md — invariant
     // dont dépend nextRowAfterClear pour détecter la fin d'acte/de run.
     if (target.roomType === "BOSS" && target.row !== lastRow) {
@@ -478,17 +579,11 @@ export class BrainrunService {
       });
     }
 
-    let actRooms = run.rooms.filter((r) => r.act === target.act);
-    if (actRooms.length === 0) {
-      const effects = getActiveRelicEffects(run.relics);
-      await this.seedActGraph(runId, target.act, effects.eventBonusChance);
-      actRooms = await prisma.brainrunRoom.findMany({ where: { runId, act: target.act } });
-    }
     let node = actRooms.find((r) => r.row === target.row && r.col === target.col);
     if (!node) {
       throw createError({
-        statusCode: 500,
-        statusMessage: "Nœud introuvable après génération de l'acte.",
+        statusCode: 400,
+        statusMessage: `Nœud (rangée ${target.row}, colonne ${target.col}) inexistant sur cette carte.`,
       });
     }
     if (node.status !== "PENDING") {
@@ -580,9 +675,14 @@ export class BrainrunService {
       throw createError({ statusCode: 400, statusMessage: "Cette question n'est pas attendue." });
     }
 
-    const question = await prisma.question.findFirstOrThrow({ where: { id: questionId } });
+    // Question et méta-progression sont indépendantes : récupérées en parallèle pour éviter un
+    // aller-retour DB séquentiel de plus sur le chemin (ressenti) de validation d'une réponse.
+    const [question, metaProgress] = await Promise.all([
+      prisma.question.findFirstOrThrow({ where: { id: questionId } }),
+      getMetaProgress(userId),
+    ]);
     const effects = getActiveRelicEffects(run.relics);
-    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const talentEffects = getActiveTalentEffects(metaProgress.unlockedTalents);
     const reveal = ((activeRoom.consumableReveal as ConsumableReveal | null) ??
       {}) as ConsumableReveal;
     const elapsedMs = activeRoom.questionStartedAt
@@ -767,6 +867,11 @@ export class BrainrunService {
         nextRowAfterClear(activeRoom.act, activeRoom.row).kind === "RUN_WON";
       const grantsBonus =
         (activeRoom.type === "ELITE" || activeRoom.type === "BOSS") && !isRunWinningBoss;
+      // Carte de thème : proposée après TOUT combat gagné (standard/élite/boss), sauf le Boss final
+      // (run gagnée, coefficient inutilisable). Pour Élite/Boss, elle est résolue AVANT le bonus
+      // relique/consommable (cf. acknowledgeRoom / la machine à états client).
+      const grantsCard = !isRunWinningBoss;
+      const themeCardOffer = grantsCard ? await this.generateThemeCardOffer(run) : [];
       // Talent Générosité : +1 offre, réservé aux Élites (le Boss reste à BRAINRUN_BONUS_OFFER_COUNT).
       const bonusOfferCount =
         activeRoom.type === "ELITE" && talentEffects.hasEliteExtraOffer
@@ -779,6 +884,7 @@ export class BrainrunService {
           status: "CLEARED",
           goldEarned,
           ...(isBossRoom ? { bossHealthPoint: newBossHealthPoint } : {}),
+          ...(themeCardOffer.length > 0 ? { themeCardOffer, themeCardResolved: false } : {}),
           ...(grantsBonus
             ? {
                 offers: generateBonusOffers(
@@ -816,11 +922,10 @@ export class BrainrunService {
       if (isBossRoom && activeRoom.questionIds.length - newResponses.length < requiredLead) {
         updatedUsedQuestionIds = [...run.usedQuestionIds, ...activeRoom.questionIds];
         const nextQuestionId = await this.getNextBossQuestionId(
-          run.currentAct,
+          run,
+          bossDef?.themes ?? [],
           updatedUsedQuestionIds,
           userId,
-          bossDef?.themes,
-          run.bannedThemes,
         );
         updatedQuestionIds = [...activeRoom.questionIds, nextQuestionId];
         await prisma.brainrunRun.update({
@@ -874,6 +979,14 @@ export class BrainrunService {
 
     if (activeRoom.status !== "CLEARED") {
       throw createError({ statusCode: 409, statusMessage: "Aucune salle terminée à valider." });
+    }
+    // Carte de thème post-combat : bloque l'avancée tant qu'elle n'est pas choisie ou passée,
+    // avant même le bonus relique/consommable (ordre carte → bonus pour Élite/Boss).
+    if (activeRoom.themeCardOffer && !activeRoom.themeCardResolved) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Choisissez une carte de thème avant de continuer.",
+      });
     }
     // Bonus post-combat (Elite/Boss) : bloque l'avancée tant qu'un choix n'a pas été fait.
     // Les salles Phase 1/2 déjà en base ont offers === null et ne sont jamais bloquées ici.
@@ -943,6 +1056,119 @@ export class BrainrunService {
     await prisma.brainrunRoom.update({
       where: { id: activeRoom.id },
       data: { offersResolved: true },
+    });
+    return this.getStateById(run.id);
+  }
+
+  /**
+   * Génère l'offre de cartes de thème post-combat. Pool éligible = thèmes présents dans les pools
+   * d'ennemis/boss (déjà vérifiés pour le volume de questions), hors thèmes bannis (Purge Thématique)
+   * et hors excludedCardThemes (anti-répétition inter-runs). Filet : si l'exclusion laisse moins de
+   * BRAINRUN_THEME_CARD_COUNT thèmes, on relâche l'exclusion inter-runs (jamais le bannissement).
+   * Les métadonnées (libellé, image) proviennent de la table Theme ; les slugs orphelins (sans ligne
+   * Theme) sont naturellement écartés. La logique pure de tirage/rareté est generateThemeCards.
+   */
+  private async generateThemeCardOffer(run: BrainrunRunRow): Promise<BrainrunThemeCardDTO[]> {
+    const allEnemyThemes = [
+      ...new Set([
+        ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
+        ...BRAINRUN_BOSSES.flatMap((b) => b.themes),
+      ]),
+    ];
+    const banned = new Set(run.bannedThemes);
+    const excluded = new Set(run.excludedCardThemes);
+    let eligible = allEnemyThemes.filter((t) => !banned.has(t) && !excluded.has(t));
+    if (eligible.length < BRAINRUN_THEME_CARD_COUNT) {
+      eligible = allEnemyThemes.filter((t) => !banned.has(t));
+    }
+    const coefficients = (run.themeCoefficients as Record<string, number>) ?? {};
+    // Thèmes déjà investis (coef > 0), hors bannis et hors plafond : injectés à 10 %/carte même
+    // s'ils ne sont pas dans le pool de l'ennemi courant. L'anti-répétition inter-runs
+    // (excludedCardThemes) ne les bloque pas — ce sont les investissements de LA run en cours, qu'on
+    // veut pouvoir renforcer. Un thème déjà au plafond est exclu (une carte à +0 serait inutile).
+    const investedThemes = Object.entries(coefficients)
+      .filter(
+        ([slug, coef]) => coef > 0 && coef < BRAINRUN_THEME_COEFFICIENT_MAX && !banned.has(slug),
+      )
+      .map(([slug]) => slug);
+    if (eligible.length === 0 && investedThemes.length === 0) return [];
+    // Une seule requête pour les métadonnées des deux pools (name/picture depuis questionTheme).
+    const metaSlugs = [...new Set([...eligible, ...investedThemes])];
+    const themeRows = await prisma.questionTheme.findMany({
+      where: { slug: { in: metaSlugs } },
+      select: { slug: true, name: true, picture: true },
+    });
+    const metaBySlug = new Map(
+      themeRows.map((t) => [t.slug, { slug: t.slug, name: t.name, image: t.picture }]),
+    );
+    const candidates = eligible
+      .map((slug) => metaBySlug.get(slug))
+      .filter((m): m is { slug: string; name: string; image: string } => m !== undefined);
+    const investedCandidates = investedThemes
+      .map((slug) => metaBySlug.get(slug))
+      .filter((m): m is { slug: string; name: string; image: string } => m !== undefined);
+    return generateThemeCards(
+      candidates,
+      coefficients,
+      BRAINRUN_THEME_CARD_COUNT,
+      Math.random,
+      investedCandidates,
+    );
+  }
+
+  /**
+   * Résout la carte de thème post-combat : `pick` est le slug d'une carte proposée (monte son
+   * coefficient de +rareté, persisté dans themeCoefficients) ou "SKIP" pour passer. La sélection
+   * d'une carte est **obligatoire** par défaut : "SKIP" n'est autorisé qu'avec la relique Libre
+   * Arbitre (`canSkipThemeCard`), auquel cas il applique aussi la relique Lot de Consolation (comme
+   * resolveBonus). N'avance PAS la salle — c'est acknowledgeRoom() qui le fait, une fois carte ET
+   * bonus éventuel résolus.
+   */
+  async resolveThemeCard(runId: string, pick: string, userId: string): Promise<BrainrunStateDTO> {
+    const run = await this.getOwnedInProgressRun(runId, userId);
+    const activeRoom = this.getActiveNode(run);
+
+    const offer = (activeRoom.themeCardOffer as unknown as BrainrunThemeCardDTO[] | null) ?? null;
+    if (activeRoom.status !== "CLEARED" || !offer || activeRoom.themeCardResolved) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "Aucune carte de thème à choisir pour cette salle.",
+      });
+    }
+
+    if (pick !== "SKIP") {
+      const card = offer.find((c) => c.themeSlug === pick);
+      if (!card) {
+        throw createError({ statusCode: 400, statusMessage: "Carte de thème non proposée." });
+      }
+      const coefficients = { ...(run.themeCoefficients as Record<string, number>) };
+      coefficients[card.themeSlug] = card.coefAfter;
+      await prisma.brainrunRun.update({
+        where: { id: run.id },
+        data: { themeCoefficients: coefficients },
+      });
+    } else {
+      // Passer une carte n'est possible qu'avec la relique Libre Arbitre — sinon la sélection est
+      // obligatoire (garde côté serveur : le client masque déjà le bouton "Passer" en son absence).
+      const effects = getActiveRelicEffects(run.relics);
+      if (!effects.canSkipThemeCard) {
+        throw createError({
+          statusCode: 403,
+          statusMessage: "La sélection d'une carte de thème est obligatoire.",
+        });
+      }
+      // Lot de Consolation : de l'or pour compenser une carte ignorée (même effet qu'un bonus passé).
+      if (effects.goldOnBonusSkip > 0) {
+        await prisma.brainrunRun.update({
+          where: { id: run.id },
+          data: { gold: { increment: effects.goldOnBonusSkip } },
+        });
+      }
+    }
+
+    await prisma.brainrunRoom.update({
+      where: { id: activeRoom.id },
+      data: { themeCardResolved: true },
     });
     return this.getStateById(run.id);
   }
@@ -1512,7 +1738,7 @@ export class BrainrunService {
     userId: string,
   ): Promise<number> {
     const combatType = activeRoom.type as CombatRoomType;
-    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[run.currentAct]![combatType]!;
+    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE[combatType]!;
     const themes =
       combatType === "BOSS"
         ? getBrainrunBossById(activeRoom.bossId)?.themes
@@ -1785,11 +2011,10 @@ export class BrainrunService {
         // le fait pour toute question déjà en jeu sur ce combat avant d'en tirer une nouvelle.
         const usedQuestionIdsForDraw = [...run.usedQuestionIds, ...activeRoom.questionIds];
         const nextQuestionId = await this.getNextBossQuestionId(
-          run.currentAct,
+          run,
+          bossDef?.themes ?? [],
           usedQuestionIdsForDraw,
           userId,
-          bossDef?.themes,
-          run.bannedThemes,
         );
         await prisma.brainrunRoom.update({
           where: { id: activeRoom.id },
@@ -1824,6 +2049,17 @@ export class BrainrunService {
 
   async unlockTalent(userId: string, talentId: BrainrunTalentId): Promise<BrainrunMetaProgressDTO> {
     const progress = await unlockTalentPersist(userId, talentId);
+    await checkAndAwardAchievements(
+      userId,
+      "brainrunTalentsUnlocked",
+      progress.unlockedTalents.length,
+    );
+    // « Esprit accompli » : tous les talents du catalogue courant débloqués (s'adapte si on en
+    // ajoute).
+    const allTalents = Object.keys(BRAINRUN_TALENTS).every((id) =>
+      progress.unlockedTalents.includes(id),
+    );
+    await checkAndAwardAchievements(userId, "brainrunAllTalentsUnlocked", allTalents ? 1 : 0);
     const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
@@ -2013,21 +2249,135 @@ export class BrainrunService {
       await grantKnowledgePoints(run.userId, knowledgePointsEarned);
     }
 
-    const totalGames = await prisma.brainrunRun.count({
-      where: {
-        userId: run.userId,
-        status: { in: ["WON", "LOST", "ABANDONED"] },
-        isDebugRun: false,
-      },
-    });
-    await checkAndAwardAchievements(run.userId, "brainrunGames", totalGames);
+    // Une run de debug ne débloque aucun haut fait (mêmes règles que XP/pièces/PS ci-dessus).
+    if (!run.isDebugRun) {
+      await this.awardBrainrunProgressAchievements(run.userId);
+      await this.awardBrainrunRunRecordAchievements(run.userId, run.rooms);
 
-    if (status === "WON") {
-      const totalWins = await prisma.brainrunRun.count({
-        where: { userId: run.userId, status: "WON", isDebugRun: false },
-      });
-      await checkAndAwardAchievements(run.userId, "brainrunWins", totalWins);
+      if (status === "WON") {
+        const totalWins = await prisma.brainrunRun.count({
+          where: { userId: run.userId, status: "WON", isDebugRun: false },
+        });
+        await checkAndAwardAchievements(run.userId, "brainrunWins", totalWins);
+
+        const combatResponses = this.collectCombatResponses(run.rooms);
+        // « Sans une égratignure » : run gagnée sans jamais perdre de PV (Bouclier inclus, qui
+        // ramène hpLoss à 0 — cf. consumeShieldCharge).
+        if (!combatResponses.some((r) => r.hpLoss > 0)) {
+          await checkAndAwardAchievements(run.userId, "brainrunFlawlessWin", 1);
+        }
+        // « Sur le fil du rasoir » : victoire en terminant à 1 PV.
+        if (run.healthPoint === 1) {
+          await checkAndAwardAchievements(run.userId, "brainrunLowHpWin", 1);
+        }
+        // « Marche forcée » : victoire sans avoir nettoyé la moindre Bibliothèque (REST).
+        if (!run.rooms.some((r) => r.type === "REST" && r.status === "CLEARED")) {
+          await checkAndAwardAchievements(run.userId, "brainrunNoRestWin", 1);
+        }
+        // « Revenant » : victoire après avoir déclenché au moins un filet de résurrection
+        // (consommable Dernier Souffle, relique Seconde Chance ou talent Second Souffle —
+        // tous trois marquent la réponse d'un extraLifeUsed).
+        if (combatResponses.some((r) => r.extraLifeUsed)) {
+          await checkAndAwardAchievements(run.userId, "brainrunReviveWin", 1);
+        }
+      }
     }
+  }
+
+  /** Aplati les réponses des salles de combat d'une run, dans l'ordre de progression
+   * (acte → rangée → colonne), pour dériver les records d'une partie. */
+  private collectCombatResponses(
+    rooms: { act: number; row: number; col: number; type: string; responses: unknown }[],
+  ): BrainrunRoomResponse[] {
+    return rooms
+      .filter((r) => BRAINRUN_COMBAT_ROOM_TYPES.includes(r.type as BrainrunRoomType))
+      .sort((a, b) => a.act - b.act || a.row - b.row || a.col - b.col)
+      .flatMap((r) => (r.responses as BrainrunRoomResponse[] | null) ?? []);
+  }
+
+  /** Hauts faits « record dans une seule run » (bonnes réponses, plus longue série, or amassé) —
+   * comptent quel que soit le résultat de la run (victoire comme défaite). */
+  private async awardBrainrunRunRecordAchievements(
+    userId: string,
+    rooms: {
+      act: number;
+      row: number;
+      col: number;
+      type: string;
+      goldEarned: number;
+      responses: unknown;
+    }[],
+  ): Promise<void> {
+    const combatResponses = this.collectCombatResponses(rooms);
+
+    const correct = combatResponses.filter((r) => r.success).length;
+    await checkAndAwardAchievements(userId, "brainrunRunCorrect", correct);
+
+    let streak = 0;
+    let bestStreak = 0;
+    for (const response of combatResponses) {
+      streak = response.success ? streak + 1 : 0;
+      bestStreak = Math.max(bestStreak, streak);
+    }
+    await checkAndAwardAchievements(userId, "brainrunRunStreak", bestStreak);
+
+    const gold = rooms.reduce((sum, r) => sum + r.goldEarned, 0);
+    await checkAndAwardAchievements(userId, "brainrunRunGold", gold);
+  }
+
+  /**
+   * Hauts faits dérivés de l'ensemble des runs terminées et du métagame : assiduité, étage max
+   * atteint, PV max, élites/boss vaincus, découvertes complètes de catalogue. Déclenchés aussi
+   * bien en fin de run qu'à l'abandon ; l'appelant garantit que la run n'est pas une run de debug.
+   * Les « toutes/tous » comparent au catalogue courant, donc s'adaptent automatiquement si on
+   * ajoute une relique/consommable/talent.
+   */
+  private async awardBrainrunProgressAchievements(userId: string): Promise<void> {
+    const finishedRunFilter = {
+      userId,
+      status: { in: ["WON", "LOST", "ABANDONED"] },
+      isDebugRun: false,
+    };
+
+    const finishedRuns = await prisma.brainrunRun.findMany({
+      where: finishedRunFilter,
+      select: { currentAct: true, currentRow: true, maxHealthPoint: true },
+    });
+    await checkAndAwardAchievements(userId, "brainrunGames", finishedRuns.length);
+
+    const maxFloor = finishedRuns.reduce(
+      (max, r) => Math.max(max, brainrunGlobalFloor(r.currentAct, r.currentRow)),
+      0,
+    );
+    await checkAndAwardAchievements(userId, "brainrunMaxFloor", maxFloor);
+
+    const maxHp = finishedRuns.reduce((max, r) => Math.max(max, r.maxHealthPoint), 0);
+    await checkAndAwardAchievements(userId, "brainrunMaxHp", maxHp);
+
+    const [elitesDefeated, bossesDefeated] = await Promise.all([
+      prisma.brainrunRoom.count({
+        where: { type: "ELITE", status: "CLEARED", run: finishedRunFilter },
+      }),
+      prisma.brainrunRoom.count({
+        where: { type: "BOSS", status: "CLEARED", run: finishedRunFilter },
+      }),
+    ]);
+    await checkAndAwardAchievements(userId, "brainrunElitesDefeated", elitesDefeated);
+    await checkAndAwardAchievements(userId, "brainrunBossesDefeated", bossesDefeated);
+
+    const meta = await getMetaProgress(userId);
+    const allRelics = Object.keys(BRAINRUN_RELICS).every((id) =>
+      meta.discoveredRelics.includes(id),
+    );
+    await checkAndAwardAchievements(userId, "brainrunAllRelicsDiscovered", allRelics ? 1 : 0);
+    const allConsumables = Object.keys(BRAINRUN_CONSUMABLES).every((id) =>
+      meta.discoveredConsumables.includes(id),
+    );
+    await checkAndAwardAchievements(
+      userId,
+      "brainrunAllConsumablesDiscovered",
+      allConsumables ? 1 : 0,
+    );
   }
 
   /**
@@ -2037,25 +2387,40 @@ export class BrainrunService {
    * d'échouer — le combat de boss ne doit jamais se retrouver bloqué faute de question.
    */
   private async getNextBossQuestionId(
-    act: number,
+    run: {
+      currentAct: number;
+      themeCoefficients: unknown;
+      bannedThemes: string[];
+      excludedQuestionIds: number[];
+    },
+    bossThemes: string[],
     excludeIds: number[],
     userId: string,
-    themes?: string[],
-    bannedThemes?: string[],
   ): Promise<number> {
-    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_ACT[act]!.BOSS;
-    const [id] = await questionService.getRandomIdsByDifficulty(
+    const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE.BOSS;
+    // Comme la 1re question du combat (chooseNode), les questions suivantes du boss sont tirées en
+    // pondérant les thèmes par les coefficients du joueur + le bonus du boss (acte × ×3).
+    const themeWeights = buildCombatThemeWeights(
+      (run.themeCoefficients as Record<string, number>) ?? {},
+      effectiveThemes(bossThemes, run.bannedThemes),
+      enemyThemeBonus(run.currentAct, "BOSS"),
+      run.bannedThemes,
+    );
+    const [id] = await questionService.getRandomIdsByThemeWeights(
+      themeWeights,
       minDifficulty,
       maxDifficulty,
       1,
       excludeIds,
       userId,
-      themes,
-      undefined,
-      bannedThemes,
+      { culture_generale: BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT[run.currentAct]! },
+      run.bannedThemes,
+      run.excludedQuestionIds,
     );
     if (id !== undefined) return id;
 
+    // Filet ultime : n'importe quelle question du palier, questions déjà vues comprises (run très
+    // longue) — le combat de boss ne doit jamais se bloquer faute de question inédite.
     const [fallbackId] = await questionService.getRandomIdsByDifficulty(
       minDifficulty,
       maxDifficulty,
@@ -2223,6 +2588,7 @@ export class BrainrunService {
       maxConsumables: this.maxConsumableSlots(run.relics),
       shieldCharges: run.shieldCharges,
       fiftyFiftyCharges: run.fiftyFiftyCharges,
+      themeCoefficients: (run.themeCoefficients as Record<string, number>) ?? {},
       bannedThemes: run.bannedThemes,
       pendingThemeBanChoice: run.pendingThemeBanChoice,
       // Utilisé à la fois par le choix de thème de la relique Purge Thématique
@@ -2316,6 +2682,8 @@ export class BrainrunService {
       offers: (room.offers as unknown as BrainrunOffer[] | null) ?? null,
       offersRequireChoice: room.offersRequireChoice,
       offersResolved: room.offersResolved,
+      themeCardOffer: (room.themeCardOffer as unknown as BrainrunThemeCardDTO[] | null) ?? null,
+      themeCardResolved: room.themeCardResolved,
       eventId: room.eventId,
       eventOutcome: (room.eventOutcome as unknown as BrainrunEventOutcomeDTO | null) ?? null,
       consumableReveal:

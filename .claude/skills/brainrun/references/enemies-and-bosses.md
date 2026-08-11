@@ -21,7 +21,11 @@ Depuis le 2026-07-09 (pour permettre la prévisualisation par la relique Prévoy
 - **Boss** : tire parmi les 2 boss de l'acte (pas d'exclusion utile, une seule salle Boss par acte).
 - `BrainrunService.resolveNodeChoice` ne tire plus rien : il lit `node.enemyId`/`node.bossId` déjà persistés. `forcedCombatId` (debug uniquement, `debugJumpToNode`) reste le seul moyen de l'écraser.
 - **Purge Thématique** (relique) n'intervient plus sur ce tirage — elle ne change jamais l'ennemi/boss déjà fixé sur un nœud. Elle retire dynamiquement le thème banni du pool de thèmes utilisé pour les questions via `effectiveThemes(themes, bannedThemes)` (retombe sur les thèmes non filtrés si ça viderait la liste) — voir `items.md`.
-- Les questions de la salle sont ensuite tirées via `QuestionService.getRandomIdsByDifficulty` avec les thèmes **effectifs** de l'ennemi/boss retenu, la plage de difficulté de l'acte, et l'override spécifique à `culture_generale` (voir `rules-and-progression.md`).
+- Les questions de la salle sont ensuite tirées via **`QuestionService.getRandomIdsByThemeWeights`** (depuis le rework des coefficients de thème ; `getRandomIdsByDifficulty` reste le filet de secours et l'API des appelants génériques) : tirage **pondéré par thème** au poids `coefficient joueur + bonus de l'ennemi`, avec les thèmes **effectifs** de l'ennemi/boss retenu, la plage de difficulté **par type de combat** (`BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE`), et l'override `culture_generale`. Système complet → `theme-coefficients.md`.
+
+## Bonus de thème ennemi (coefficients de thème)
+
+Pour la **seule durée de son combat**, un ennemi ajoute un bonus de coefficient à chacun de ses thèmes, ce qui biaise le tirage des questions vers eux : `enemyThemeBonus(act, tier)` (`brainrunLogic.ts`) = base par acte (`BRAINRUN_ENEMY_THEME_BONUS_BY_ACT` = 1/2/3) × multiplicateur de tier (`BRAINRUN_ENEMY_THEME_BONUS_TIER_MULTIPLIER` = Classique ×1 / Élite ×2 / Boss ×3). Ex. boss Acte 3 sur `anime-manga` → 3 × 3 = +9. Composé avec les coefficients investis par le joueur dans `buildCombatThemeWeights` (le bonus ne s'applique qu'aux thèmes de l'ennemi). Un thème banni (Purge Thématique) n'est ni tirable ni proposable en carte. Détail → `theme-coefficients.md`.
 
 ## ⚠️ Piège de volume de questions (déjà rencontré en pratique)
 

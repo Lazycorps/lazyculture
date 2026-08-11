@@ -385,6 +385,10 @@ model BrainrunRun {
     maxHealthPoint  Int
     gold            Int            @default(0)
     usedQuestionIds Int[]          @default([]) // anti-répétition sur toute la run
+    excludedQuestionIds Int[]      @default([]) // anti-répétition inter-runs (exclusion SOUPLE) : questions servies sur les 2 runs précédentes, figées au démarrage de la run ; relâchées si le vivier thème×difficulté devient trop maigre (cf. QuestionService.getRandomIdsByDifficulty)
+    themeCoefficients Json         @default("{}") // Record<themeSlug, number> : coefficient de tirage par thème, démarre à {} (thème absent = 0) ; monté par les cartes de thème post-combat, pondère le tirage des questions (cf. BRAINRUN_THEME_COEFFICIENTS_PLAN.md)
+    excludedCardThemes String[]    @default([]) // thèmes jamais proposés en carte cette run : union des 3 plus gros coefficients des 2 dernières runs valides, figée au démarrage (anti-répétition inter-runs)
+    reachedFirstBoss Boolean       @default(false) // true dès que le joueur entre dans le boss de l'Acte 1 ; définit une run "valide" pour le calcul de excludedCardThemes des runs suivantes
     relics          String[]       @default([]) // ids de reliques passives possédées (shared/brainrunItems.ts)
     consumables     Json           @default("{}") // Record<consumableId, count>
     shieldCharges   Int            @default(0) // charges de Bouclier actives : chacune annule 1 perte de PV, partagées entre le consommable Bouclier et les talents Bouclier d'Acte/du Boss ; expirent (remises à 0) à la fin de chaque combat, utilisées ou non
@@ -428,6 +432,8 @@ model BrainrunRoom {
     offers              Json? // BrainrunOffer[] — bonus post-combat (ELITE/BOSS) ou offres de la Boutique
     offersRequireChoice Boolean     @default(false) // true seulement pour le bonus post-combat : bloque acknowledgeRoom tant que non résolu
     offersResolved      Boolean     @default(false)
+    themeCardOffer      Json? // BrainrunThemeCardDTO[] — 3 cartes de thème proposées après un combat gagné, résolues AVANT offers (élite/boss) ; null si pas d'étape carte sur cette salle
+    themeCardResolved   Boolean     @default(false) // true une fois la carte choisie/passée ; bloque acknowledgeRoom tant que themeCardOffer est non-null et non résolu
     eventId             String? // clé dans le catalogue BRAINRUN_EVENTS (shared/brainrunItems.ts)
     eventOutcome        Json? // BrainrunEventOutcomeDTO — résultat réellement appliqué de l'option d'Événement choisie (cf. resolveEvent), pour l'afficher au joueur une fois la salle CLEARED
     consumableReveal    Json? // { eliminatedIds?: number[]; hintId?: number } — effet 50/50 / Appel à un ami sur la question en cours
