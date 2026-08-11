@@ -28,7 +28,7 @@
           copiez simplement le format vierge attendu.
         </p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <UFormField
             label="1. Sélectionner le thème"
             :ui="{
@@ -40,6 +40,22 @@
               :items="themeOptions"
               option-attribute="label"
               placeholder="Sélectionner un thème..."
+              color="primary"
+              class="w-full text-white"
+            />
+          </UFormField>
+
+          <UFormField
+            label="2. Nombre de questions"
+            :ui="{
+              label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-1.5',
+            }"
+          >
+            <UInput
+              v-model.number="questionCount"
+              type="number"
+              min="1"
+              max="100"
               color="primary"
               class="w-full text-white"
             />
@@ -67,6 +83,22 @@
             </UButton>
           </div>
         </div>
+
+        <UFormField
+          label="3. Informations supplémentaires (optionnel)"
+          :ui="{
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display mb-1.5',
+          }"
+        >
+          <UTextarea
+            v-model="additionalInfo"
+            placeholder="Ex: Concentre-toi sur le cinéma des années 90, ou évite les questions trop pointues..."
+            color="primary"
+            variant="outline"
+            :rows="2"
+            class="w-full text-white"
+          />
+        </UFormField>
 
         <div
           v-if="selectedTheme && !loadingThemeQuestions"
@@ -202,6 +234,8 @@ const questionsfromJson = ref<QuestionDataDTO[]>([]);
 
 // AI Generation Assistant State
 const selectedTheme = ref<any>(null);
+const questionCount = ref(20);
+const additionalInfo = ref("");
 const existingQuestions = ref<{ id: number; difficulty: number; libelle: string }[]>([]);
 const loadingThemeQuestions = ref(false);
 
@@ -286,7 +320,12 @@ function copyPromptWithQuestions() {
       ? existingQuestions.value.map((q) => `- ${q.libelle}`).join("\n")
       : "(Aucune question existante pour l'instant)";
 
-  const promptText = `Génère-moi une liste de 20 nouvelles questions de culture générale uniques pour le thème "${themeName}" au format JSON strict (sans enrobage Markdown ni texte superflu, juste le tableau JSON brut commençant par [ et finissant par ]).
+  const count = questionCount.value || 20;
+  const infoSection = additionalInfo.value.trim()
+    ? `\nConsignes spécifiques pour la génération :\n${additionalInfo.value.trim()}\n`
+    : "";
+
+  const promptText = `Génère-moi une liste de ${count} nouvelles questions de culture générale uniques pour le thème "${themeName}" au format JSON strict (sans enrobage Markdown ni texte superflu, juste le tableau JSON brut commençant par [ et finissant par ]).${infoSection}
 
 Respecte scrupuleusement la structure de données suivante :
 [
