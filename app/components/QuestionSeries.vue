@@ -1,54 +1,52 @@
 <template>
   <div
     ref="containerRef"
-    class="relative w-full flex flex-col justify-center select-none min-h-0 transition-all duration-300"
-    :style="{ paddingBottom: `${actionBarHeight + 12}px` }"
+    class="relative w-full flex flex-col select-none min-h-0 transition-all duration-300 overflow-hidden"
     v-if="question"
   >
-    <!-- Floating XP Indicator -->
-    <div
-      v-if="showXP"
-      class="xp-float-anim absolute top-0 right-0 z-50 text-xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1 rounded-full shadow-neon"
-    >
-      <UIcon name="i-heroicons-bolt-solid" class="mr-0.5 text-amber-500 animate-bounce" />
-      +{{ xpWin }} XP
+    <!-- Content container with internal padding -->
+    <div class="px-4 md:px-6 pb-4 flex flex-col gap-2 md:gap-4">
+      <!-- Floating XP Indicator -->
+      <div
+        v-if="showXP"
+        class="xp-float-anim absolute top-0 right-0 z-50 text-xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1 rounded-full shadow-neon"
+      >
+        <UIcon name="i-heroicons-bolt-solid" class="mr-0.5 text-amber-500 animate-bounce" />
+        +{{ xpWin }} XP
+      </div>
+
+      <QuestionDisplay
+        v-if="question"
+        ref="questionDisplay"
+        :libelle="question.data.libelle"
+        :img="question.data.img"
+        :themes="question.themes"
+        :propositions="question.data.propositions"
+        :disabled="responded"
+        :selectedOptionId="selectedResponse"
+        :correctOptionId="greenResponse"
+        :incorrectOptionId="redResponse"
+        :showCorrectIncorrectColors="responded"
+        :showReporting="true"
+        :questionId="question.id"
+        @selectOption="selectOption"
+      />
     </div>
 
-    <QuestionDisplay
-      v-if="question"
-      ref="questionDisplay"
-      :libelle="question.data.libelle"
-      :img="question.data.img"
-      :themes="question.themes"
-      :propositions="question.data.propositions"
-      :disabled="responded"
-      :selectedOptionId="selectedResponse"
-      :correctOptionId="greenResponse"
-      :incorrectOptionId="redResponse"
-      :showCorrectIncorrectColors="responded"
-      :showReporting="true"
-      :questionId="question.id"
-      @selectOption="selectOption"
-    />
-
-    <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
+    <!-- Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
       ref="actionBarRef"
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300"
+      class="border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300 w-full mt-auto"
       :class="[
-        responded
-          ? showComment
-            ? 'p-3 md:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]'
-            : 'p-2.5 md:p-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
-          : 'p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+        responded ? (showComment ? 'p-4 md:p-5' : 'p-3 md:p-4') : 'p-4 md:p-5',
         responded
           ? isCorrect
-            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
-            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
+            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10'
+            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10'
           : 'bg-slate-950/80 border-white/10',
       ]"
     >
-      <div class="max-w-xl mx-auto w-full flex flex-col">
+      <div class="w-full flex flex-col">
         <!-- Left Side: Status / Instructions -->
         <div class="w-full">
           <!-- Answer Evaluation Banner (After response) -->
@@ -154,11 +152,6 @@ const questionDisplay = ref<any>(null);
 const containerRef = ref<HTMLElement | null>(null);
 const actionBarRef = ref<HTMLElement | null>(null);
 
-// The container reserves exactly the height of the fixed action bar, so no
-// content hides behind it and no oversized gap appears above it
-const actionBarHeight = ref(96);
-let actionBarObserver: ResizeObserver | null = null;
-
 const showComment = ref(true);
 
 function toggleComment() {
@@ -171,22 +164,10 @@ onMounted(() => {
   if (saved !== null) {
     showComment.value = saved === "true";
   }
-  if (actionBarRef.value) {
-    actionBarObserver = new ResizeObserver(() => {
-      actionBarHeight.value = actionBarRef.value?.offsetHeight ?? 96;
-    });
-    actionBarObserver.observe(actionBarRef.value);
-  }
 });
 
-onBeforeUnmount(() => {
-  actionBarObserver?.disconnect();
-});
-
-// Brings the answer feedback into view above the fixed bottom bar on small screens
+// Brings the answer feedback into view on small screens
 async function scrollFeedbackIntoView() {
-  await nextTick();
-  if (actionBarRef.value) actionBarHeight.value = actionBarRef.value.offsetHeight;
   await nextTick();
   containerRef.value?.scrollIntoView({ block: "end", behavior: "smooth" });
 }

@@ -1,7 +1,8 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-4 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      :ui="{ body: 'p-0 sm:p-0' }"
     >
       <!-- Main Question Quiz Runner -->
       <QuestionComponent

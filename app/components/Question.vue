@@ -1,93 +1,88 @@
 <template>
   <div
     ref="containerRef"
-    class="relative w-full max-w-lg mx-auto flex flex-col justify-center min-h-0 transition-all duration-300"
-    :style="{ paddingBottom: `${actionBarHeight + 12}px` }"
+    class="relative w-full flex flex-col min-h-0 transition-all duration-300 overflow-hidden"
   >
-    <!-- Floating XP Indicator -->
-    <div
-      v-if="showXP"
-      class="xp-float-anim absolute top-10 right-4 z-50 text-2xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1.5 rounded-full shadow-neon"
-    >
-      <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-amber-500" />
-      +{{ xpWin }} XP
-    </div>
-
-    <!-- Theme Progress Header / Bar -->
-    <div
-      v-if="themeProgress"
-      class="mb-2 md:mb-4 select-none flex items-center space-x-3 w-full px-1"
-    >
+    <!-- Content container with internal padding -->
+    <div class="p-4 md:p-6 pb-4 flex flex-col gap-2 md:gap-4">
+      <!-- Floating XP Indicator -->
       <div
-        class="flex-1 h-1.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
+        v-if="showXP"
+        class="xp-float-anim absolute top-10 right-4 z-50 text-2xl font-black font-display text-amber-400 flex items-center bg-slate-900/90 border border-amber-500/30 px-3 py-1.5 rounded-full shadow-neon"
       >
+        <UIcon name="i-heroicons-bolt-solid" class="mr-1 text-amber-500" />
+        +{{ xpWin }} XP
+      </div>
+
+      <!-- Theme Progress Header / Bar -->
+      <div v-if="themeProgress" class="select-none flex items-center space-x-3 w-full px-1">
         <div
-          class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
-          :style="{
-            width: `${themeProgress.questionCount > 0 ? (themeProgress.responseCount / themeProgress.questionCount) * 100 : 0}%`,
-          }"
-        ></div>
+          class="flex-1 h-1.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative"
+        >
+          <div
+            class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500 shadow-neon"
+            :style="{
+              width: `${themeProgress.questionCount > 0 ? (themeProgress.responseCount / themeProgress.questionCount) * 100 : 0}%`,
+            }"
+          ></div>
+        </div>
+        <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
+          {{ themeProgress.responseCount }} / {{ themeProgress.questionCount }} résolues
+        </span>
       </div>
-      <span class="text-[11px] font-extrabold font-display text-gray-400 whitespace-nowrap">
-        {{ themeProgress.responseCount }} / {{ themeProgress.questionCount }} résolues
-      </span>
+
+      <!-- Skeleton Loader -->
+      <div
+        v-if="firstLoading"
+        class="animate-pulse space-y-3 p-4 bg-slate-900/40 rounded-2xl border border-white/5"
+      >
+        <div class="flex justify-between items-center">
+          <div class="h-4 bg-white/10 rounded w-1/3"></div>
+          <div class="h-8 w-8 bg-white/10 rounded-full"></div>
+        </div>
+        <div class="h-5 bg-white/10 rounded w-3/4"></div>
+        <div class="h-20 bg-white/5 rounded-xl w-full"></div>
+        <div class="space-y-2 pt-2">
+          <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+          <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+          <div class="h-9 bg-white/10 rounded-xl w-full"></div>
+        </div>
+        <div class="h-9 bg-white/15 rounded-xl w-1/2 mx-auto pt-1"></div>
+      </div>
+
+      <!-- Question View -->
+      <QuestionDisplay
+        v-else
+        ref="questionDisplay"
+        :libelle="question.data.libelle"
+        :img="question.data.img"
+        :themes="question.themes"
+        :propositions="question.data.propositions"
+        :disabled="responded"
+        :selectedOptionId="selectedResponse"
+        :correctOptionId="greenResponse"
+        :incorrectOptionId="redResponse"
+        :showCorrectIncorrectColors="responded"
+        :showReporting="true"
+        :questionId="question.id"
+        @selectOption="selectOption"
+      />
     </div>
 
-    <!-- Skeleton Loader -->
-    <div
-      v-if="firstLoading"
-      class="animate-pulse space-y-3 p-4 bg-slate-900/40 rounded-2xl border border-white/5"
-    >
-      <div class="flex justify-between items-center">
-        <div class="h-4 bg-white/10 rounded w-1/3"></div>
-        <div class="h-8 w-8 bg-white/10 rounded-full"></div>
-      </div>
-      <div class="h-5 bg-white/10 rounded w-3/4"></div>
-      <div class="h-20 bg-white/5 rounded-xl w-full"></div>
-      <div class="space-y-2 pt-2">
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-        <div class="h-9 bg-white/10 rounded-xl w-full"></div>
-      </div>
-      <div class="h-9 bg-white/15 rounded-xl w-1/2 mx-auto pt-1"></div>
-    </div>
-
-    <!-- Question View -->
-    <QuestionDisplay
-      v-else
-      ref="questionDisplay"
-      :libelle="question.data.libelle"
-      :img="question.data.img"
-      :themes="question.themes"
-      :propositions="question.data.propositions"
-      :disabled="responded"
-      :selectedOptionId="selectedResponse"
-      :correctOptionId="greenResponse"
-      :incorrectOptionId="redResponse"
-      :showCorrectIncorrectColors="responded"
-      :showReporting="true"
-      :questionId="question.id"
-      @selectOption="selectOption"
-    />
-
-    <!-- Sticky Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
+    <!-- Bottom Bar (Duolingo Style - Unified Validate & Continue Action) -->
     <div
       ref="actionBarRef"
-      class="fixed bottom-0 left-0 right-0 z-50 border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300"
+      class="border-t backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300 w-full mt-auto"
       :class="[
-        responded
-          ? showComment
-            ? 'p-3 md:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]'
-            : 'p-2.5 md:p-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
-          : 'p-4 md:p-6 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+        responded ? (showComment ? 'p-4 md:p-5' : 'p-3 md:p-4') : 'p-4 md:p-5',
         responded
           ? isCorrect
-            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10 animate-slide-up'
-            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10 animate-slide-up'
+            ? 'bg-emerald-950/95 border-emerald-500/30 shadow-emerald-500/10'
+            : 'bg-rose-950/95 border-rose-500/30 shadow-rose-500/10'
           : 'bg-slate-950/80 border-white/10',
       ]"
     >
-      <div class="max-w-lg mx-auto w-full flex flex-col">
+      <div class="w-full flex flex-col">
         <!-- Left Side: Status / Instructions -->
         <div class="w-full">
           <!-- Answer Evaluation Banner (After response) -->
@@ -189,11 +184,6 @@ const questionDisplay = ref<any>(null);
 const containerRef = ref<HTMLElement | null>(null);
 const actionBarRef = ref<HTMLElement | null>(null);
 
-// The container reserves exactly the height of the fixed action bar, so no
-// content hides behind it and no oversized gap appears above it
-const actionBarHeight = ref(96);
-let actionBarObserver: ResizeObserver | null = null;
-
 const showComment = ref(true);
 
 function toggleComment() {
@@ -206,22 +196,10 @@ onMounted(() => {
   if (saved !== null) {
     showComment.value = saved === "true";
   }
-  if (actionBarRef.value) {
-    actionBarObserver = new ResizeObserver(() => {
-      actionBarHeight.value = actionBarRef.value?.offsetHeight ?? 96;
-    });
-    actionBarObserver.observe(actionBarRef.value);
-  }
 });
 
-onBeforeUnmount(() => {
-  actionBarObserver?.disconnect();
-});
-
-// Brings the answer feedback into view above the fixed bottom bar on small screens
+// Brings the answer feedback into view on small screens
 async function scrollFeedbackIntoView() {
-  await nextTick();
-  if (actionBarRef.value) actionBarHeight.value = actionBarRef.value.offsetHeight;
   await nextTick();
   containerRef.value?.scrollIntoView({ block: "end", behavior: "smooth" });
 }

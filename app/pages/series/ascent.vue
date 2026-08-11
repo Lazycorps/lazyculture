@@ -1,7 +1,8 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-2 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      :ui="{ body: 'p-0 sm:p-0' }"
     >
       <!-- Non-authenticated user view -->
       <template v-if="!user">
@@ -36,7 +37,7 @@
       <!-- Authenticated player view -->
       <template v-else>
         <!-- Game Header (Title & Health Hearts) -->
-        <div class="flex flex-col space-y-4 mb-6">
+        <div class="flex flex-col space-y-4 pt-4 px-4 md:pt-6 md:px-6 mb-4">
           <div class="flex justify-between items-center">
             <h2 class="text-xl font-black font-display text-white tracking-wide flex items-center">
               <UIcon
@@ -78,32 +79,30 @@
           </div>
         </div>
 
-        <hr class="border-white/5 my-5" />
+        <hr class="border-white/5" />
 
         <!-- Quiz Runner Section -->
         <template v-if="!userSeries?.userResponse?.data?.ended">
-          <div class="py-4">
-            <QuestionSeries
-              v-if="seriesStarted"
-              :question="question"
-              :parentLoading="loading"
-              @validate-response="validateResponse"
-              @next-question="nextQuestion"
-            />
+          <QuestionSeries
+            v-if="seriesStarted"
+            :question="question"
+            :parentLoading="loading"
+            @validate-response="validateResponse"
+            @next-question="nextQuestion"
+          />
 
-            <!-- Start/Resume button -->
-            <div v-else class="text-center py-6">
-              <UButton
-                size="lg"
-                color="primary"
-                :loading="loading"
-                class="font-black font-display uppercase tracking-widest px-8 py-3.5"
-                icon="i-heroicons-play-solid"
-                @click="startSeries"
-              >
-                {{ questionId > 0 ? "Reprendre" : "Démarrer" }} l'ascension
-              </UButton>
-            </div>
+          <!-- Start/Resume button -->
+          <div v-else class="text-center py-6 p-4 md:p-6">
+            <UButton
+              size="lg"
+              color="primary"
+              :loading="loading"
+              class="font-black font-display uppercase tracking-widest px-8 py-3.5"
+              icon="i-heroicons-play-solid"
+              @click="startSeries"
+            >
+              {{ questionId > 0 ? "Reprendre" : "Démarrer" }} l'ascension
+            </UButton>
           </div>
         </template>
 

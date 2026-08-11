@@ -1,10 +1,11 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-4 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      :ui="{ body: 'p-0 sm:p-0' }"
     >
       <!-- Top Progress Bar Row (Shown during load & gameplay) -->
-      <div v-if="!isFinished" class="w-full flex flex-col space-y-3 mb-6">
+      <div v-if="!isFinished" class="w-full flex flex-col space-y-3 pt-4 px-4 md:pt-6 md:px-6 mb-4">
         <div class="flex items-center justify-between w-full">
           <div class="flex items-center space-x-2">
             <UButton
@@ -50,19 +51,18 @@
       </div>
 
       <!-- Gameplay Area (Reusing Unified QuestionSeries Component) -->
-      <div v-else-if="currentQuestion && !isFinished" class="w-full">
-        <QuestionSeries
-          :question="currentQuestion"
-          :parentLoading="validating"
-          @validate-response="handleValidateResponse"
-          @next-question="nextQuestion"
-        />
-      </div>
+      <QuestionSeries
+        v-else-if="currentQuestion && !isFinished"
+        :question="currentQuestion"
+        :parentLoading="validating"
+        @validate-response="handleValidateResponse"
+        @next-question="nextQuestion"
+      />
 
       <!-- Final Score / Success / Failure Dashboard Screen -->
       <div
         v-else-if="isFinished"
-        class="w-full flex flex-col justify-center items-center text-center space-y-6 py-4"
+        class="w-full flex flex-col justify-center items-center text-center space-y-6 p-4 md:p-6"
       >
         <!-- Icon representation -->
         <div class="relative">

@@ -13,7 +13,8 @@
     </div>
 
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2 relative overflow-hidden"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden"
+      :ui="{ body: 'p-0 sm:p-0' }"
     >
       <!-- Background subtle glow -->
       <div
@@ -62,7 +63,7 @@
 
         <template v-else>
           <!-- Game Header (Chrono & Score Tracker) -->
-          <div class="flex flex-col space-y-4 mb-6" v-if="isGameActive">
+          <div class="flex flex-col space-y-4 pt-4 px-4 md:pt-6 md:px-6 mb-4" v-if="isGameActive">
             <div class="flex justify-between items-center">
               <!-- Title -->
               <div class="flex items-center space-x-2">
@@ -106,65 +107,61 @@
             </div>
           </div>
 
-          <hr class="border-white/5 my-5" v-if="isGameActive" />
+          <hr class="border-white/5" v-if="isGameActive" />
 
           <!-- Quiz Runner Section -->
           <template v-if="!isEnded">
-            <div class="py-4">
-              <QuestionSeries
-                v-if="seriesStarted"
-                :question="question"
-                :parentLoading="loading"
-                @validate-response="validateResponse"
-                @next-question="nextQuestion"
-              />
+            <QuestionSeries
+              v-if="seriesStarted"
+              :question="question"
+              :parentLoading="loading"
+              @validate-response="validateResponse"
+              @next-question="nextQuestion"
+            />
 
-              <!-- Start/Resume Lobby Screen (Fallback) -->
-              <div v-else class="text-center py-8 space-y-6 flex flex-col items-center">
-                <div class="relative">
-                  <div
-                    class="absolute inset-0 bg-indigo-500/10 blur-xl rounded-full scale-125"
-                  ></div>
-                  <div
-                    class="relative w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-4xl text-indigo-400"
-                  >
-                    🏁
-                  </div>
+            <!-- Start/Resume Lobby Screen (Fallback) -->
+            <div v-else class="text-center py-8 p-4 md:p-6 space-y-6 flex flex-col items-center">
+              <div class="relative">
+                <div class="absolute inset-0 bg-indigo-500/10 blur-xl rounded-full scale-125"></div>
+                <div
+                  class="relative w-20 h-20 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-4xl text-indigo-400"
+                >
+                  🏁
                 </div>
+              </div>
 
-                <div class="space-y-2">
-                  <h3 class="text-2xl font-black font-display text-white tracking-wide uppercase">
-                    Prêt pour le Sprint ?
-                  </h3>
-                  <p class="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
-                    Atteignez exactement 20 bonnes réponses le plus vite possible. Chaque mauvaise
-                    réponse vous inflige +5 secondes de pénalité !
-                  </p>
-                </div>
+              <div class="space-y-2">
+                <h3 class="text-2xl font-black font-display text-white tracking-wide uppercase">
+                  Prêt pour le Sprint ?
+                </h3>
+                <p class="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
+                  Atteignez exactement 20 bonnes réponses le plus vite possible. Chaque mauvaise
+                  réponse vous inflige +5 secondes de pénalité !
+                </p>
+              </div>
 
-                <div class="pt-4 w-full max-w-xs space-y-3">
-                  <UButton
-                    size="lg"
-                    color="primary"
-                    block
-                    :loading="loading"
-                    icon="i-heroicons-play-solid"
-                    class="font-black font-display uppercase tracking-widest py-3.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500"
-                    @click="startNewRun"
-                  >
-                    Démarrer le Sprint
-                  </UButton>
+              <div class="pt-4 w-full max-w-xs space-y-3">
+                <UButton
+                  size="lg"
+                  color="primary"
+                  block
+                  :loading="loading"
+                  icon="i-heroicons-play-solid"
+                  class="font-black font-display uppercase tracking-widest py-3.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500"
+                  @click="startNewRun"
+                >
+                  Démarrer le Sprint
+                </UButton>
 
-                  <UButton
-                    to="/series/speedrun"
-                    variant="ghost"
-                    color="neutral"
-                    block
-                    class="font-bold text-xs uppercase tracking-wider"
-                  >
-                    Retour au menu
-                  </UButton>
-                </div>
+                <UButton
+                  to="/series/speedrun"
+                  variant="ghost"
+                  color="neutral"
+                  block
+                  class="font-bold text-xs uppercase tracking-wider"
+                >
+                  Retour au menu
+                </UButton>
               </div>
             </div>
           </template>

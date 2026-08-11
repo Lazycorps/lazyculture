@@ -1,7 +1,8 @@
 <template>
   <div class="w-full max-w-xl mx-auto py-2 select-none">
     <UCard
-      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-2"
+      class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      :ui="{ body: 'p-0 sm:p-0' }"
     >
       <!-- Non-authenticated user view -->
       <template v-if="!user">
@@ -39,61 +40,60 @@
       <!-- Authenticated player view -->
       <template v-else>
         <!-- Game Header (Title & Progress Bar) -->
-        <div class="flex flex-col space-y-4 mb-6">
-          <h1 class="text-xl font-black font-display text-white tracking-wide flex items-center">
-            <UIcon
-              name="i-heroicons-calendar"
-              class="mr-2 text-violet-400 text-2xl animate-pulse"
-            />
-            {{ userSeries?.series.title }}
-          </h1>
-
-          <div class="space-y-1.5">
-            <!-- Custom Premium Glass Progress Bar -->
-            <div
-              class="w-full h-2 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+        <div class="flex flex-col space-y-2 pt-3 px-4 md:pt-4 md:px-6 mb-3">
+          <div class="flex justify-between items-center">
+            <h1
+              class="text-base md:text-lg font-black font-display text-white tracking-wide flex items-center"
             >
-              <div
-                class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
-                :style="{ width: `${nbrQuestion > 0 ? (questionId / nbrQuestion) * 100 : 0}%` }"
-              ></div>
-            </div>
-            <div class="flex justify-between text-xs font-bold font-display text-gray-400">
-              <span>Série quotidienne en cours</span>
-              <span>{{ questionId }} / {{ nbrQuestion }}</span>
-            </div>
+              <UIcon
+                name="i-heroicons-calendar"
+                class="mr-2 text-violet-400 text-xl animate-pulse"
+              />
+              {{ userSeries?.series.title }}
+            </h1>
+            <span class="text-xs font-bold font-display text-gray-400">
+              {{ questionId }} / {{ nbrQuestion }}
+            </span>
+          </div>
+
+          <!-- Custom Premium Glass Progress Bar -->
+          <div
+            class="w-full h-1.5 bg-slate-950/80 rounded-full border border-white/5 overflow-hidden relative shadow-inner"
+          >
+            <div
+              class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-300 shadow-neon"
+              :style="{ width: `${nbrQuestion > 0 ? (questionId / nbrQuestion) * 100 : 0}%` }"
+            ></div>
           </div>
         </div>
 
-        <hr class="border-white/5 my-5" />
+        <hr class="border-white/5" />
 
         <!-- Quiz Runner Section -->
         <template v-if="!completed">
-          <div class="py-4">
-            <QuestionSeries
-              v-if="seriesStarted"
-              :question="question"
-              :parentLoading="loading"
-              @validate-response="validateResponse"
-              @next-question="nextQuestion"
-            />
+          <QuestionSeries
+            v-if="seriesStarted"
+            :question="question"
+            :parentLoading="loading"
+            @validate-response="validateResponse"
+            @next-question="nextQuestion"
+          />
 
-            <!-- Intro & Start/Resume -->
-            <div v-else class="space-y-6">
-              <SeriesDailyIntro :stats="dailyStats ?? null" />
+          <!-- Intro & Start/Resume -->
+          <div v-else class="space-y-6 p-4 md:p-6">
+            <SeriesDailyIntro :stats="dailyStats ?? null" />
 
-              <div class="text-center pb-2">
-                <UButton
-                  size="lg"
-                  color="primary"
-                  :loading="loading"
-                  class="font-black font-display uppercase tracking-widest px-8 py-3.5"
-                  icon="i-heroicons-play-solid"
-                  @click="startSeries"
-                >
-                  {{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série
-                </UButton>
-              </div>
+            <div class="text-center pb-2">
+              <UButton
+                size="lg"
+                color="primary"
+                :loading="loading"
+                class="font-black font-display uppercase tracking-widest px-8 py-3.5"
+                icon="i-heroicons-play-solid"
+                @click="startSeries"
+              >
+                {{ questionId > 0 ? "Reprendre" : "Démarrer" }} la série
+              </UButton>
             </div>
           </div>
         </template>

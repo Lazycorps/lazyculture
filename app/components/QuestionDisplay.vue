@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col space-y-2 md:space-y-3.5 w-full">
+  <div class="flex flex-col space-y-1 w-full">
     <!-- Header Row (Theme badges + Flag) -->
     <div class="flex items-center justify-between select-none">
       <div class="flex flex-wrap gap-1">
@@ -47,7 +47,7 @@
         :key="questionId"
         tag="div"
         name="option-swap"
-        class="flex flex-col gap-1.5 py-0.5 w-full"
+        class="flex flex-col gap-1.5 pt-0.5 w-full"
       >
         <button
           v-for="proposition in propositions"
