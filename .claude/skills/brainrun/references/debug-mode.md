@@ -38,7 +38,14 @@ Boutique) et les reliques/consommables ramassés restent fonctionnels normalemen
 seule la conversion finale en récompenses persistantes (XP, pièces UserWallet, Points de Savoir,
 achievements) est neutralisée.
 
-## `debugSetStats(runId, userId, { healthPoint?, maxHealthPoint?, gold? })`
+## `debugSetStats(runId, userId, { healthPoint?, maxHealthPoint?, gold?, themeCoefficients?, erudition? })`
+
+`erudition` (ajouté le 2026-08-13) est le **seul** moyen de jouer à un niveau d'Érudition non
+débloqué : le sélecteur du lobby reste plafonné à `maxEruditionUnlocked`, y compris pour un admin,
+car une run démarrée là ne serait pas marquée `isDebugRun` et entrerait donc au classement avec une
+Érudition jamais gagnée. Passer par le debug garantit l'inverse. Le changement vaut pour la **suite**
+de la run : les modificateurs déjà consommés (PV d'un boss engagé, offres de Boutique générées) ne
+sont pas recalculés rétroactivement. Cf. `erudition.md`.
 
 Écrase directement `BrainrunRun.healthPoint`/`maxHealthPoint`/`gold` (clamp : maxHealthPoint dans
 `[1, BRAINRUN_ABSOLUTE_MAX_HP]`, healthPoint dans `[1, maxHealthPoint]` — plancher à 1, pas 0, pour

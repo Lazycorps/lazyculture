@@ -5,7 +5,8 @@
 - 3 actes (`BRAINRUN_TOTAL_ACTS`), chacun = une carte à embranchements (`getBrainrunRoomsPerAct(act)` rangées : 10 pour l'acte 1 — rangée Neutre + 9 étages —, 9 pour les actes 2/3 — pas de rangée Neutre). Détail de la génération de carte → `map.md`.
 - PV de départ/max : `BRAINRUN_START_HP` = `BRAINRUN_MAX_HP` = 3. Plafond absolu atteignable (relique Cœur Supplémentaire, cumulable) : `BRAINRUN_ABSOLUTE_MAX_HP` = 8.
 - Une mauvaise réponse fait **toujours perdre exactement 1 PV**, quelle que soit la difficulté de la question (pas de palier) — seul le consommable Bouclier peut annuler cette perte (voir `items.md`).
-- Un Boss vaincu **régénère intégralement les PV** avant l'acte suivant (`submitAnswer`, `bossDefeated ? run.maxHealthPoint : ...`).
+- Un Boss vaincu **régénère intégralement les PV** avant l'acte suivant (`submitAnswer`, `bossDefeated ? run.maxHealthPoint : ...`) — sauf à partir de l'Érudition IX, qui supprime ce soin (`disablesBossHeal`, cf. `erudition.md`).
+- **Érudition** : degré de difficulté choisi au lancement (0-10), figé pour la run, chaque niveau ajoutant un modificateur cumulatif. Débloqué en gagnant au niveau précédent. Détail complet → `erudition.md`.
 
 ## Types de salle et statuts
 
@@ -36,7 +37,7 @@
 
 ## Combat de boss (contre-la-montre) — résumé, détail complet dans `enemies-and-bosses.md`
 
-PV du boss = `BRAINRUN_BOSS_MAX_HP` (100 = 5 × 20). Dégâts décroissants linéairement selon le temps de réponse, chrono de `BRAINRUN_BOSS_QUESTION_TIME_MS` (15s) par question, timeout = échec forcé côté serveur.
+PV du boss = `brainrunBossMaxHp(act, bossId, erudition)` : 140/180/220 selon l'acte, sauf valeur propre (Flash 160, Le Phoenix 150), majoré par l'Érudition. Dégâts décroissants linéairement selon le temps de réponse, chrono de `BRAINRUN_BOSS_QUESTION_TIME_MS` (15s) par question, timeout = échec forcé côté serveur.
 
 ## Mort et fin de run
 

@@ -85,6 +85,14 @@
               >
                 {{ run?.currentRow ?? 1 }} / {{ roomsPerAct }}
               </span>
+              <!-- Degré de difficulté de la run, masqué à l'Érudition 0 (équilibrage standard). -->
+              <span
+                v-if="(run?.erudition ?? 0) > 0"
+                :title="`Difficulté : ${brainrunEruditionLabel(run!.erudition)}`"
+                class="text-xs font-bold font-display text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5"
+              >
+                {{ brainrunEruditionLabel(run!.erudition) }}
+              </span>
               <!-- Accès en run à la liste des thèmes investis (coef > 0) et à leur poids de tirage. -->
               <button
                 type="button"
@@ -691,6 +699,7 @@ import {
   type BrainrunConsumableId,
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
+import { brainrunEruditionLabel } from "#shared/brainrunErudition";
 import { getBrainrunEnemyById } from "#shared/brainrunEnemies";
 import { getBrainrunBossById } from "#shared/brainrunBosses";
 import { useUserStore } from "~/stores/userStore";
@@ -949,8 +958,8 @@ onBeforeUnmount(() => {
   showBottomNav.value = true;
 });
 
-async function handleStartNewRun() {
-  await brainrun.startNewRun();
+async function handleStartNewRun(erudition: number) {
+  await brainrun.startNewRun(erudition);
   view.value = "run";
 }
 

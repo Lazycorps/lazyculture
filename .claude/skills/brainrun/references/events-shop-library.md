@@ -13,7 +13,7 @@ Les libellés joueur sont définis dans `app/composables/useBrainrunRoomTypeDisp
 
 Résolue par `BrainrunService.resolveRest(runId, choice, theme?)`. Contrairement aux autres salles instantanées, elle **exige toujours un choix explicite** (reste `ACTIVE` tant que non résolue) :
 
-- `"HEAL"` — régénère 1 PV (`instantRoomHealthDelta("REST")`), plafonné à `maxHealthPoint`.
+- `"HEAL"` — régénère `BRAINRUN_REST_HEAL` = **2 PV** (`instantRoomHealthDelta("REST", run.erudition)`), plafonné à `maxHealthPoint`. Passé de 1 à 2 le 2026-08-13, en même temps que l'ajout de l'Érudition dont le niveau IV le ramène à 1 (`restHealMalus`) — à 1 PV de base, ce modificateur n'aurait rien retiré de significatif. Cf. `erudition.md`.
 - `"BAN_THEME"` — bannit un thème pour le reste de la run (`run.bannedThemes`), en s'assurant qu'il fait partie de `availableThemesToBan` (calculé par `computeAvailableThemesToBan` : union des thèmes de tous les ennemis/boss, moins `culture_generale` — **jamais bannissable** car systématique dans les boss — et moins les thèmes de `computeUnsafeToBanThemes` — un thème partagé par **tous** les boss d'un même acte, ex. `anime-manga` pour l'Acte 2, viderait entièrement le pool de boss de cet acte si banni). Une fois banni, ce thème est exclu du tirage d'ennemis/boss (même filtre `notBanned` que la relique Purge Thématique — voir `items.md`) **et** directement des questions tirées (`bannedThemes` passé en `excludeThemes` à `QuestionService.getRandomIdsByDifficulty`) — indispensable car une question peut porter plusieurs thèmes à la fois, donc filtrer uniquement sur les thèmes de l'ennemi/boss ne suffit pas à garantir qu'un thème banni n'apparaisse jamais.
 
 ## Librairie (`SHOP`)

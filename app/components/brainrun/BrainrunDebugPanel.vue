@@ -37,6 +37,16 @@
           min="0"
           class="w-16 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white"
         />
+        <!-- Érudition : seul moyen de dépasser le niveau débloqué (le lobby reste plafonné) ; la
+             run passe alors en run de debug, donc hors classement. -->
+        <span class="text-gray-500 ml-2">Érud.</span>
+        <input
+          v-model.number="erudition"
+          type="number"
+          min="0"
+          :max="maxErudition"
+          class="w-12 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white"
+        />
         <button
           type="button"
           :disabled="loading"
@@ -167,6 +177,7 @@ import {
   getBrainrunRoomsPerAct,
   type BrainrunRoomType,
 } from "#shared/brainrun";
+import { BRAINRUN_MAX_ERUDITION } from "#shared/brainrunErudition";
 import { BRAINRUN_ENEMIES, getBrainrunEnemiesByActAndTier } from "#shared/brainrunEnemies";
 import { BRAINRUN_BOSSES, getBrainrunBossesByAct } from "#shared/brainrunBosses";
 
@@ -188,6 +199,8 @@ const error = ref<string | null>(null);
 const hp = ref(run.value?.healthPoint ?? 3);
 const maxHp = ref(run.value?.maxHealthPoint ?? 3);
 const gold = ref(run.value?.gold ?? 0);
+const erudition = ref(run.value?.erudition ?? 0);
+const maxErudition = BRAINRUN_MAX_ERUDITION;
 
 const act = ref(run.value?.currentAct ?? 1);
 const row = ref(run.value?.currentRow ?? 1);
@@ -243,6 +256,7 @@ async function applyStats() {
       healthPoint: hp.value,
       maxHealthPoint: maxHp.value,
       gold: gold.value,
+      erudition: erudition.value,
     });
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Échec de la mise à jour.";

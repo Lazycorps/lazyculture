@@ -381,6 +381,7 @@ model BrainrunRun {
     currentAct      Int            @default(1) // 1..3
     currentRow      Int            @default(1) // 1..getBrainrunRoomsPerAct(currentAct) (10 pour l'acte 1, 9 sinon), rangée où se trouve/choisit le joueur dans l'acte
     currentCol      Int? // colonne du nœud actif dans currentRow ; null tant que le joueur n'a pas choisi de nœud sur cette rangée
+    erudition       Int            @default(0) // niveau d'Érudition (degré de difficulté) choisi au démarrage, 0..BRAINRUN_MAX_ERUDITION ; figé pour toute la run, 0 = comportement historique (cf. shared/brainrunErudition.ts)
     healthPoint     Int
     maxHealthPoint  Int
     gold            Int            @default(0)
@@ -448,6 +449,7 @@ model BrainrunMetaProgress {
     userId                String    @id
     user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
     knowledgePoints       Int       @default(0)
+    maxEruditionUnlocked  Int       @default(0) // plus haut niveau d'Érudition jouable : monte de 1 à chaque run GAGNÉE au niveau courant (jamais via une run de debug), plafonné à BRAINRUN_MAX_ERUDITION
     unlockedTalents       String[]  @default([]) // ids du catalogue BRAINRUN_TALENTS (shared/brainrunTalents.ts)
     discoveredRelics      String[]  @default([]) // ids de reliques obtenues au moins une fois, toutes runs confondues (glossaire, shared/brainrunItems.ts)
     discoveredConsumables String[]  @default([]) // idem pour les consommables

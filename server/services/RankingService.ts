@@ -135,7 +135,14 @@ export class RankingService {
         status: { in: ["WON", "LOST", "ABANDONED"] },
         isDebugRun: false,
       },
-      select: { userId: true, status: true, currentAct: true, currentRow: true, createDate: true },
+      select: {
+        userId: true,
+        status: true,
+        currentAct: true,
+        currentRow: true,
+        erudition: true,
+        createDate: true,
+      },
     });
 
     const ranked = rankBrainrunPlayers(runs).slice(0, 20);
@@ -162,6 +169,7 @@ export class RankingService {
         frameStyleKey: user?.equippedFrame?.styleKey ?? null,
         bestAct: entry.bestAct,
         bestRow: entry.bestRow,
+        bestWonErudition: entry.bestWonErudition,
         isVictory: entry.isVictory,
         victoryCount: entry.victoryCount,
         totalRuns: entry.totalRuns,

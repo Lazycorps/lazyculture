@@ -527,6 +527,7 @@
 
 <script setup lang="ts">
 import type { FriendRankingDTO } from "#shared/DTO/followDTO";
+import { brainrunEruditionLabel } from "#shared/brainrunErudition";
 
 useSeoMeta({
   title: "Classements Généraux",
@@ -588,10 +589,16 @@ const activeUsers = computed(() => {
   return [];
 });
 
-/** Libellé de l'étage max atteint pour le classement Brainrun (« Victoire » ou « Acte X · Étage Y »). */
+/** Libellé de l'étage max atteint pour le classement Brainrun (« Victoire » ou « Acte X · Étage Y »).
+ * Les vainqueurs affichent en plus leur plus haute Érudition gagnée — c'est le critère de tri
+ * principal, il doit être lisible directement dans le classement (omise à l'Érudition 0, où elle
+ * n'apporte aucune information). */
 function brainrunFloorText(item: any): string {
   if (!item) return "";
-  return item.isVictory ? "🏆 Victoire" : `Acte ${item.bestAct} · Étage ${item.bestRow}`;
+  if (!item.isVictory) return `Acte ${item.bestAct} · Étage ${item.bestRow}`;
+  return item.bestWonErudition > 0
+    ? `🏆 Victoire · ${brainrunEruditionLabel(item.bestWonErudition)}`
+    : "🏆 Victoire";
 }
 
 /** Sous-ligne : nombre de victoires pour les vainqueurs, sinon nombre de runs (critère de départage). */
