@@ -26,8 +26,15 @@ import {
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import {
+  getBrainrunEruditionEffects,
+  type BrainrunEruditionEffects,
+} from "#shared/brainrunErudition";
+import {
   BRAINRUN_BACKPACK_BONUS_SLOTS,
+  BRAINRUN_BOSS_HP_BY_ID,
+  BRAINRUN_BOSS_MAX_HP_BY_ACT,
   BRAINRUN_CONSOLATION_GOLD,
+  BRAINRUN_REST_HEAL,
   BRAINRUN_MAX_CONSECUTIVE_MONO_NODES,
   BRAINRUN_MAX_TARGET_DRIFT,
   BRAINRUN_ENEMY_THEME_BONUS_BY_ACT,
@@ -78,8 +85,34 @@ export function nextRowAfterClear(act: number, row: number): NextRowOutcome {
   return { kind: "RUN_WON" };
 }
 
-export function instantRoomHealthDelta(type: "REST" | "SHOP" | "EVENT"): number {
-  return type === "REST" ? 1 : 0;
+/** PV rendus par une salle instantanée. Seule la Bibliothèque (REST) soigne : 2 PV, moins le malus
+ * éventuel de l'Érudition (niveau IV, qui la ramène à 1). Plancher à 0 — un repos ne blesse jamais. */
+export function instantRoomHealthDelta(
+  type: "REST" | "SHOP" | "EVENT",
+  eruditionLevel: number = 0,
+): number {
+  if (type !== "REST") return 0;
+  const { restHealMalus } = getBrainrunEruditionEffects(eruditionLevel);
+  return Math.max(0, BRAINRUN_REST_HEAL - restHealMalus);
+}
+
+/**
+ * PV maximum d'un boss : sa valeur propre si elle est déclarée (BRAINRUN_BOSS_HP_BY_ID), sinon la
+ * référence de son acte, majorée du bonus de l'Érudition. Seul point de vérité des PV d'un boss —
+ * la résurrection du Phoenix doit lire les PV max déjà persistés sur la salle plutôt que rappeler
+ * cette fonction, pour rester cohérente même si l'équilibrage change en cours de run.
+ */
+export function brainrunBossMaxHp(
+  act: number,
+  bossId: string | null | undefined,
+  eruditionLevel: number = 0,
+): number {
+  const base =
+    (bossId ? BRAINRUN_BOSS_HP_BY_ID[bossId] : undefined) ??
+    BRAINRUN_BOSS_MAX_HP_BY_ACT[act] ??
+    BRAINRUN_BOSS_MAX_HP_BY_ACT[BRAINRUN_TOTAL_ACTS]!;
+  const { bossHpBonusPct } = getBrainrunEruditionEffects(eruditionLevel);
+  return Math.round(base * (1 + bossHpBonusPct / 100));
 }
 
 /** true dès que le temps imparti pour répondre à la question de boss est écoulé (+ bonus éventuel de la relique Chronomètre Brisé). */
@@ -194,6 +227,17 @@ export function applyRelicsToGold(baseGold: number, effects: BrainrunRelicEffect
 export function applyTalentsToGold(baseGold: number, talentEffects: BrainrunTalentEffects): number {
   if (baseGold <= 0 || talentEffects.goldGainPct === 0) return baseGold;
   return Math.round(baseGold * (1 + talentEffects.goldGainPct / 100));
+}
+
+/** Composé en dernier dans la chaîne d'or (reliques → talents → Érudition) : malus en % de
+ * l'Érudition, appliqué sur le gain déjà bonifié pour que les reliques/talents d'or restent utiles
+ * proportionnellement plutôt que d'être annulés. */
+export function applyEruditionToGold(
+  baseGold: number,
+  eruditionEffects: BrainrunEruditionEffects,
+): number {
+  if (baseGold <= 0 || eruditionEffects.goldMalusPct === 0) return baseGold;
+  return Math.round(baseGold * (1 - eruditionEffects.goldMalusPct / 100));
 }
 
 /** Composé par-dessus brainrunBossDamage (inchangée) : pas de bonus sur un coup raté. */
@@ -1534,12 +1578,17 @@ export type BrainrunRankRun = {
   status: string;
   currentAct: number;
   currentRow: number;
+  /** Niveau d'Érudition auquel la run a été jouée (cf. shared/brainrunErudition.ts). */
+  erudition: number;
   createDate: Date;
 };
 
 /** Entrée agrégée par joueur pour le classement Brainrun, déjà triée. */
 export type BrainrunRankEntry = {
   userId: string;
+  /** Plus haute Érudition à laquelle le joueur a GAGNÉ une run ; -1 s'il n'a jamais gagné (une
+   * victoire en Érudition 0 vaut donc 0, strictement au-dessus de « jamais gagné »). */
+  bestWonErudition: number;
   /** Meilleur étage global atteint (brainrunGlobalFloor). */
   bestFloor: number;
   bestAct: number;
@@ -1561,10 +1610,16 @@ export type BrainrunRankEntry = {
  * cette fonction pure ne connaît que les runs comptabilisées.
  *
  * Ordre :
- *  1. Étage max atteint décroissant — les vainqueurs (« Victoire ») sont toujours au-dessus.
- *  2. Entre vainqueurs : moins de runs jusqu'à la 1ʳᵉ victoire d'abord, puis plus de victoires.
- *  3. Hors vainqueurs (à étage égal) : moins de runs terminées d'abord.
- *  4. Départage final stable : userId.
+ *  1. Plus haute Érudition GAGNÉE, décroissante — le vrai critère de progression endgame. Un joueur
+ *     sans victoire n'en a aucune (-1) et passe donc après tous les vainqueurs, ce qui rend le
+ *     critère « Victoire » redondant au niveau supérieur (il reste utilisé pour l'affichage).
+ *  2. Étage max atteint décroissant.
+ *  3. Entre vainqueurs : moins de runs jusqu'à la 1ʳᵉ victoire d'abord, puis plus de victoires.
+ *  4. Hors vainqueurs (à étage égal) : moins de runs terminées d'abord.
+ *  5. Départage final stable : userId.
+ *
+ * À Érudition égale, l'ordre relatif est donc exactement celui d'avant l'ajout de l'échelle — les
+ * joueurs qui n'ont jamais gagné ne voient aucun changement de classement.
  */
 export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[] {
   const byUser = new Map<string, BrainrunRankRun[]>();
@@ -1585,6 +1640,7 @@ export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[
     let bestRow = 1;
     let victoryCount = 0;
     let runsToFirstVictory = Number.POSITIVE_INFINITY;
+    let bestWonErudition = -1;
 
     chronological.forEach((run, index) => {
       const floor = brainrunGlobalFloor(run.currentAct, run.currentRow);
@@ -1599,6 +1655,10 @@ export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[
       }
       if (isWin) {
         victoryCount++;
+        // `?? 0` : une run sans niveau explicite vaut Érudition 0. Sans ce filet, un champ absent
+        // propagerait un NaN qui rendrait TOUTES les comparaisons du tri fausses, pas seulement
+        // celle de ce joueur.
+        bestWonErudition = Math.max(bestWonErudition, run.erudition ?? 0);
         if (runsToFirstVictory === Number.POSITIVE_INFINITY) {
           runsToFirstVictory = index + 1;
         }
@@ -1607,6 +1667,7 @@ export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[
 
     entries.push({
       userId,
+      bestWonErudition,
       bestFloor,
       bestAct,
       bestRow,
@@ -1618,6 +1679,9 @@ export function rankBrainrunPlayers(runs: BrainrunRankRun[]): BrainrunRankEntry[
   }
 
   entries.sort((a, b) => {
+    // Critère principal : l'Érudition la plus haute à laquelle on a gagné (-1 = jamais gagné, donc
+    // toujours en dessous de tous les vainqueurs).
+    if (a.bestWonErudition !== b.bestWonErudition) return b.bestWonErudition - a.bestWonErudition;
     if (a.isVictory && b.isVictory) {
       if (a.runsToFirstVictory !== b.runsToFirstVictory) {
         return a.runsToFirstVictory - b.runsToFirstVictory;

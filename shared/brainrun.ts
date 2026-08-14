@@ -223,6 +223,9 @@ export type BrainrunRunDTO = {
   currentRow: number;
   /** Colonne du nœud actif dans currentRow ; null tant qu'aucun choix n'a été fait sur cette rangée. */
   currentCol: number | null;
+  /** Niveau d'Érudition (degré de difficulté) de cette run, figé à sa création ; 0 = équilibrage
+   * standard (cf. shared/brainrunErudition.ts). */
+  erudition: number;
   healthPoint: number;
   maxHealthPoint: number;
   gold: number;
@@ -296,6 +299,9 @@ export type BrainrunStateDTO = {
 /** Réponse de GET /api/brainrun/meta : progression metagame persistante du joueur. */
 export type BrainrunMetaProgressDTO = {
   knowledgePoints: number;
+  /** Plus haut niveau d'Érudition jouable (cf. shared/brainrunErudition.ts) : borne du sélecteur de
+   * difficulté du lobby. 0 tant que le joueur n'a jamais gagné de run. */
+  maxEruditionUnlocked: number;
   unlockedTalents: BrainrunTalentId[];
   /** Reliques/consommables déjà obtenus au moins une fois, toutes runs confondues (glossaire). */
   discoveredRelics: BrainrunRelicId[];

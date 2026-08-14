@@ -88,9 +88,38 @@ Le malus de flux le plus complexe du système : à chaque étape, l'énoncé aff
 
 **Antidote** (`MALUS_CANCEL`) : `activeBossMalus` redevient `undefined` quand `reveal.malusCancelled` est vrai (comportement déjà existant, réutilisé tel quel) — pour cette seule question, l'énoncé ET les propositions affichés redeviennent ceux de la même question (pairage normal). Piège déjà rencontré et corrigé : l'énoncé de la question **suivante** n'est alors jamais montré (l'Antidote a affiché celui de la question validée à la place) — sans traitement particulier, l'étape d'après afficherait des réponses à valider dont le joueur n'a jamais vu l'énoncé. `isAlainMemoryIntro` a donc été généralisé : il n'est plus vrai uniquement à `responsesCount === 0`, mais dès que `questionIds.length - responsesCount <= 1` (le tampon d'avance est retombé à 1, faute d'avoir tiré la question suivante). `submitAnswer` orchestre ça via `requiredLead` : `2` en temps normal pour Alain, `1` si `reveal.malusCancelled` était vrai sur la réponse qu'on traite — ce qui laisse volontairement le tampon retomber à 1, et la prochaine réévaluation d'état retombe alors naturellement sur `isAlainMemoryIntro` pour donner à cette question son propre décompte de mémorisation avant de devenir validable. Toute la mécanique de décompte/révélation (`prepareNextBossQuestion`, `toRoomDTO`, `buildState`) est déjà générique sur cette condition et n'a donc pas eu besoin de changement pour ce cas — seul `BrainrunQuestionRunner.vue` (`nextQuestion`) a dû être élargi pour déclencher `readyNextBossQuestion()` aussi quand seul `previewQuestion` existe (pas `currentQuestion`), sans quoi le décompte ne démarrait jamais.
 
+## PV des boss (rééquilibrage du 2026-08-13)
+
+Avant cette date, les 9 boss partageaient un **forfait unique de 100 PV**, acte 1 comme acte 3 — une
+réponse instantanée infligeant jusqu'à 50 dégâts (+ bonus de reliques), un boss tombait en 3 réponses
+rapides. Désormais les PV sont calculés par `brainrunBossMaxHp(act, bossId, erudition)`
+(`brainrunLogic.ts`), **seul point de vérité** :
+
+1. la valeur propre du boss si elle est déclarée dans `BRAINRUN_BOSS_HP_BY_ID` (`brainrunConfig.ts`),
+2. sinon la référence de son acte, `BRAINRUN_BOSS_MAX_HP_BY_ACT` = **140 / 180 / 220** (7 / 9 / 11
+   coups à dégâts de base),
+3. le tout majoré du bonus d'Érudition (`bossHpBonusPct`, cf. `erudition.md`).
+
+Valeurs propres actuelles : **Flash 160** (son chrono qui rétrécit fait déjà baisser les dégâts par
+coup, ce qui allonge le combat) et **Le Phoenix 150** (150 + 75 + 37 = 262 PV cumulés sur ses trois
+phases). **The Rock n'en a volontairement pas** : encaisser deux fois moins de dégâts avec les
+140 PV pleins de son acte est précisément son identité, un combat long.
+
+Le talent **Faille d'Entrée** (`bossHpReductionPct`) reste un pourcentage appliqué **après** ce
+calcul, dans `resolveNodeChoice` ; il réduit à la fois `bossHealthPoint` et `bossMaxHealthPoint`.
+
+### ⚠️ Toujours lire les PV max persistés, jamais la config
+
+`BrainrunRoom.bossMaxHealthPoint` est la seule valeur cohérente avec la barre de vie affichée au
+joueur (elle intègre acte, boss, Érudition et Faille d'Entrée). Bug corrigé le 2026-08-13 : la
+résurrection du Phoenix (`prepareNextBossQuestion`) recalculait ses 50 %/25 % depuis l'ancienne
+constante globale `BRAINRUN_BOSS_MAX_HP` — inoffensif tant que tous les boss avaient 100 PV, faux dès
+que la valeur varie. Tout nouveau calcul de PV de boss en cours de combat doit lire
+`bossMaxHealthPoint`, avec `brainrunBossMaxHp` comme seul filet si le champ est absent.
+
 ## Mécanique de combat contre-la-montre
 
-- PV du boss : `BRAINRUN_BOSS_MAX_HP` = 5 × `BRAINRUN_BOSS_BASE_DAMAGE` = 5 × 20 = 100.
+- PV du boss : voir la section ci-dessus (`brainrunBossMaxHp`).
 - Chrono par question : `BRAINRUN_BOSS_QUESTION_TIME_MS` = 15 000ms (allongé de 10s à 15s pour compenser le passage à une décroissance continue plutôt que par paliers).
 - Dégâts d'une réponse correcte : `brainrunPotentialBossDamage(elapsedMs)` décroît **linéairement** de `BRAINRUN_BOSS_BASE_DAMAGE × BRAINRUN_BOSS_FAST_DAMAGE_MULTIPLIER` (20×2.5=50, réponse immédiate) à 0 (temps écoulé) — pas de palier fixe. Fonction partagée client/serveur (`shared/brainrun.ts`) : le client l'utilise pour l'aperçu pendant le combat, le serveur pour le calcul réel.
 - Réponse incorrecte = 0 dégât. Timeout (`isBossAnswerTimedOut`) = échec forcé côté serveur **quelle que soit la réponse envoyée par le client** — ne jamais faire confiance à une réponse client après le délai.
@@ -100,7 +129,7 @@ Le malus de flux le plus complexe du système : à chaque étape, l'énoncé aff
 
 ## Résurrection du Phoenix (`phoenix_revive`)
 
-Cas spécial le plus complexe du système de boss : à 0 PV, le combat **ne se termine pas** immédiatement pour les 2 premières fois (`activeRoom.bossPhase < 2`). La vraie résurrection (PV remontés à 50% puis 25% de `BRAINRUN_BOSS_MAX_HP`, `bossPhase` incrémenté) n'a lieu qu'au clic sur "Continuer" (`prepareNextBossQuestion`), pas dans `submitAnswer` — pour laisser au joueur le temps de croire qu'il a gagné avant l'animation de résurrection côté client. `submitAnswer` marque juste `bossRevived: true` sur la réponse pour signaler l'UI.
+Cas spécial le plus complexe du système de boss : à 0 PV, le combat **ne se termine pas** immédiatement pour les 2 premières fois (`activeRoom.bossPhase < 2`). La vraie résurrection (PV remontés à 50% puis 25% de `activeRoom.bossMaxHealthPoint` — les PV max **réels** de la salle, pas une constante globale, cf. le piège plus haut ; `bossPhase` incrémenté) n'a lieu qu'au clic sur "Continuer" (`prepareNextBossQuestion`), pas dans `submitAnswer` — pour laisser au joueur le temps de croire qu'il a gagné avant l'animation de résurrection côté client. `submitAnswer` marque juste `bossRevived: true` sur la réponse pour signaler l'UI.
 
 ## Si tu ajoutes un ennemi/élite/boss
 

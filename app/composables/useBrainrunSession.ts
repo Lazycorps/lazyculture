@@ -263,11 +263,18 @@ export const useBrainrunSession = () => {
     }
   }
 
-  async function startNewRun() {
+  /** `erudition` = niveau de difficulté demandé (0 = standard) ; le serveur le re-borne au niveau
+   * réellement débloqué par le joueur. */
+  async function startNewRun(erudition: number = 0) {
     const { authFetch } = useAuthFetch();
     loading.value = true;
     try {
-      applyState(await authFetch<BrainrunStateDTO>("/api/brainrun/new", { method: "post" }));
+      applyState(
+        await authFetch<BrainrunStateDTO>("/api/brainrun/new", {
+          method: "post",
+          body: { erudition },
+        }),
+      );
     } finally {
       loading.value = false;
     }
@@ -286,6 +293,7 @@ export const useBrainrunSession = () => {
     maxHealthPoint?: number;
     gold?: number;
     themeCoefficients?: Record<string, number>;
+    erudition?: number;
   }) {
     if (!run.value) return;
     const { authFetch } = useAuthFetch();

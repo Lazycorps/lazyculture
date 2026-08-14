@@ -29,6 +29,7 @@ Carte des ~50 fichiers par couche. Les catalogues de contenu et les constantes d
 - `shared/brainrunBosses.ts` — `BRAINRUN_BOSSES` (9 boss nommés, 3 par acte, malus, thèmes)
 - `shared/brainrunItems.ts` — `BRAINRUN_RELICS`, `BRAINRUN_CONSUMABLES`, `BRAINRUN_EVENTS`, types d'offre (`BrainrunOffer`)
 - `shared/brainrunTalents.ts` — `BRAINRUN_TALENTS` (métagame)
+- `shared/brainrunErudition.ts` — `BRAINRUN_ERUDITION_LADDER` (degrés de difficulté) + son agrégation `getBrainrunEruditionEffects`, cf. `erudition.md`
 
 ## Logique pure (testable, sans accès DB)
 

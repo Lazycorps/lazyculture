@@ -8,6 +8,12 @@ export type BrainrunResponseDTO = {
   userResponseId: number;
 };
 
+/** Corps (optionnel) de POST /api/brainrun/new : niveau d'Érudition demandé pour la nouvelle run.
+ * Absent ou 0 = équilibrage standard. Toujours re-borné au niveau réellement débloqué côté serveur. */
+export type BrainrunNewRunDTO = {
+  erudition?: number;
+};
+
 /** col = colonne du nœud choisi sur la rangée courante (run.currentRow), parmi candidateCols. */
 export type BrainrunChoiceDTO = {
   runId: string;
@@ -63,6 +69,9 @@ export type BrainrunDebugSetStatsDTO = {
   maxHealthPoint?: number;
   gold?: number;
   themeCoefficients?: Record<string, number>;
+  /** Niveau d'Érudition appliqué à chaud à la run en cours, pour tester un modificateur sans
+   * enchaîner les victoires nécessaires à son déblocage (cf. references/erudition.md). */
+  erudition?: number;
 };
 
 /** Debug uniquement : téléporte la run vers un nœud précis (must be PENDING), en forçant

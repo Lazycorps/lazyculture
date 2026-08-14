@@ -261,10 +261,36 @@ export const BRAINRUN_INSTANT_ROOM_TYPES: BrainrunRoomType[] = ["REST", "SHOP", 
 /** Types de salle "de combat", avec des questions, de l'or et de l'XP. */
 export const BRAINRUN_COMBAT_ROOM_TYPES: BrainrunRoomType[] = ["STANDARD", "ELITE", "BOSS"];
 
-/** Nombre de coups à dégâts de base pour vaincre le boss (calibrage des PV) ; le combat n'est
- * jamais limité en nombre de questions, ce chiffre est indicatif du rythme attendu. */
-const BRAINRUN_BOSS_BASE_HIT_COUNT = 5;
-export const BRAINRUN_BOSS_MAX_HP = BRAINRUN_BOSS_BASE_HIT_COUNT * BRAINRUN_BOSS_BASE_DAMAGE;
+/** PV de référence d'un boss selon son acte, exprimés en coups à dégâts de base
+ * (BRAINRUN_BOSS_BASE_DAMAGE = 20) : 7 / 9 / 11 coups. Le combat n'est jamais limité en nombre de
+ * questions, ces chiffres sont indicatifs du rythme attendu — une bonne réponse rapide inflige
+ * jusqu'à 50 dégâts, donc un combat réel tourne plutôt autour de 5-7 bonnes réponses.
+ *
+ * Remplace l'ancien forfait unique de 100 PV, identique de l'acte 1 à l'acte 3, qui laissait tomber
+ * un boss en 3 réponses rapides une fois le joueur équipé de reliques offensives. */
+const BRAINRUN_BOSS_BASE_HIT_COUNT_BY_ACT: Record<number, number> = { 1: 7, 2: 9, 3: 11 };
+export const BRAINRUN_BOSS_MAX_HP_BY_ACT: Record<number, number> = Object.fromEntries(
+  Object.entries(BRAINRUN_BOSS_BASE_HIT_COUNT_BY_ACT).map(([act, hits]) => [
+    Number(act),
+    hits * BRAINRUN_BOSS_BASE_DAMAGE,
+  ]),
+);
+
+/** PV propres à certains boss, quand leur malus change à ce point la durée réelle du combat que la
+ * référence de leur acte ne convient pas. Un boss absent de cette table utilise
+ * BRAINRUN_BOSS_MAX_HP_BY_ACT (cf. brainrunBossMaxHp dans brainrunLogic.ts).
+ *
+ * - Flash (speed_reduction) : son chrono qui rétrécit fait déjà baisser les dégâts par coup au fil
+ *   du combat, ce qui l'allonge mécaniquement.
+ * - Le Phoenix (phoenix_revive) : ressuscite à 50 % puis 25 %, soit 150 + 75 + 37 = 262 PV cumulés
+ *   sur trois phases — au-dessus de la référence d'acte, mais découpé en combats plus courts.
+ *
+ * The Rock (damage_resist) n'y figure volontairement PAS : encaisser deux fois moins de dégâts avec
+ * les PV pleins de son acte est précisément son identité, un combat long. */
+export const BRAINRUN_BOSS_HP_BY_ID: Record<string, number> = {
+  act2_flash: 160,
+  act3_le_phoenix: 150,
+};
 
 /** Pièces (monnaie transverse UserWallet) gagnées à chaque Boss d'acte vaincu, indexé par
  * acte-1 : acte 1 = 5, acte 2 = +10 (15 cumulé), acte 3/victoire = +25 (40 cumulé sur une run
@@ -274,6 +300,11 @@ export const BRAINRUN_COINS_PER_ACT = [5, 10, 25];
 /** Plafond de pièces gagnables par jour via les paliers d'acte Brainrun, réinitialisé au même
  * changement de jour (heure locale serveur) que le Daily quiz. */
 export const BRAINRUN_DAILY_COIN_CAP = 100;
+
+/** PV rendus par la Bibliothèque (salle REST). Monté de 1 à 2 en même temps que l'ajout de
+ * l'Érudition : à 1 PV, ce repos garanti avant le boss était trop tiède pour que le niveau IV
+ * (qui le ramène à 1) retire quelque chose de réel au joueur. */
+export const BRAINRUN_REST_HEAL = 2;
 
 /** Or gagné en cliquant "Passer" sur le bonus post-combat (relique Lot de Consolation). */
 export const BRAINRUN_CONSOLATION_GOLD = 15;

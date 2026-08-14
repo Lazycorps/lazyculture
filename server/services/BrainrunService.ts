@@ -10,6 +10,7 @@ import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 import { dailyRewardService } from "./DailyRewardService";
 import {
   applyBossMalusToDamage,
+  applyEruditionToGold,
   applyRelicsToBossDamage,
   applyRelicsToGold,
   applyTalentsToGold,
@@ -17,6 +18,7 @@ import {
   assignEventIdentities,
   bossQuestionTimeMsWithRelics,
   brainrunBossDamage,
+  brainrunBossMaxHp,
   brainrunGlobalFloor,
   buildCombatThemeWeights,
   calculBrainrunUserXP,
@@ -55,12 +57,12 @@ import {
   grantKnowledgePoints,
   recordConsumableDiscovery,
   recordRelicDiscovery,
+  unlockErudition,
   unlockTalent as unlockTalentPersist,
 } from "~~/server/utils/brainrunMetaHelper";
 import {
   BRAINRUN_ABSOLUTE_MAX_HP,
   BRAINRUN_BASE_CONSUMABLE_SLOTS,
-  BRAINRUN_BOSS_MAX_HP,
   BRAINRUN_COINS_PER_ACT,
   BRAINRUN_COMBAT_ROOM_TYPES,
   BRAINRUN_CULTURE_GENERALE_DIFFICULTY_BY_ACT,
@@ -102,6 +104,7 @@ import {
 } from "#shared/brainrunBosses";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 import { BRAINRUN_ALAIN_INTRO_MS } from "#shared/brainrun";
+import { BRAINRUN_MAX_ERUDITION, getBrainrunEruditionEffects } from "#shared/brainrunErudition";
 import type {
   BrainrunEventOutcomeDTO,
   BrainrunMapNodeDTO,
@@ -140,12 +143,12 @@ export class BrainrunService {
     return this.buildState(lastRun);
   }
 
-  async startNewRun(userId: string): Promise<BrainrunStateDTO> {
+  async startNewRun(userId: string, erudition: number = 0): Promise<BrainrunStateDTO> {
     await this.abandonRun(userId);
-    return this.createRun(userId);
+    return this.createRun(userId, erudition);
   }
 
-  private async createRun(userId: string): Promise<BrainrunStateDTO> {
+  private async createRun(userId: string, erudition: number = 0): Promise<BrainrunStateDTO> {
     const metaProgress = await getMetaProgress(userId);
     const talentEffects = getActiveTalentEffects(metaProgress.unlockedTalents);
     // Talents Premier Trésor/Kit de Départ : démarrent la run avec 1 relique commune/1
@@ -158,6 +161,17 @@ export class BrainrunService {
       : null;
     const startHealthPoint = BRAINRUN_START_HP + talentEffects.bonusStartHp;
     const startMaxHealthPoint = BRAINRUN_MAX_HP + talentEffects.bonusStartHp;
+    // Niveau d'Érudition : borné au niveau réellement débloqué par le joueur, jamais fait confiance
+    // au client. Le mode debug est le seul moyen d'aller au-delà (debugSetStats), et il marque
+    // alors la run isDebugRun, donc hors classement.
+    const runErudition = Math.max(
+      0,
+      Math.min(
+        Math.floor(erudition || 0),
+        metaProgress.maxEruditionUnlocked,
+        BRAINRUN_MAX_ERUDITION,
+      ),
+    );
     // Anti-répétition inter-runs : figée une fois pour toute la run à sa création (cf.
     // BRAINRUN_THEME_COEFFICIENTS_PLAN.md). abandonRun a déjà persisté l'éventuelle run précédente,
     // donc elle compte bien parmi les « 2 dernières runs ».
@@ -165,6 +179,7 @@ export class BrainrunService {
     const created = await prisma.brainrunRun.create({
       data: {
         userId,
+        erudition: runErudition,
         healthPoint: startHealthPoint,
         maxHealthPoint: startMaxHealthPoint,
         gold: talentEffects.bonusStartGold,
@@ -294,6 +309,7 @@ export class BrainrunService {
     const choice = node.type as BrainrunRoomType;
     const effects = getActiveRelicEffects(run.relics);
     const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const eruditionEffects = getBrainrunEruditionEffects(run.erudition);
 
     if (choice === "NEUTRAL") {
       // Nœud de démarrage cosmétique (rangée 1 de l'acte 1 uniquement, cf. references/map.md) :
@@ -324,7 +340,9 @@ export class BrainrunService {
             run.relics,
             Math.random,
             talentEffects.rareRelicWeightBonus,
-            effects.shopPriceMultiplier,
+            // Marchandeur (relique, remise) et Érudition (majoration) se composent sur le même
+            // multiplicateur de prix plutôt que de s'écraser l'un l'autre.
+            effects.shopPriceMultiplier * (1 + eruditionEffects.shopPriceBonusPct / 100),
           ),
         },
       });
@@ -346,7 +364,12 @@ export class BrainrunService {
       const [minDifficulty, maxDifficulty] = BRAINRUN_DIFFICULTY_BY_COMBAT_TYPE[combatType]!;
       // Le combat de boss n'a pas de nombre de questions fixe : on n'en tire qu'une seule ici,
       // les suivantes sont générées à la volée dans submitAnswer tant que le boss n'est pas à 0 PV.
-      const count = combatType === "BOSS" ? 1 : BRAINRUN_QUESTIONS_PER_ROOM[combatType];
+      // L'Érudition allonge les salles Élite (et elles seules).
+      const count =
+        combatType === "BOSS"
+          ? 1
+          : BRAINRUN_QUESTIONS_PER_ROOM[combatType] +
+            (combatType === "ELITE" ? eruditionEffects.eliteQuestionBonus : 0);
 
       // L'ennemi/boss du nœud a déjà été fixé à la génération de la carte (cf. seedActGraph/
       // assignCombatIdentities), pour que la relique Prévoyance montre le vrai ennemi qu'on va
@@ -412,11 +435,13 @@ export class BrainrunService {
         effects,
         run.fiftyFiftyCharges,
       );
-      // Talent Faille d'Entrée : le boss démarre le combat avec un pourcentage de PV en moins.
+      // PV du boss : sa valeur propre (ou celle de son acte), majorée par l'Érudition ; le talent
+      // Faille d'Entrée retire ensuite un pourcentage, pour démarrer le combat entamé.
+      const bossMaxHp = brainrunBossMaxHp(run.currentAct, bossId, run.erudition);
       const bossStartHp =
         combatType === "BOSS" && talentEffects.bossHpReductionPct > 0
-          ? Math.round(BRAINRUN_BOSS_MAX_HP * (1 - talentEffects.bossHpReductionPct / 100))
-          : BRAINRUN_BOSS_MAX_HP;
+          ? Math.round(bossMaxHp * (1 - talentEffects.bossHpReductionPct / 100))
+          : bossMaxHp;
 
       if (combatType === "BOSS" && run.currentAct === 1) {
         await dailyRewardService.incrementQuestProgress(userId, "PLAY_BRAINRUN", 1);
@@ -476,6 +501,7 @@ export class BrainrunService {
       maxHealthPoint?: number;
       gold?: number;
       themeCoefficients?: Record<string, number>;
+      erudition?: number;
     },
   ): Promise<BrainrunStateDTO> {
     await assertDebugAccess(userId);
@@ -490,6 +516,15 @@ export class BrainrunService {
         ? Math.max(1, Math.min(maxHealthPoint, Math.round(patch.healthPoint)))
         : Math.min(run.healthPoint, maxHealthPoint);
     const gold = patch.gold !== undefined ? Math.max(0, Math.round(patch.gold)) : run.gold;
+    // Érudition : seul chemin permettant de dépasser le niveau réellement débloqué (le sélecteur du
+    // lobby, lui, reste plafonné). C'est précisément pour ça qu'il passe par le debug, qui marque la
+    // run isDebugRun et la sort donc du classement. Les modificateurs déjà consommés plus tôt dans
+    // la run (PV d'un boss en cours, offres de Boutique générées) ne sont pas recalculés
+    // rétroactivement : changer de niveau vaut pour la suite de la run.
+    const erudition =
+      patch.erudition !== undefined
+        ? Math.max(0, Math.min(BRAINRUN_MAX_ERUDITION, Math.round(patch.erudition)))
+        : run.erudition;
 
     // Fusion des coefficients fournis dans ceux de la run (un coef ≤ 0 retire le thème) ; laissés
     // intacts si le patch n'en fournit pas.
@@ -508,7 +543,7 @@ export class BrainrunService {
       // isDebugRun : marque la run une fois pour toutes (jamais réinitialisé) — bloque XP/pièces/
       // Points de Savoir et l'incrémentation des achievements en fin de run, cf. finalizeRun/
       // advanceAfterRoomClear/abandonRun.
-      data: { healthPoint, maxHealthPoint, gold, themeCoefficients, isDebugRun: true },
+      data: { healthPoint, maxHealthPoint, gold, themeCoefficients, erudition, isDebugRun: true },
     });
     return this.getStateById(runId);
   }
@@ -694,13 +729,15 @@ export class BrainrunService {
     // Bonus de temps total : relique Chronomètre Brisé (permanent) + talents Réflexes
     // Affûtés/Répit Prolongé (permanent) + Sang-Froid (si 1 PV restant) + Sablier Fêlé
     // (consommable, une seule question) + malus Flash (négatif, rétrécit le temps imparti au fil
-    // du combat).
+    // du combat) + Érudition (négatif, retire du temps à chacune des questions du combat).
+    const eruditionEffects = getBrainrunEruditionEffects(run.erudition);
     const bonusTimeMs =
       effects.bossTimeBonusMs +
       talentEffects.bonusBossTimeMs +
       (isLastStand ? talentEffects.bonusBossTimeAtLowHpMs : 0) +
       (reveal.chronoBonusMs ?? 0) +
-      flashMalusBonusTimeMs(bossDef?.malus, responses.length, reveal.malusCancelled);
+      flashMalusBonusTimeMs(bossDef?.malus, responses.length, reveal.malusCancelled) -
+      eruditionEffects.bossTimeMalusMs;
     // Talent Premier Souffle : la 1re réponse soumise dans un combat de boss n'a plus de limite
     // de temps (les dégâts potentiels peuvent quand même descendre à 0, cf.
     // brainrunPotentialBossDamage) — fonctionne nativement avec Alain (memory_recall) car
@@ -787,7 +824,12 @@ export class BrainrunService {
       newResponses[newResponses.length - 1]!.extraLifeUsed = true;
     }
     const newBossHealthPoint = isBossRoom
-      ? Math.max((activeRoom.bossHealthPoint ?? BRAINRUN_BOSS_MAX_HP) - bossDamage, 0)
+      ? Math.max(
+          (activeRoom.bossHealthPoint ??
+            activeRoom.bossMaxHealthPoint ??
+            brainrunBossMaxHp(run.currentAct, activeRoom.bossId, run.erudition)) - bossDamage,
+          0,
+        )
       : null;
     // Le Phoenix (malus "phoenix_revive") ne meurt pas aux 2 premières mises à 0 : le combat
     // continue comme si le boss n'était pas vaincu (la vraie résurrection — remontée des PV +
@@ -808,11 +850,16 @@ export class BrainrunService {
     // que lorsque le boss est vaincu (bossDefeated) ou que le joueur meurt.
     const roomQuestionsDone = !isBossRoom && newResponses.length === activeRoom.questionIds.length;
 
-    // Un Boss vaincu régénère intégralement les PV, pour repartir à plein sur l'acte suivant.
-    const healthPointAfterCombat = bossDefeated ? run.maxHealthPoint : Math.max(newHealthPoint, 0);
-    // Spécialisation : chance de récupérer 1 PV de plus à la fin d'un combat gagné (jamais utile
-    // sur un Boss vaincu, qui régénère déjà tous les PV) ; signalé sur la dernière réponse pour
-    // que le client puisse afficher un bref effet visuel avant le récap de fin de salle.
+    // Un Boss vaincu régénère intégralement les PV, pour repartir à plein sur l'acte suivant —
+    // sauf à partir de l'Érudition IX, qui supprime ce soin gratuit entre les actes.
+    const healthPointAfterCombat =
+      bossDefeated && !eruditionEffects.disablesBossHeal
+        ? run.maxHealthPoint
+        : Math.max(newHealthPoint, 0);
+    // Spécialisation : chance de récupérer 1 PV de plus à la fin d'un combat gagné (sans effet sur
+    // un Boss vaincu qui régénère déjà tous les PV — mais utile à partir de l'Érudition IX, où ce
+    // soin de boss disparaît) ; signalé sur la dernière réponse pour que le client puisse afficher
+    // un bref effet visuel avant le récap de fin de salle.
     const combatCleared = !died && (bossDefeated || roomQuestionsDone);
     const specializationHealTriggered =
       combatCleared &&
@@ -854,9 +901,13 @@ export class BrainrunService {
       });
       await this.finalizeRun(run.id, "LOST");
     } else if (bossDefeated || roomQuestionsDone) {
-      const goldEarned = applyTalentsToGold(
-        applyRelicsToGold(BRAINRUN_GOLD_BY_ROOM_TYPE[activeRoom.type as CombatRoomType], effects),
-        talentEffects,
+      // Chaîne d'or : base du type de salle → reliques → talents → Érudition (retrait, en dernier).
+      const goldEarned = applyEruditionToGold(
+        applyTalentsToGold(
+          applyRelicsToGold(BRAINRUN_GOLD_BY_ROOM_TYPE[activeRoom.type as CombatRoomType], effects),
+          talentEffects,
+        ),
+        eruditionEffects,
       );
       // Bonus post-combat (relique/consommable au choix) uniquement après Elite/Boss —
       // les salles Standard ne rapportent que de l'or, pour garder Elite/Boss comme temps forts.
@@ -1037,7 +1088,7 @@ export class BrainrunService {
       if (
         offer.kind === "CONSUMABLE" &&
         this.usedConsumableSlots((run.consumables as ConsumableCounts) ?? {}) >=
-          this.maxConsumableSlots(run.relics)
+          this.maxConsumableSlots(run.relics, run.erudition)
       ) {
         throw createError({ statusCode: 409, statusMessage: "Inventaire de consommables plein." });
       }
@@ -1069,6 +1120,12 @@ export class BrainrunService {
    * Theme) sont naturellement écartés. La logique pure de tirage/rareté est generateThemeCards.
    */
   private async generateThemeCardOffer(run: BrainrunRunRow): Promise<BrainrunThemeCardDTO[]> {
+    // L'Érudition réduit le nombre de cartes proposées (jamais en dessous d'une seule : à 0, le
+    // joueur ne pourrait plus investir de coefficient du tout).
+    const cardCount = Math.max(
+      1,
+      BRAINRUN_THEME_CARD_COUNT + getBrainrunEruditionEffects(run.erudition).themeCardCountDelta,
+    );
     const allEnemyThemes = [
       ...new Set([
         ...BRAINRUN_ENEMIES.flatMap((e) => e.themes),
@@ -1078,7 +1135,7 @@ export class BrainrunService {
     const banned = new Set(run.bannedThemes);
     const excluded = new Set(run.excludedCardThemes);
     let eligible = allEnemyThemes.filter((t) => !banned.has(t) && !excluded.has(t));
-    if (eligible.length < BRAINRUN_THEME_CARD_COUNT) {
+    if (eligible.length < cardCount) {
       eligible = allEnemyThemes.filter((t) => !banned.has(t));
     }
     const coefficients = (run.themeCoefficients as Record<string, number>) ?? {};
@@ -1107,13 +1164,7 @@ export class BrainrunService {
     const investedCandidates = investedThemes
       .map((slug) => metaBySlug.get(slug))
       .filter((m): m is { slug: string; name: string; image: string } => m !== undefined);
-    return generateThemeCards(
-      candidates,
-      coefficients,
-      BRAINRUN_THEME_CARD_COUNT,
-      Math.random,
-      investedCandidates,
-    );
+    return generateThemeCards(candidates, coefficients, cardCount, Math.random, investedCandidates);
   }
 
   /**
@@ -1193,7 +1244,7 @@ export class BrainrunService {
     if (
       offer.kind === "CONSUMABLE" &&
       this.usedConsumableSlots((run.consumables as ConsumableCounts) ?? {}) >=
-        this.maxConsumableSlots(run.relics)
+        this.maxConsumableSlots(run.relics, run.erudition)
     ) {
       throw createError({ statusCode: 409, statusMessage: "Inventaire de consommables plein." });
     }
@@ -1283,7 +1334,7 @@ export class BrainrunService {
     if (choice === "HEAL") {
       const newHealthPoint = Math.min(
         run.maxHealthPoint,
-        run.healthPoint + instantRoomHealthDelta("REST"),
+        run.healthPoint + instantRoomHealthDelta("REST", run.erudition),
       );
       await prisma.brainrunRun.update({
         where: { id: run.id },
@@ -1585,7 +1636,7 @@ export class BrainrunService {
       // Plafond d'emplacements : les tirages qui ne rentrent plus sont perdus (comme grantConsumable).
       let roomAvailable = Math.max(
         0,
-        this.maxConsumableSlots(run.relics) - this.usedConsumableSlots(updated),
+        this.maxConsumableSlots(run.relics, run.erudition) - this.usedConsumableSlots(updated),
       );
       for (const grantedId of pickRandomStashConsumables()) {
         if (roomAvailable <= 0) break;
@@ -1917,11 +1968,17 @@ export class BrainrunService {
     return { reveal, fiftyFiftyConsumed };
   }
 
-  /** Plafond d'emplacements de consommables (3 de base, +2 avec la relique Sac à Dos) : chaque
-   * exemplaire obtenu prend son propre emplacement, les identiques ne se stackent pas en un
-   * compteur illimité (cf. shared/brainrun.ts consumables). */
-  private maxConsumableSlots(relics: string[]): number {
-    return BRAINRUN_BASE_CONSUMABLE_SLOTS + getActiveRelicEffects(relics).bonusConsumableSlots;
+  /** Plafond d'emplacements de consommables (3 de base, +2 avec la relique Sac à Dos, −1 à partir
+   * de l'Érudition X) : chaque exemplaire obtenu prend son propre emplacement, les identiques ne se
+   * stackent pas en un compteur illimité (cf. shared/brainrun.ts consumables). Plancher à 1 : à 0,
+   * plus aucun consommable ne serait ramassable et les offres correspondantes deviendraient mortes. */
+  private maxConsumableSlots(relics: string[], erudition: number): number {
+    return Math.max(
+      1,
+      BRAINRUN_BASE_CONSUMABLE_SLOTS +
+        getActiveRelicEffects(relics).bonusConsumableSlots -
+        getBrainrunEruditionEffects(erudition).consumableSlotMalus,
+    );
   }
 
   private usedConsumableSlots(consumables: ConsumableCounts): number {
@@ -1941,7 +1998,7 @@ export class BrainrunService {
     const consumables = (run.consumables as ConsumableCounts) ?? {};
     const roomAvailable = Math.max(
       0,
-      this.maxConsumableSlots(run.relics) - this.usedConsumableSlots(consumables),
+      this.maxConsumableSlots(run.relics, run.erudition) - this.usedConsumableSlots(consumables),
     );
     const grantedAmount = Math.min(amount, roomAvailable);
     if (grantedAmount <= 0) return;
@@ -1987,8 +2044,13 @@ export class BrainrunService {
           ...(activeRoom.questionStartedAt === null ? { questionStartedAt: new Date() } : {}),
           ...(pendingRevive
             ? {
+                // 50 % puis 25 % des PV max RÉELS de cette salle (déjà persistés) : depuis que les
+                // PV varient par boss/acte/Érudition, repartir de la constante globale donnerait des
+                // résurrections décorrélées de la barre de vie affichée au joueur.
                 bossHealthPoint: Math.round(
-                  BRAINRUN_BOSS_MAX_HP * (activeRoom.bossPhase === 0 ? 0.5 : 0.25),
+                  (activeRoom.bossMaxHealthPoint ??
+                    brainrunBossMaxHp(activeRoom.act, activeRoom.bossId, run.erudition)) *
+                    (activeRoom.bossPhase === 0 ? 0.5 : 0.25),
                 ),
                 bossPhase: activeRoom.bossPhase + 1,
               }
@@ -2040,6 +2102,7 @@ export class BrainrunService {
     const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
+      maxEruditionUnlocked: progress.maxEruditionUnlocked,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
       discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
       discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
@@ -2063,6 +2126,7 @@ export class BrainrunService {
     const runStats = await this.getRunStats(userId);
     return {
       knowledgePoints: progress.knowledgePoints,
+      maxEruditionUnlocked: progress.maxEruditionUnlocked,
       unlockedTalents: progress.unlockedTalents as BrainrunTalentId[],
       discoveredRelics: progress.discoveredRelics as BrainrunRelicId[],
       discoveredConsumables: progress.discoveredConsumables as BrainrunConsumableId[],
@@ -2247,6 +2311,11 @@ export class BrainrunService {
       const multipliedXpEarned = Math.ceil(xpEarned * activityMultiplier);
       await updateUserProgress(run.userId, multipliedXpEarned);
       await grantKnowledgePoints(run.userId, knowledgePointsEarned);
+      // Érudition : une run GAGNÉE au niveau courant débloque le suivant (jamais une défaite, jamais
+      // une run de debug). Gagner à un niveau déjà dépassé ne redescend rien — cf. unlockErudition.
+      if (status === "WON") {
+        await unlockErudition(run.userId, run.erudition + 1);
+      }
     }
 
     // Une run de debug ne débloque aucun haut fait (mêmes règles que XP/pièces/PS ci-dessus).
@@ -2574,6 +2643,7 @@ export class BrainrunService {
       currentAct: run.currentAct,
       currentRow: run.currentRow,
       currentCol: run.currentCol,
+      erudition: run.erudition,
       healthPoint: run.healthPoint,
       maxHealthPoint: run.maxHealthPoint,
       gold: run.gold,
@@ -2585,7 +2655,7 @@ export class BrainrunService {
       endDate: run.endDate,
       relics: run.relics as BrainrunRunDTO["relics"],
       consumables: (run.consumables as ConsumableCounts) ?? {},
-      maxConsumables: this.maxConsumableSlots(run.relics),
+      maxConsumables: this.maxConsumableSlots(run.relics, run.erudition),
       shieldCharges: run.shieldCharges,
       fiftyFiftyCharges: run.fiftyFiftyCharges,
       themeCoefficients: (run.themeCoefficients as Record<string, number>) ?? {},

@@ -1,10 +1,12 @@
 import prisma from "~~/server/utils/prisma";
 import { BRAINRUN_TALENTS, type BrainrunTalentId } from "#shared/brainrunTalents";
 import { BRAINRUN_DAILY_COIN_CAP } from "~~/server/utils/brainrunConfig";
+import { BRAINRUN_MAX_ERUDITION } from "#shared/brainrunErudition";
 import { grantCoins } from "~~/server/utils/walletHelper";
 
 export type BrainrunMetaProgressResult = {
   knowledgePoints: number;
+  maxEruditionUnlocked: number;
   unlockedTalents: string[];
   discoveredRelics: string[];
   discoveredConsumables: string[];
@@ -15,11 +17,32 @@ export async function getMetaProgress(userId: string): Promise<BrainrunMetaProgr
   return (
     progress ?? {
       knowledgePoints: 0,
+      maxEruditionUnlocked: 0,
       unlockedTalents: [],
       discoveredRelics: [],
       discoveredConsumables: [],
     }
   );
+}
+
+/**
+ * Débloque un niveau d'Érudition, appelé après une run gagnée (cf. BrainrunService.finalizeRun).
+ * Monotone : le `where` conditionnel ne met à jour que si le niveau demandé est strictement
+ * supérieur à celui déjà atteint, donc regagner à un niveau inférieur ne fait jamais redescendre la
+ * progression, et deux fins de run concurrentes ne peuvent pas s'écraser mutuellement.
+ */
+export async function unlockErudition(userId: string, level: number): Promise<void> {
+  const capped = Math.min(Math.max(0, Math.floor(level)), BRAINRUN_MAX_ERUDITION);
+  if (capped <= 0) return;
+  await prisma.brainrunMetaProgress.upsert({
+    where: { userId },
+    update: {},
+    create: { userId },
+  });
+  await prisma.brainrunMetaProgress.updateMany({
+    where: { userId, maxEruditionUnlocked: { lt: capped } },
+    data: { maxEruditionUnlocked: capped },
+  });
 }
 
 /**

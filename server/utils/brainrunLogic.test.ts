@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vite-plus/test";
 import {
   applyBossMalusToDamage,
+  applyEruditionToGold,
   applyRelicsToBossDamage,
   applyRelicsToGold,
   applyTalentsToGold,
+  brainrunBossMaxHp,
   assignCombatIdentities,
   assignEventIdentities,
   assignNodeTypes,
@@ -60,6 +62,8 @@ import {
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
+  BRAINRUN_BOSS_MAX_HP_BY_ACT,
+  BRAINRUN_REST_HEAL,
   BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
   BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY,
   BRAINRUN_THEME_COEFFICIENT_MAX,
@@ -75,6 +79,12 @@ import {
   BRAINRUN_SHOP_RELIC_OFFER_COUNT,
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
+import {
+  BRAINRUN_ERUDITION_LADDER,
+  BRAINRUN_MAX_ERUDITION,
+  brainrunEruditionLabel,
+  getBrainrunEruditionEffects,
+} from "#shared/brainrunErudition";
 
 const ALL_RELIC_IDS = Object.keys(BRAINRUN_RELICS) as BrainrunRelicId[];
 
@@ -88,9 +98,121 @@ describe("shouldEndRunOnDamage", () => {
 
 describe("instantRoomHealthDelta", () => {
   it("only REST heals", () => {
-    expect(instantRoomHealthDelta("REST")).toBe(1);
+    expect(instantRoomHealthDelta("REST")).toBe(BRAINRUN_REST_HEAL);
     expect(instantRoomHealthDelta("SHOP")).toBe(0);
     expect(instantRoomHealthDelta("EVENT")).toBe(0);
+  });
+
+  it("is reduced by the Érudition rest malus, never below zero", () => {
+    // Niveau IV : la Bibliothèque retombe à 1 PV.
+    expect(instantRoomHealthDelta("REST", 4)).toBe(BRAINRUN_REST_HEAL - 1);
+    // Le malus ne peut jamais rendre un repos blessant, même si l'échelle grossit un jour.
+    expect(instantRoomHealthDelta("REST", BRAINRUN_MAX_ERUDITION)).toBeGreaterThanOrEqual(0);
+    // Les salles sans soin restent insensibles à l'Érudition.
+    expect(instantRoomHealthDelta("SHOP", BRAINRUN_MAX_ERUDITION)).toBe(0);
+  });
+});
+
+describe("getBrainrunEruditionEffects", () => {
+  it("is strictly neutral at level 0", () => {
+    // Garantit qu'une run sans Érudition se comporte exactement comme avant l'ajout de l'échelle.
+    expect(getBrainrunEruditionEffects(0)).toEqual({
+      bossHpBonusPct: 0,
+      eliteQuestionBonus: 0,
+      shopPriceBonusPct: 0,
+      restHealMalus: 0,
+      goldMalusPct: 0,
+      bossTimeMalusMs: 0,
+      themeCardCountDelta: 0,
+      disablesBossHeal: false,
+      consumableSlotMalus: 0,
+    });
+  });
+
+  it("accumulates each level rather than replacing it", () => {
+    // Les niveaux I et V donnent +10 % de PV de boss chacun : la somme doit faire +20 %, pas +10 %
+    // (piège d'agrégation par MAX, cf. references/talents.md).
+    expect(getBrainrunEruditionEffects(1).bossHpBonusPct).toBe(10);
+    expect(getBrainrunEruditionEffects(5).bossHpBonusPct).toBe(20);
+    // Un cran n'active que son propre modificateur.
+    expect(getBrainrunEruditionEffects(1).eliteQuestionBonus).toBe(0);
+    expect(getBrainrunEruditionEffects(2).eliteQuestionBonus).toBe(1);
+  });
+
+  it("turns each modifier on at its own level and keeps it on afterwards", () => {
+    const max = getBrainrunEruditionEffects(BRAINRUN_MAX_ERUDITION);
+    expect(max.shopPriceBonusPct).toBe(25);
+    expect(max.restHealMalus).toBe(1);
+    expect(max.goldMalusPct).toBe(25);
+    expect(max.bossTimeMalusMs).toBe(2_000);
+    expect(max.themeCardCountDelta).toBe(-1);
+    expect(max.disablesBossHeal).toBe(true);
+    expect(max.consumableSlotMalus).toBe(1);
+    // Le soin de boss ne saute qu'au niveau IX, pas avant.
+    expect(getBrainrunEruditionEffects(8).disablesBossHeal).toBe(false);
+    expect(getBrainrunEruditionEffects(9).disablesBossHeal).toBe(true);
+  });
+
+  it("clamps out-of-range levels instead of throwing", () => {
+    expect(getBrainrunEruditionEffects(-5)).toEqual(getBrainrunEruditionEffects(0));
+    expect(getBrainrunEruditionEffects(999)).toEqual(
+      getBrainrunEruditionEffects(BRAINRUN_MAX_ERUDITION),
+    );
+  });
+
+  it("has a label for every level of the ladder", () => {
+    expect(BRAINRUN_ERUDITION_LADDER).toHaveLength(BRAINRUN_MAX_ERUDITION);
+    expect(BRAINRUN_ERUDITION_LADDER.every((s) => s.label.length > 0)).toBe(true);
+    expect(brainrunEruditionLabel(0)).toBe("Standard");
+    expect(brainrunEruditionLabel(4)).toBe("Érudition IV");
+    expect(brainrunEruditionLabel(BRAINRUN_MAX_ERUDITION)).toBe("Érudition X");
+  });
+});
+
+describe("applyEruditionToGold", () => {
+  it("leaves gold untouched at level 0", () => {
+    expect(applyEruditionToGold(25, getBrainrunEruditionEffects(0))).toBe(25);
+  });
+
+  it("removes the gold malus once level VI is reached", () => {
+    expect(applyEruditionToGold(100, getBrainrunEruditionEffects(6))).toBe(75);
+    expect(applyEruditionToGold(0, getBrainrunEruditionEffects(6))).toBe(0);
+  });
+});
+
+describe("brainrunBossMaxHp", () => {
+  it("uses the act reference for a boss without its own value", () => {
+    // Gilbert/Le Joker/The Rock : aucun n'a de PV propres, ils prennent la référence de l'acte 1.
+    expect(brainrunBossMaxHp(1, "act1_gilbert")).toBe(BRAINRUN_BOSS_MAX_HP_BY_ACT[1]);
+    expect(brainrunBossMaxHp(2, "act2_la_sorciere")).toBe(BRAINRUN_BOSS_MAX_HP_BY_ACT[2]);
+    expect(brainrunBossMaxHp(3, "act3_gerard")).toBe(BRAINRUN_BOSS_MAX_HP_BY_ACT[3]);
+  });
+
+  it("grows from act to act", () => {
+    expect(BRAINRUN_BOSS_MAX_HP_BY_ACT[1]!).toBeLessThan(BRAINRUN_BOSS_MAX_HP_BY_ACT[2]!);
+    expect(BRAINRUN_BOSS_MAX_HP_BY_ACT[2]!).toBeLessThan(BRAINRUN_BOSS_MAX_HP_BY_ACT[3]!);
+  });
+
+  it("prefers a boss's own HP over its act reference", () => {
+    // Flash et Le Phoenix : allongés/raccourcis par leur malus, donc calibrés à part.
+    expect(brainrunBossMaxHp(2, "act2_flash")).toBe(160);
+    expect(brainrunBossMaxHp(3, "act3_le_phoenix")).toBe(150);
+    expect(brainrunBossMaxHp(3, "act3_le_phoenix")).toBeLessThan(BRAINRUN_BOSS_MAX_HP_BY_ACT[3]!);
+  });
+
+  it("falls back to the last act for an unknown boss or act", () => {
+    expect(brainrunBossMaxHp(1, null)).toBe(BRAINRUN_BOSS_MAX_HP_BY_ACT[1]);
+    expect(brainrunBossMaxHp(99, "inconnu")).toBe(BRAINRUN_BOSS_MAX_HP_BY_ACT[3]);
+  });
+
+  it("applies the Érudition boss HP bonus", () => {
+    // Niveaux I et V : +10 % chacun, cumulatifs.
+    const base = BRAINRUN_BOSS_MAX_HP_BY_ACT[1]!;
+    expect(brainrunBossMaxHp(1, "act1_gilbert", 0)).toBe(base);
+    expect(brainrunBossMaxHp(1, "act1_gilbert", 1)).toBe(Math.round(base * 1.1));
+    expect(brainrunBossMaxHp(1, "act1_gilbert", 5)).toBe(Math.round(base * 1.2));
+    // Les paliers intermédiaires (II-IV) ne touchent pas aux PV.
+    expect(brainrunBossMaxHp(1, "act1_gilbert", 4)).toBe(brainrunBossMaxHp(1, "act1_gilbert", 1));
   });
 });
 
@@ -1511,6 +1633,7 @@ describe("rankBrainrunPlayers", () => {
     status: "LOST",
     currentAct: 1,
     currentRow: 1,
+    erudition: 0,
     createDate: d(0),
     ...over,
   });
@@ -1555,6 +1678,49 @@ describe("rankBrainrunPlayers", () => {
     const grinder = ranked.find((r) => r.userId === "grinder")!;
     expect(grinder.victoryCount).toBe(2);
     expect(grinder.totalRuns).toBe(4);
+  });
+
+  it("ranks the highest WON Érudition first, above every other criterion", () => {
+    const ranked = rankBrainrunPlayers([
+      // 'veteran' a gagné en Érudition III, mais après 3 runs.
+      run({ userId: "veteran", status: "LOST", currentAct: 1, currentRow: 2, createDate: d(1) }),
+      run({ userId: "veteran", status: "LOST", currentAct: 2, currentRow: 2, createDate: d(2) }),
+      run({
+        userId: "veteran",
+        status: "WON",
+        currentAct: 3,
+        currentRow: 9,
+        erudition: 3,
+        createDate: d(3),
+      }),
+      // 'rookie' a gagné dès sa 1ʳᵉ run, mais en Érudition 0 : il passe derrière malgré un meilleur
+      // ratio runs-jusqu'à-la-victoire, qui n'est plus qu'un départage.
+      run({ userId: "rookie", status: "WON", currentAct: 3, currentRow: 9, createDate: d(1) }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["veteran", "rookie"]);
+    expect(ranked[0]!.bestWonErudition).toBe(3);
+    expect(ranked[1]!.bestWonErudition).toBe(0);
+  });
+
+  it("only counts the Érudition of runs actually WON", () => {
+    const ranked = rankBrainrunPlayers([
+      // Une défaite en Érudition X ne vaut rien : seule la victoire (ici en 0) compte.
+      run({ userId: "loser", status: "LOST", currentAct: 3, currentRow: 9, erudition: 10 }),
+      run({ userId: "loser", status: "WON", currentAct: 3, currentRow: 9, createDate: d(2) }),
+      run({ userId: "winner", status: "WON", currentAct: 3, currentRow: 9, erudition: 1 }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["winner", "loser"]);
+    expect(ranked.find((r) => r.userId === "loser")!.bestWonErudition).toBe(0);
+  });
+
+  it("leaves players who never won at -1, ordered exactly as before", () => {
+    // Aucun vainqueur : l'échelle ne doit rien réordonner par rapport au tri historique.
+    const ranked = rankBrainrunPlayers([
+      run({ userId: "a", currentAct: 2, currentRow: 5, erudition: 0 }),
+      run({ userId: "b", currentAct: 2, currentRow: 3, erudition: 7 }),
+    ]);
+    expect(ranked.map((r) => r.userId)).toEqual(["a", "b"]);
+    expect(ranked.every((r) => r.bestWonErudition === -1)).toBe(true);
   });
 
   it("breaks a tie in runs-to-first-victory by higher victory count", () => {
