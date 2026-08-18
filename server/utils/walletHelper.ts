@@ -18,9 +18,7 @@ export function dailyStreakBonus(streak: number): number {
 
 /**
  * Verse le bonus de série d'activité, une seule fois par jour, à la première
- * activité rémunératrice de la journée. La série est calculée depuis les
- * questions répondues (même définition que la page profil) ; seul le marqueur
- * "déjà versé aujourd'hui" est persisté sur le portefeuille.
+ * activité rémunératrice de la journée.
  */
 async function applyDailyActivityBonus(userId: string): Promise<void> {
   const today = toLocalDateStr(new Date());
@@ -36,14 +34,14 @@ async function applyDailyActivityBonus(userId: string): Promise<void> {
     data: {
       lastActivityDay: today,
       activityStreak: streak,
+      dailyStreak: streak,
     },
   });
 }
 
 /**
  * Crédite des pièces au porte-monnaie global du joueur (créé au premier gain).
- * Tout gain compte comme activité du jour et déclenche le bonus de série,
- * sauf si countsAsActivity est false (rattrapage admin).
+ * Tout gain compte comme activité du jour et applique le multiplicateur de série.
  */
 export async function grantCoins(
   userId: string,
@@ -57,9 +55,9 @@ export async function grantCoins(
   if (applyMultiplier) {
     const wallet = await prisma.userWallet.findUnique({
       where: { userId },
-      select: { dailyStreak: true },
+      select: { activityStreak: true, dailyStreak: true },
     });
-    const streak = wallet?.dailyStreak || 0;
+    const streak = wallet?.activityStreak || wallet?.dailyStreak || 0;
     const bonus = streak > 1 ? Math.min((streak - 1) * 0.1, 2.0) : 0;
     finalAmount = Math.ceil(amount * (1 + bonus));
   }
@@ -80,8 +78,6 @@ export async function grantCoins(
 /**
  * Rattrapage rétroactif : aligne le cumul de gains de chaque joueur sur son XP
  * totale (totalEarned >= coinsFromXp(xp)) et crédite la différence en pièces.
- * Idempotent : relancer la fonction ne crédite rien de plus tant que l'XP n'a
- * pas augmenté, et les gains déjà comptabilisés depuis le lancement sont déduits.
  */
 export async function recalculateWalletsFromXp(): Promise<{
   usersCredited: number;
@@ -113,39 +109,16 @@ export async function recalculateStreaksFromResponses(): Promise<{
 }> {
   const wallets = await prisma.userWallet.findMany({ select: { userId: true } });
 
-  const todayStr = toLocalDateStr(new Date());
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = toLocalDateStr(yesterday);
-
   let usersStreaksRecalculated = 0;
   for (const wallet of wallets) {
     const userId = wallet.userId;
     const streak = await computeActivityStreak(userId);
-
-    let lastDailyClaimStr: string | null = null;
-    if (streak > 0) {
-      const lastResponse = await prisma.questionResponse.findFirst({
-        where: { userId },
-        orderBy: { date: "desc" },
-        select: { date: true },
-      });
-      if (lastResponse) {
-        const lastRespStr = toLocalDateStr(lastResponse.date);
-        if (lastRespStr === todayStr) {
-          lastDailyClaimStr = todayStr;
-        } else {
-          lastDailyClaimStr = yesterdayStr;
-        }
-      }
-    }
 
     await prisma.userWallet.update({
       where: { userId },
       data: {
         activityStreak: streak,
         dailyStreak: streak,
-        lastDailyClaimStr,
       },
     });
     usersStreaksRecalculated++;
@@ -155,9 +128,7 @@ export async function recalculateStreaksFromResponses(): Promise<{
 }
 
 /**
- * Débite le solde de façon atomique et conditionnelle (anti-double-dépense) :
- * l'update ne matche que si le solde couvre le montant. À appeler dans la même
- * transaction que la création de la possession.
+ * Débite le solde de façon atomique et conditionnelle (anti-double-dépense).
  */
 export async function spendCoins(
   tx: Prisma.TransactionClient,

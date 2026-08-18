@@ -44,6 +44,7 @@ model User {
     UserAvatar             UserAvatar[]
     UserAvatarFrame        UserAvatarFrame[]
     UserDailyQuest         UserDailyQuest[]
+    StreakDays             UserStreakDay[]
 }
 
 // Porte-monnaie global (pièces) : monnaie transverse à tous les modes de jeu,
@@ -514,5 +515,23 @@ model UserDailyQuest {
 
     @@unique([userId, dateStr]) // Strictement 1 quête par jour par utilisateur
 }
+
+// Historique et statut des jours de série (validés par le jeu ou rachetés)
+model UserStreakDay {
+    id          Int      @id @default(autoincrement())
+    userId      String
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    dateStr     String   // Date au format "YYYY-MM-DD"
+    status      String   // "PLAYED" (validé en jouant) | "REPAIRED" (racheté avec des pièces)
+    streakCount Int      @default(1) // Numéro de série atteint ce jour-là
+    cost        Int      @default(0) // Coût en pièces (0 si joué, 20 si racheté)
+    claimed     Boolean  @default(false) // Si la récompense en pièces du calendrier a été réclamée
+    createDate  DateTime @default(now())
+    updateDate  DateTime @default(now()) @updatedAt
+
+    @@unique([userId, dateStr])
+}
+
+
 
 

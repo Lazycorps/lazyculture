@@ -254,6 +254,7 @@
 <script setup lang="ts">
 import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
+import type { UserSpeedrunSprintDTO } from "#shared/series/seriesSpeedrun";
 import { QuestionDTO } from "#shared/question";
 import { useUserStore } from "~/stores/userStore";
 import { useAchievementStore } from "~/stores/achievementsStore";

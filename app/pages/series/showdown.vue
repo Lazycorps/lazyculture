@@ -1351,20 +1351,17 @@ watch(timerLeft, (newVal) => {
 });
 
 watch(themeSelectionTimeLeft, (newVal) => {
-  if (phase.value === "DRAFT" && newVal === 5) {
+  if (status.value === "THEME_SELECTION" && newVal === 5) {
     const { playSound } = useAudio();
     playSound("timer");
   }
 });
 
-watch(phase, (newPhase) => {
-  if (newPhase !== "DRAFT") {
+watch(status, (newStatus) => {
+  if (newStatus !== "THEME_SELECTION") {
     const { stopSound } = useAudio();
     stopSound("timer");
   }
-});
-
-watch(status, (newStatus) => {
   if (newStatus === "FINISHED" && user.value) {
     const { playSound } = useAudio();
     if (isWinner.value) {

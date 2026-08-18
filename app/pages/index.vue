@@ -73,14 +73,16 @@
 
                 <!-- Streak Info (only if active) -->
                 <div
-                  v-if="dailyStatus?.activity?.bonusPercent > 0"
+                  v-if="
+                    (dailyStatus?.streak?.bonusPercent || dailyStatus?.activity?.bonusPercent) > 0
+                  "
                   class="bg-red-500/10 border border-red-500/20 rounded-full px-2.5 py-0.5 flex items-center gap-1 text-red-400 text-[9px] font-black font-display tracking-wider uppercase shrink-0"
                 >
                   <UIcon name="i-heroicons-fire-solid" class="text-xs text-red-500 animate-pulse" />
                   <span
-                    >+{{ dailyStatus.activity.bonusPercent }}% ({{
-                      dailyStatus.activity.streak
-                    }}j)</span
+                    >+{{
+                      dailyStatus?.streak?.bonusPercent ?? dailyStatus?.activity?.bonusPercent
+                    }}% ({{ dailyStatus?.streak?.current ?? dailyStatus?.activity?.streak }}j)</span
                   >
                 </div>
               </div>
@@ -122,7 +124,7 @@
               </UButton>
               <UButton
                 to="/themes"
-                color="white"
+                color="neutral"
                 variant="ghost"
                 size="lg"
                 class="font-black font-display uppercase tracking-widest border border-white/10 hover:bg-white/5"
@@ -133,170 +135,98 @@
           </div>
         </div>
 
-        <!-- Bottom part: Compact Daily claims (only if logged in and status is loaded) -->
+        <!-- Bottom part: Unified Daily Streak Timeline & Daily Quest (Compact 2-column Grid) -->
         <div
           v-if="user && dailyStatus"
-          class="w-full pt-4 mt-2 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10"
+          class="w-full pt-4 mt-2 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 relative z-10"
         >
-          <!-- Left: Compact Login Claim -->
+          <!-- Left: Compact Unified Daily Streak Timeline Component -->
+          <SeriesDailyStreakTimeline :daily-status="dailyStatus" @refresh="onTimelineRefresh" />
+
+          <!-- Right: Compact Daily Quest Card (matching height & padding) -->
           <div
-            class="flex items-center justify-between gap-3 bg-slate-950/30 border border-white/5 rounded-xl p-3"
+            v-if="dailyStatus.quest"
+            class="flex flex-col justify-between gap-2.5 bg-slate-950/40 border border-white/5 rounded-2xl p-3.5 hover:border-violet-500/20 transition-all duration-300"
           >
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="text-base shrink-0">📆</span>
-              <div class="space-y-0.5 min-w-0">
-                <p class="text-xs font-black text-white font-display">
-                  Connexion : Jour
-                  {{
-                    dailyStatus.calendar.streakBroken
-                      ? 1
-                      : dailyStatus.calendar.claimedToday
-                        ? dailyStatus.calendar.dailyStreak
-                        : dailyStatus.calendar.dailyStreak + 1
-                  }}
-                </p>
-                <p class="text-[10px] text-gray-400 truncate">
-                  Récompense :
-                  <span class="text-amber-400 font-bold font-display"
-                    >{{
-                      dailyStatus.calendar.rewards[
-                        ((dailyStatus.calendar.streakBroken
-                          ? 1
-                          : dailyStatus.calendar.claimedToday
-                            ? dailyStatus.calendar.dailyStreak
-                            : dailyStatus.calendar.dailyStreak + 1) -
-                          1) %
-                          7
-                      ]
-                    }}
-                    🪙</span
-                  >
-                </p>
-                <p
-                  v-if="
-                    !dailyStatus.calendar.claimedToday && !dailyStatus.calendar.hasAnsweredToday
+            <!-- Top Row: Quest Title, Reward Badge & Claim Button -->
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-base shrink-0">🎯</span>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <p class="text-xs font-black text-white font-display truncate">
+                      {{ dailyStatus.quest.title }}
+                    </p>
+                    <UBadge
+                      color="warning"
+                      variant="subtle"
+                      size="xs"
+                      class="text-[9px] font-black font-display uppercase px-1.5 py-0 shrink-0"
+                    >
+                      +{{ dailyStatus.quest.totalReward }} 🪙
+                    </UBadge>
+                  </div>
+                  <p class="text-[10px] text-gray-400 font-medium truncate">
+                    {{ dailyStatus.quest.description }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Action Button -->
+              <div class="shrink-0">
+                <UButton
+                  v-if="!dailyStatus.quest.claimed"
+                  :disabled="dailyStatus.quest.progress < dailyStatus.quest.target"
+                  color="success"
+                  size="xs"
+                  icon="i-heroicons-check-solid"
+                  class="font-black font-display uppercase tracking-widest text-[9px]"
+                  :class="
+                    dailyStatus.quest.progress >= dailyStatus.quest.target
+                      ? 'animate-bounce bg-emerald-600 shadow-md shadow-emerald-600/30'
+                      : 'bg-slate-800 text-gray-500 border border-white/5'
                   "
-                  class="text-[9px] text-violet-400 font-semibold font-display"
+                  :loading="claimingQuest"
+                  @click="claimQuest(dailyStatus.quest.id)"
                 >
-                  ⚠️ Répondez à 1 question d'abord
-                </p>
+                  {{
+                    dailyStatus.quest.progress >= dailyStatus.quest.target ? "Réclamer" : "En cours"
+                  }}
+                </UButton>
+                <span
+                  v-else
+                  class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
+                >
+                  <UIcon name="i-heroicons-check-circle-solid" class="text-sm" /> Validé
+                </span>
               </div>
             </div>
 
-            <div class="shrink-0 flex gap-2">
-              <UButton
-                v-if="dailyStatus.calendar.streakBroken && dailyStatus.calendar.canCatchUp"
-                :color="dailyStatus.calendar.hasAnsweredToday ? 'amber' : 'gray'"
-                :disabled="!dailyStatus.calendar.hasAnsweredToday"
-                variant="soft"
-                size="xs"
-                icon="i-heroicons-arrow-path-solid"
-                class="font-black font-display uppercase text-[9px] tracking-widest"
-                :loading="claimingLogin"
-                @click="claimLogin(true)"
-              >
-                {{
-                  dailyStatus.calendar.hasAnsweredToday
-                    ? "Rattrapage (20 🪙)"
-                    : "Rattrapage verrouillé"
-                }}
-              </UButton>
-              <UButton
-                v-if="!dailyStatus.calendar.claimedToday"
-                :color="dailyStatus.calendar.hasAnsweredToday ? 'primary' : 'gray'"
-                :disabled="!dailyStatus.calendar.hasAnsweredToday"
-                size="xs"
-                icon="i-heroicons-gift-solid"
-                class="font-black font-display uppercase text-[9px] tracking-widest bg-gradient-to-r shadow-md"
-                :class="
-                  dailyStatus.calendar.hasAnsweredToday
-                    ? 'from-violet-600 to-indigo-600 shadow-violet-600/20'
-                    : 'from-slate-800 to-slate-900 border border-white/5 cursor-not-allowed'
-                "
-                :loading="claimingLogin"
-                @click="claimLogin(false)"
-              >
-                {{ dailyStatus.calendar.hasAnsweredToday ? "Réclamer" : "1 quiz requis" }}
-              </UButton>
-              <span
-                v-else
-                class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
-              >
-                <UIcon name="i-heroicons-check-circle-solid" class="text-sm" /> Réclamé
-              </span>
-            </div>
-          </div>
-
-          <!-- Right: Compact Daily Quest -->
-          <div
-            v-if="dailyStatus.quest"
-            class="flex items-center justify-between gap-3 bg-slate-950/30 border border-white/5 rounded-xl p-3"
-          >
-            <div class="flex items-center gap-2 min-w-0 flex-1">
-              <span class="text-base shrink-0">🎯</span>
-              <div class="space-y-1 min-w-0 flex-1">
-                <div class="flex justify-between items-start gap-2">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-xs font-black text-white font-display truncate">
-                      Quête : {{ dailyStatus.quest.title }}
-                    </p>
-                    <p
-                      class="text-[9px] text-gray-400 font-medium font-display mt-0.5 leading-tight"
-                    >
-                      {{ dailyStatus.quest.description }}
-                    </p>
-                  </div>
+            <!-- Bottom Row: Progress Bar & Quest Streak -->
+            <div class="pt-1.5 border-t border-white/5 space-y-1">
+              <div class="flex justify-between items-center text-[9px] font-bold font-display">
+                <span class="text-gray-400">Progression</span>
+                <div class="flex items-center gap-2">
+                  <span class="text-violet-400">
+                    {{ dailyStatus.quest.progress }} / {{ dailyStatus.quest.target }}
+                  </span>
                   <span
-                    class="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 font-black px-1.5 py-0.25 rounded-full font-display shrink-0 mt-0.5"
+                    class="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 font-black px-1.5 py-0.25 rounded-full font-display"
                   >
                     {{ dailyStatus.quest.questStreak }} 🔥
                   </span>
                 </div>
-                <!-- Mini progress & text -->
-                <div class="flex items-center gap-2">
-                  <div
-                    class="flex-1 h-1 bg-slate-900 rounded-full overflow-hidden border border-white/5"
-                  >
-                    <div
-                      class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full"
-                      :style="{
-                        width: `${Math.min((dailyStatus.quest.progress / dailyStatus.quest.target) * 100, 100)}%`,
-                      }"
-                    ></div>
-                  </div>
-                  <span class="text-[9px] text-gray-500 font-bold shrink-0">
-                    {{ dailyStatus.quest.progress }}/{{ dailyStatus.quest.target }}
-                  </span>
-                </div>
               </div>
-            </div>
-
-            <div class="shrink-0 flex gap-2">
-              <UButton
-                v-if="!dailyStatus.quest.claimed"
-                :disabled="dailyStatus.quest.progress < dailyStatus.quest.target"
-                color="emerald"
-                size="xs"
-                icon="i-heroicons-check-solid"
-                class="font-black font-display uppercase tracking-widest text-[9px]"
-                :class="
-                  dailyStatus.quest.progress >= dailyStatus.quest.target
-                    ? 'animate-bounce bg-emerald-600'
-                    : 'bg-slate-800 text-gray-500 border border-white/5'
-                "
-                :loading="claimingQuest"
-                @click="claimQuest(dailyStatus.quest.id)"
+              <div
+                class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/5"
               >
-                {{
-                  dailyStatus.quest.progress >= dailyStatus.quest.target ? "Réclamer" : "En cours"
-                }}
-              </UButton>
-              <span
-                v-else
-                class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
-              >
-                <UIcon name="i-heroicons-check-circle" /> Réclamée
-              </span>
+                <div
+                  class="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-500"
+                  :style="{
+                    width: `${Math.min((dailyStatus.quest.progress / dailyStatus.quest.target) * 100, 100)}%`,
+                  }"
+                ></div>
+              </div>
             </div>
           </div>
         </div>
@@ -796,7 +726,7 @@
             </UButton>
             <UButton
               to="/themes"
-              color="white"
+              color="neutral"
               variant="solid"
               size="lg"
               block
@@ -837,67 +767,12 @@ const claimingQuest = ref(false);
 const showCalendar = ref(false);
 
 const { data: dailyStatus, refresh: refreshDailyStatus } = await useFetch<any>(
-  () => (user.value ? "/api/user/daily/status" : null),
+  "/api/user/daily/status",
   { server: false },
 );
 
-const calendarStartDay = computed(() => {
-  if (!dailyStatus.value?.calendar) return 1;
-  const { dailyStreak, claimedToday, streakBroken } = dailyStatus.value.calendar;
-  if (streakBroken) return 1;
-
-  if (claimedToday) {
-    return Math.floor((dailyStreak - 1) / 7) * 7 + 1;
-  } else {
-    return Math.floor(dailyStreak / 7) * 7 + 1;
-  }
-});
-
-const isDayClaimed = (index: number) => {
-  if (!dailyStatus.value?.calendar) return false;
-  const { dailyStreak } = dailyStatus.value.calendar;
-  const dayNum = calendarStartDay.value + index;
-  return dayNum <= dailyStreak;
-};
-
-const isDayActive = (index: number) => {
-  if (!dailyStatus.value?.calendar) return false;
-  const { dailyStreak, claimedToday, streakBroken } = dailyStatus.value.calendar;
-  if (claimedToday) return false;
-
-  const dayNum = calendarStartDay.value + index;
-  const activeDay = streakBroken ? 1 : dailyStreak + 1;
-  return dayNum === activeDay;
-};
-
-const claimLogin = async (catchUp = false) => {
-  if (claimingLogin.value) return;
-  claimingLogin.value = true;
-  try {
-    const res = await $fetch<any>("/api/user/daily/claim-login", {
-      method: "POST",
-      body: { catchUp },
-    });
-    if (res.success) {
-      toast.add({
-        title: "Récompense obtenue !",
-        description: catchUp
-          ? `Série sauvée ! Vous obtenez ${res.coinsEarned} pièces (rattrapage déduit).`
-          : `Félicitations ! Vous obtenez ${res.coinsEarned} pièces.`,
-        color: "green",
-      });
-      await userStore.fetchUser(true);
-      await refreshDailyStatus();
-    }
-  } catch (e: any) {
-    toast.add({
-      title: "Erreur",
-      description: e.data?.statusMessage || "Une erreur est survenue.",
-      color: "red",
-    });
-  } finally {
-    claimingLogin.value = false;
-  }
+const onTimelineRefresh = async () => {
+  await Promise.all([userStore.fetchUser(true), refreshDailyStatus()]);
 };
 
 const claimQuest = async (questId: number) => {
@@ -912,7 +787,7 @@ const claimQuest = async (questId: number) => {
       toast.add({
         title: "Quête validée !",
         description: `Vous obtenez ${res.coinsEarned} pièces. Série actuelle de quêtes : ${res.questStreak} 🔥`,
-        color: "green",
+        color: "success",
       });
       await userStore.fetchUser(true);
       await refreshDailyStatus();
@@ -921,7 +796,7 @@ const claimQuest = async (questId: number) => {
     toast.add({
       title: "Erreur",
       description: e.data?.statusMessage || "Une erreur est survenue.",
-      color: "red",
+      color: "error",
     });
   } finally {
     claimingQuest.value = false;
@@ -949,9 +824,9 @@ const userProfile = computed(() => {
 const xpProgress = computed(() => userStore.xpProgress);
 
 // 3. Daily challenge live data
-const { data: userSeries } = await useFetch<UserSeriesDTO>(() =>
-  user.value ? "/api/series/daily" : null,
-);
+const { data: userSeries } = await useFetch<UserSeriesDTO>("/api/series/daily", {
+  server: false,
+});
 const { data: dailyStats } = await useFetch<DailyStatsDTO>("/api/series/dailyStats");
 
 const dailyTitle = computed(() => {

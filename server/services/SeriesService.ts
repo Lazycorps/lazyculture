@@ -22,6 +22,7 @@ import type { SeriesResponseDTO } from "#shared/DTO/seriesResponseDTO";
 import type { DailyStatsDTO } from "#shared/DTO/dailyStatsDTO";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import { dailyRewardService } from "./DailyRewardService";
+import { recordUserStreakActivity } from "~~/server/utils/activityStreakHelper";
 
 type DailySeriesRankingDTO = {
   userId: string;
@@ -83,6 +84,7 @@ export class SeriesService {
     if (!question?.data) return;
 
     const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
+    await recordUserStreakActivity(userId).catch(console.error);
     if (success) {
       await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
     }

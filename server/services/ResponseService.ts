@@ -3,6 +3,7 @@ import type { ResponseDTO } from "#shared/DTO/responseDTO";
 import { isCorrectAnswer } from "~~/server/services/QuestionService";
 import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import { dailyRewardService } from "~~/server/services/DailyRewardService";
+import { recordUserStreakActivity } from "~~/server/utils/activityStreakHelper";
 
 const DAILY_REWARD_CAP = 150;
 
@@ -38,6 +39,8 @@ export class ResponseService {
           date: new Date(),
         },
       });
+
+      await recordUserStreakActivity(userId).catch(console.error);
 
       const successCount = await prisma.questionResponse.count({
         where: {
