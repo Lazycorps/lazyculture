@@ -1,4 +1,4 @@
-import prisma from "~~/server/utils/prisma";
+import prisma from "./prisma";
 
 export const CALENDAR_REWARDS = [15, 20, 25, 30, 35, 45, 100]; // Pièces (J1-J7)
 

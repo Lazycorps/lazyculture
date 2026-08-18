@@ -5,9 +5,9 @@ import {
   toLocalDateStr,
   getPastLocalDateStr,
 } from "./activityStreakHelper";
-import prisma from "~~/server/utils/prisma";
+import prisma from "./prisma";
 
-vi.mock("~~/server/utils/prisma", () => {
+vi.mock("./prisma", () => {
   return {
     default: {
       userStreakDay: {

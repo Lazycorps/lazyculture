@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex flex-col justify-between gap-2.5 bg-slate-950/40 border border-white/5 rounded-2xl p-3.5 hover:border-violet-500/20 transition-all duration-300 relative overflow-hidden"
+    class="flex flex-col justify-between gap-2.5 bg-slate-950/40 border border-white/5 rounded-2xl p-3.5 hover:border-violet-500/20 transition-all duration-300 relative overflow-hidden h-full"
   >
     <!-- Top Row: Title, Streak Pill, Bonus & Contextual Action Button -->
     <div class="flex items-center justify-between gap-2">
@@ -24,9 +24,6 @@
               +{{ bonusPercent }}% XP
             </UBadge>
           </div>
-          <p class="text-[10px] text-gray-400 font-medium truncate">
-            Jour {{ dayCycleIndex }}/7 • Prochain : {{ streak.todayRewardCoins || 15 }} 🪙
-          </p>
         </div>
       </div>
 
@@ -80,7 +77,7 @@
         <!-- Already claimed -->
         <span
           v-else
-          class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1"
+          class="text-[10px] text-emerald-400 font-bold font-display flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full"
         >
           <UIcon name="i-heroicons-check-circle-solid" class="text-sm" /> Validé
         </span>
@@ -88,7 +85,7 @@
     </div>
 
     <!-- Bottom Row: Compact 7-day Mini Timeline Nodes -->
-    <div class="pt-1.5 border-t border-white/5">
+    <div class="pt-2 border-t border-white/5 flex-1 flex flex-col justify-center">
       <div class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center">
         <div
           v-for="(day, index) in timeline"

@@ -227,6 +227,8 @@ async function validateResponse() {
 
     responded.value = true;
     achievementStore.answerQuestion();
+    const { handleCompletedQuests } = useQuestToast();
+    handleCompletedQuests(responseResult?.completedQuests);
     gainXP(responseResult?.xpEarned ?? 0);
     scrollFeedbackIntoView();
     emit("validateResponse", reponseDTO);

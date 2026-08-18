@@ -86,7 +86,11 @@ export class SeriesService {
     const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
     await recordUserStreakActivity(userId).catch(console.error);
     if (success) {
-      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+      await dailyRewardService.handleQuestionAnswered(
+        userId,
+        (question.data as unknown as QuestionDataDTO).theme || [],
+        1,
+      );
     }
 
     const series = await prisma.questionSeries.findFirst({
@@ -262,7 +266,11 @@ export class SeriesService {
 
     const success = (question.data as unknown as QuestionDataDTO).response == body.userResponseId;
     if (success) {
-      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+      await dailyRewardService.handleQuestionAnswered(
+        userId,
+        (question.data as unknown as QuestionDataDTO).theme || [],
+        1,
+      );
     }
 
     const series = (await prisma.questionSeries.findFirst({
@@ -749,7 +757,11 @@ export class SeriesService {
 
     if (success) {
       responseData.score++;
-      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+      await dailyRewardService.handleQuestionAnswered(
+        userId,
+        (question.data as unknown as QuestionDataDTO).theme || [],
+        1,
+      );
     } else {
       responseData.penalties += 5;
     }
@@ -1014,7 +1026,11 @@ export class SeriesService {
 
     if (success) {
       responseData.score++;
-      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+      await dailyRewardService.handleQuestionAnswered(
+        userId,
+        (question.data as unknown as QuestionDataDTO).theme || [],
+        1,
+      );
     } else {
       responseData.penalties += 5;
     }
@@ -1028,6 +1044,7 @@ export class SeriesService {
       responseData.xpEarned = xpEarned;
 
       await dailyRewardService.incrementQuestProgress(userId, "PLAY_SPEEDRUN", 1);
+      await dailyRewardService.incrementQuestProgress(userId, "PLAY_SPEEDRUN_SPRINT", 1);
       await dailyRewardService.incrementQuestProgress(userId, "PLAY_MULTIPLAYER_OR_SOLO", 1);
 
       return await prisma.questionSeriesResponse.update({

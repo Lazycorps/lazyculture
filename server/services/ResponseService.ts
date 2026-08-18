@@ -17,7 +17,19 @@ export class ResponseService {
 
     const success = isCorrectAnswer(question, body.userResponseId);
 
-    const questionData = question.data as any;
+    const questionData = (question.data as any) || {};
+    const rawThemes =
+      questionData.theme ||
+      questionData.themes ||
+      (question as any).themes ||
+      (question as any).theme ||
+      [];
+    const questionThemes: string[] = Array.isArray(rawThemes)
+      ? rawThemes.map((t: any) => String(t))
+      : typeof rawThemes === "string"
+        ? [rawThemes]
+        : [];
+
     const responseResult = {
       success,
       correctResponseId: questionData.response as number,
@@ -28,6 +40,7 @@ export class ResponseService {
       previousLevel: 0,
       newLevel: 0,
       coinsEarned: 0,
+      completedQuests: [] as any[],
     };
 
     if (userId) {
@@ -54,8 +67,15 @@ export class ResponseService {
       });
 
       if (success) {
-        // Incrémente la progression de la quête quotidienne
-        await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+        // Incrémente la progression des quêtes (thématiques et générales) et auto-réclame si complété
+        const completedQuests = await dailyRewardService.handleQuestionAnswered(
+          userId,
+          questionThemes,
+          1,
+        );
+        if (completedQuests && completedQuests.length > 0) {
+          responseResult.completedQuests = completedQuests;
+        }
 
         let isCapped = false;
         if (!bypassDailyCap) {

@@ -60,6 +60,7 @@ model UserWallet {
     activityStreak    Int      @default(0)
     lastQuestClaimStr String?
     questStreak       Int      @default(0)
+    lastQuestRerollStr String?
     createDate        DateTime @default(now())
     updateDate        DateTime @default(now()) @updatedAt
 }
@@ -502,18 +503,22 @@ model UserDailyQuest {
     id          Int      @id @default(autoincrement())
     userId      String
     user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-    questType   String   // "ANSWER_QUESTIONS" | "PLAY_SPEEDRUN" | "PLAY_BRAINRUN" | "PLAY_MULTIPLAYER_OR_SOLO" | "PLAY_ADVENTURE"
+    category    String   @default("LONG") // "SHORT" | "LONG"
+    questType   String   // "ANSWER_THEME_QUESTIONS" | "ANSWER_QUESTIONS" | "PLAY_SPEEDRUN" | "PLAY_BRAINRUN" | "PLAY_MULTIPLAYER_OR_SOLO" | "PLAY_ADVENTURE"
+    targetTheme String?  // slug du thème pour les quêtes thématiques (ex: "cinema")
+    themeName   String?  // nom d'affichage du thème (ex: "Cinéma")
     title       String
     description String
     target      Int
     progress    Int      @default(0)
     claimed     Boolean  @default(false)
-    coinsReward Int      // Gain de base (20)
+    coinsReward Int      // Gain de base (10 pour SHORT, 20 pour LONG)
+    rerolled    Boolean  @default(false) // Indique si la quête a été remplacée aujourd'hui
     dateStr     String   // "YYYY-MM-DD"
     createDate  DateTime @default(now())
     updateDate  DateTime @default(now()) @updatedAt
 
-    @@unique([userId, dateStr]) // Strictement 1 quête par jour par utilisateur
+    @@unique([userId, dateStr, category])
 }
 
 // Historique et statut des jours de série (validés par le jeu ou rachetés)

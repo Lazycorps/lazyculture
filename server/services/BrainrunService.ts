@@ -750,7 +750,8 @@ export class BrainrunService {
       isBossRoom && !skipTimeoutForFirstAnswer && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
     if (success) {
-      await dailyRewardService.incrementQuestProgress(userId, "ANSWER_QUESTIONS", 1);
+      const questionThemes = ((question as any)?.data?.theme as string[]) || [];
+      await dailyRewardService.handleQuestionAnswered(userId, questionThemes, 1);
     }
     // Une mauvaise réponse fait toujours perdre exactement 1 PV, quelle que soit la difficulté
     // de la question (plus de palier 1/2/3 PV) — seul un Bouclier peut encore annuler la perte.

@@ -168,6 +168,7 @@ import QuestionReporting from "./QuestionReporting.vue";
 const props = defineProps<{ theme?: string }>();
 const achievementStore = useAchievementStore();
 const userStore = useUserStore();
+const { handleCompletedQuests } = useQuestToast();
 const showBottomNav = useState("showBottomNav", () => true);
 
 const firstLoading = ref(true);
@@ -275,6 +276,7 @@ async function validateResponse() {
 
     responded.value = true;
     achievementStore.answerQuestion();
+    handleCompletedQuests(responseResult?.completedQuests);
     gainXP(responseResult?.xpEarned ?? 0);
     scrollFeedbackIntoView();
 
