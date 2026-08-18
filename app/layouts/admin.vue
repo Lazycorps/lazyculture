@@ -31,6 +31,40 @@
 
       <!-- Navigation groups -->
       <nav class="flex-1 space-y-6">
+        <!-- Dashboard & Community Section -->
+        <div class="space-y-2">
+          <p
+            class="px-4 text-[10px] font-black uppercase tracking-widest text-gray-500 font-display"
+          >
+            Général
+          </p>
+          <div class="space-y-1">
+            <NuxtLink
+              to="/admin"
+              exact
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-squares-2x2"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">Tableau de bord</span>
+            </NuxtLink>
+            <NuxtLink
+              to="/admin/users"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-users"
+                class="text-xl group-hover:scale-110 transition-transform"
+              />
+              <span class="font-semibold font-display tracking-wide">Utilisateurs</span>
+            </NuxtLink>
+          </div>
+        </div>
+
         <!-- Maintenance Section -->
         <div class="space-y-2">
           <p
@@ -212,6 +246,18 @@
     <nav
       class="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass flex justify-around py-3 px-2"
     >
+      <NuxtLink
+        to="/admin/users"
+        class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"
+        active-class="nav-mobile-active text-violet-400 bg-violet-600/10"
+      >
+        <UIcon
+          name="i-heroicons-users"
+          class="text-xl group-hover:scale-110 transition-transform mb-1"
+        />
+        <span class="text-[10px] font-bold font-display">Joueurs</span>
+      </NuxtLink>
+
       <NuxtLink
         to="/admin/maintenance/questions"
         class="flex flex-col items-center justify-center text-gray-400 px-3 py-1 rounded-xl transition-all group select-none"

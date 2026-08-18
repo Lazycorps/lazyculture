@@ -14,10 +14,66 @@
     </div>
 
     <!-- Quick Stats Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <!-- Total Users Card -->
+      <NuxtLink to="/admin/users" class="block group">
+        <UCard
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group-hover:border-violet-500/30 transition-all h-full"
+        >
+          <div class="space-y-1">
+            <p
+              class="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 font-display"
+            >
+              Joueurs Inscrits
+            </p>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-3xl font-black text-white font-display">
+                {{ userStats?.totalUsers ?? 0 }}
+              </span>
+            </div>
+            <div class="text-[10px] text-cyan-400 font-semibold pt-1">
+              +{{ userStats?.newUsers7d ?? 0 }} ces 7j
+            </div>
+            <div
+              class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-lg text-violet-400 group-hover:scale-110 transition-transform"
+            >
+              👥
+            </div>
+          </div>
+        </UCard>
+      </NuxtLink>
+
+      <!-- Active Users Card -->
+      <NuxtLink to="/admin/users" class="block group">
+        <UCard
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group-hover:border-emerald-500/30 transition-all h-full"
+        >
+          <div class="space-y-1">
+            <p
+              class="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 font-display"
+            >
+              Actifs (7 jours)
+            </p>
+            <div class="flex items-baseline space-x-2">
+              <span class="text-3xl font-black text-emerald-400 font-display">
+                {{ userStats?.activeUsers7d ?? 0 }}
+              </span>
+            </div>
+            <div class="text-[10px] text-emerald-500 font-semibold pt-1">
+              {{ userStats?.activeUsersToday ?? 0 }} aujourd'hui
+            </div>
+            <div
+              class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-lg text-emerald-400 group-hover:scale-110 transition-transform"
+            >
+              ⚡
+            </div>
+          </div>
+        </UCard>
+      </NuxtLink>
+
       <!-- Total Questions Card -->
       <UCard
-        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group"
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group h-full"
       >
         <div class="space-y-1">
           <p
@@ -26,10 +82,13 @@
             Questions totales
           </p>
           <div class="flex items-baseline space-x-2">
-            <span class="text-3xl font-black text-white">{{ questions?.length ?? 0 }}</span>
+            <span class="text-3xl font-black text-white font-display">{{
+              questions?.length ?? 0
+            }}</span>
           </div>
+          <div class="text-[10px] text-gray-400 font-medium pt-1">En base de données</div>
           <div
-            class="absolute right-4 bottom-4 w-12 h-12 rounded-full bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-xl text-violet-400 group-hover:scale-110 transition-transform"
+            class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-lg text-violet-400 group-hover:scale-110 transition-transform"
           >
             ❓
           </div>
@@ -38,7 +97,7 @@
 
       <!-- Total Themes Card -->
       <UCard
-        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group"
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group h-full"
       >
         <div class="space-y-1">
           <p
@@ -47,10 +106,13 @@
             Thèmes créés
           </p>
           <div class="flex items-baseline space-x-2">
-            <span class="text-3xl font-black text-white">{{ themes?.length ?? 0 }}</span>
+            <span class="text-3xl font-black text-white font-display">{{
+              themes?.length ?? 0
+            }}</span>
           </div>
+          <div class="text-[10px] text-gray-400 font-medium pt-1">Catégories actives</div>
           <div
-            class="absolute right-4 bottom-4 w-12 h-12 rounded-full bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-xl text-indigo-400 group-hover:scale-110 transition-transform"
+            class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-lg text-indigo-400 group-hover:scale-110 transition-transform"
           >
             📚
           </div>
@@ -59,24 +121,30 @@
 
       <!-- Reported Questions Card -->
       <UCard
-        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group"
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group h-full"
       >
         <div class="space-y-1">
           <p
             class="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 font-display"
           >
-            Signalements actifs
+            Signalements
           </p>
           <div class="flex items-baseline space-x-2">
             <span
-              class="text-3xl font-black"
+              class="text-3xl font-black font-display"
               :class="reportedCount > 0 ? 'text-amber-400' : 'text-emerald-400'"
             >
               {{ reportedCount }}
             </span>
           </div>
           <div
-            class="absolute right-4 bottom-4 w-12 h-12 rounded-full bg-amber-600/10 border border-amber-500/20 flex items-center justify-center text-xl text-amber-400 group-hover:scale-110 transition-transform"
+            class="text-[10px] font-medium pt-1"
+            :class="reportedCount > 0 ? 'text-amber-400' : 'text-emerald-400'"
+          >
+            {{ reportedCount > 0 ? "À traiter" : "Aucun signalement" }}
+          </div>
+          <div
+            class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-amber-600/10 border border-amber-500/20 flex items-center justify-center text-lg text-amber-400 group-hover:scale-110 transition-transform"
           >
             ⚠️
           </div>
@@ -85,19 +153,20 @@
 
       <!-- Deleted Questions Card -->
       <UCard
-        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group"
+        class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl relative overflow-hidden group h-full"
       >
         <div class="space-y-1">
           <p
             class="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 font-display"
           >
-            Questions désactivées
+            Désactivées
           </p>
           <div class="flex items-baseline space-x-2">
-            <span class="text-3xl font-black text-gray-400">{{ deletedCount }}</span>
+            <span class="text-3xl font-black text-gray-400 font-display">{{ deletedCount }}</span>
           </div>
+          <div class="text-[10px] text-gray-500 font-medium pt-1">Questions masquées</div>
           <div
-            class="absolute right-4 bottom-4 w-12 h-12 rounded-full bg-red-600/10 border border-red-500/20 flex items-center justify-center text-xl text-red-400 group-hover:scale-110 transition-transform"
+            class="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-red-600/10 border border-red-500/20 flex items-center justify-center text-lg text-red-400 group-hover:scale-110 transition-transform"
           >
             🗑️
           </div>
@@ -112,6 +181,33 @@
       </h3>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Community & Users Card -->
+        <UCard
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4"
+        >
+          <div class="space-y-4">
+            <h4
+              class="text-sm font-extrabold uppercase tracking-wider text-emerald-400 font-display"
+            >
+              👥 Communauté & Joueurs
+            </h4>
+            <p class="text-xs text-gray-400 font-medium">
+              Consultez la liste complète des joueurs inscrits, suivez leur activité quotidienne,
+              gérez les rôles administrateurs et visualisez les tendances d'inscriptions.
+            </p>
+            <div class="flex flex-wrap gap-3 pt-2">
+              <UButton
+                to="/admin/users"
+                color="primary"
+                icon="i-heroicons-users"
+                class="flex-1 min-w-[160px] font-bold font-display text-xs justify-center py-2.5 shadow-lg shadow-violet-600/20"
+              >
+                Gérer les utilisateurs
+              </UButton>
+            </div>
+          </div>
+        </UCard>
+
         <!-- Maintenance Card -->
         <UCard
           class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4"
@@ -129,7 +225,8 @@
             <div class="flex flex-wrap gap-3 pt-2">
               <UButton
                 to="/admin/maintenance/questions"
-                color="primary"
+                color="neutral"
+                variant="subtle"
                 icon="i-heroicons-question-mark-circle"
                 class="flex-1 min-w-[140px] font-bold font-display text-xs justify-center py-2.5"
               >
@@ -252,14 +349,20 @@
 <script setup lang="ts">
 import type { QuestionDTO } from "#shared/question";
 import type { Theme } from "#shared/theme";
+import type { AdminUserListResponseDTO } from "#shared/DTO/adminUserDTO";
 
 definePageMeta({
   middleware: "admin",
 });
 
-// Fetch both datasets to calculate counts dynamically
+// Fetch datasets to calculate counts dynamically
 const { data: questions } = await useFetch<QuestionDTO[]>("/api/question/all");
 const { data: themes } = await useFetch<Theme[]>("/api/theme/all");
+const { data: usersData } = await useFetch<AdminUserListResponseDTO>("/api/admin/users", {
+  query: { limit: 1 },
+});
+
+const userStats = computed(() => usersData.value?.stats);
 
 const reportedCount = computed(() => {
   return (questions.value ?? []).filter((q) => q.reportings.some((r) => !r.closed)).length;
