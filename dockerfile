@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y curl bash openssl ca-certificates && rm
 RUN curl -fsSL https://vite.plus | bash
 
 # Ajouter le binaire vp au PATH pour que Docker le trouve
-ENV PATH="/root/.vite-plus/bin:$PATH"
+ENV PATH="/root/.local/share/vite-plus/bin:/root/.vite-plus/bin:$PATH"
 
 # Définir le répertoire de travail
 WORKDIR /app
