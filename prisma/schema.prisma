@@ -45,6 +45,9 @@ model User {
     UserAvatarFrame        UserAvatarFrame[]
     UserDailyQuest         UserDailyQuest[]
     StreakDays             UserStreakDay[]
+    authoredQuestions      Question[]               @relation("QuestionAuthor")
+    QuestionSubmission     QuestionSubmission[]
+    QuestionSubmissionVote QuestionSubmissionVote[]
 }
 
 // Porte-monnaie global (pièces) : monnaie transverse à tous les modes de jeu,
@@ -176,8 +179,51 @@ model Question {
     userCreate String
     userUpdate String
     deleted    Boolean             @default(false)
+    authorId   String?
+    author     User?               @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
     Response   QuestionResponse[]
     Reporting  QuestionReporting[] @relation("QuestionToReporting")
+
+    @@index([authorId])
+}
+
+model QuestionSubmission {
+    id                Int                      @id @default(autoincrement())
+    userId            String
+    user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    data              Json
+    themes            String[]
+    difficulty        Int                      @default(1)
+    source            String?
+    status            String                   @default("PENDING") // PENDING | APPROVED | REJECTED
+    approvalCount     Int                      @default(0)
+    rejectionCount    Int                      @default(0)
+    rejectionReason   String?
+    createdQuestionId Int?
+    deleted           Boolean                  @default(false)
+    deletedAt         DateTime?
+    createDate        DateTime                 @default(now())
+    updateDate        DateTime                 @default(now()) @updatedAt
+    votes             QuestionSubmissionVote[]
+
+    @@index([status])
+    @@index([userId])
+    @@index([deleted])
+}
+
+model QuestionSubmissionVote {
+    id              Int                @id @default(autoincrement())
+    submissionId    Int
+    submission      QuestionSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+    userId          String
+    user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+    vote            String             // APPROVE | REJECT
+    rejectionReason String?
+    createdAt       DateTime           @default(now())
+
+    @@unique([submissionId, userId])
+    @@index([submissionId])
+    @@index([userId])
 }
 
 model QuestionResponse {

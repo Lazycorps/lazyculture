@@ -2,13 +2,24 @@
   <div class="flex flex-col space-y-1 w-full">
     <!-- Header Row (Theme badges + Flag) -->
     <div class="flex items-center justify-between select-none">
-      <div class="flex flex-wrap gap-1">
+      <div class="flex flex-wrap items-center gap-1.5">
         <span
           v-for="t in themes"
           :key="t"
           class="text-[9px] font-extrabold uppercase tracking-wider font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
         >
           {{ t }}
+        </span>
+        <!-- Discret Community Author Attribution -->
+        <span
+          v-if="authorName"
+          class="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full"
+        >
+          <UIcon name="i-heroicons-light-bulb" class="text-amber-400 text-xs shrink-0" />
+          <span
+            >Proposée par
+            <strong class="text-gray-300 font-semibold">@{{ authorName }}</strong></span
+          >
         </span>
       </div>
       <QuestionReporting
@@ -126,6 +137,8 @@ const props = withDefaults(
     showCorrectIncorrectColors?: boolean;
     showReporting?: boolean;
     questionId?: number;
+    authorName?: string | null;
+    authorSlug?: string | null;
     /** Propositions éliminées par le consommable 50/50 : grisées et non cliquables. */
     eliminatedIds?: number[];
     /** Proposition suggérée par le consommable Appel à un ami (peut être fausse). */

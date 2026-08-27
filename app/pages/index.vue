@@ -519,6 +519,107 @@
           </div>
         </div>
       </div>
+
+      <!-- Section: Espace Communautaire (Atelier & Relecture) -->
+      <div class="space-y-3 sm:space-y-4">
+        <div
+          class="flex items-center space-x-2 text-xs font-black uppercase text-gray-400 tracking-wider font-display"
+        >
+          <span>🏛️</span>
+          <span>Espace Communautaire</span>
+        </div>
+
+        <div
+          class="flex overflow-x-auto pb-4 gap-3 snap-x snap-mandatory scrollbar-none -mx-3 px-3 md:mx-0 md:px-0 md:grid md:grid-cols-2 md:gap-4 md:pb-0"
+        >
+          <!-- L'Atelier du Savoir -->
+          <div
+            @click="navigateTo('/community')"
+            class="w-[270px] shrink-0 snap-start md:w-auto md:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-6 flex flex-col justify-between h-40 sm:h-44 hover:border-violet-500/40 hover:shadow-[0_0_20px_rgba(139,92,246,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-violet-600/10 blur-xl group-hover:bg-violet-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">✍️</span>
+                <div class="flex items-center gap-1.5">
+                  <span
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                  >
+                    1 PO / réponse
+                  </span>
+                  <span
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/10"
+                  >
+                    Niv. 5+
+                  </span>
+                </div>
+              </div>
+              <h4 class="text-lg font-black font-display text-white tracking-wide">
+                L'Atelier du Savoir
+              </h4>
+              <p class="text-xs text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-none">
+                Rédigez vos questions de quiz et touchez des pièces passives à chaque fois qu'un
+                joueur y répond en jeu.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-violet-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Accéder à l'Atelier</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+
+          <!-- Arène de Relecture -->
+          <div
+            @click="navigateTo('/community/review')"
+            class="w-[270px] shrink-0 snap-start md:w-auto md:shrink relative overflow-hidden rounded-2xl border border-white/10 bg-[#111827]/30 p-4 sm:p-6 flex flex-col justify-between h-40 sm:h-44 hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all duration-300 group cursor-pointer active:scale-[0.99]"
+          >
+            <div
+              class="absolute -right-12 -top-12 w-24 h-24 rounded-full bg-indigo-600/10 blur-xl group-hover:bg-indigo-600/15"
+            ></div>
+            <div class="space-y-2 relative z-10">
+              <div class="flex justify-between items-start">
+                <span class="text-2xl">⚖️</span>
+                <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                  <span
+                    v-if="reviewCount > 0"
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
+                  >
+                    🔥 {{ reviewCount }} à valider
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  >
+                    À jour ✓
+                  </span>
+                  <span
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  >
+                    ✓ {{ validatedCount }} validée{{ validatedCount > 1 ? "s" : "" }}
+                  </span>
+                </div>
+              </div>
+              <h4 class="text-lg font-black font-display text-white tracking-wide">
+                Arène de Relecture
+              </h4>
+              <p class="text-xs text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-none">
+                Testez en aveugle les questions soumises par les joueurs, vérifiez les sources et
+                votez pour valider les questions officielles.
+              </p>
+            </div>
+            <div
+              class="relative z-10 flex items-center text-xs font-bold text-indigo-400 font-display group-hover:translate-x-1 transition-transform"
+            >
+              <span>Évaluer des questions</span>
+              <UIcon name="i-heroicons-chevron-right-solid" class="ml-1" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 4. TWO COLUMN: NEWS / UPDATES & QUICK PLAY -->
@@ -546,31 +647,24 @@
               >
                 <UIcon :name="news.icon || 'i-heroicons-megaphone'" />
               </div>
-              <div class="flex-1 min-w-0 flex flex-col justify-between">
-                <div class="space-y-1.5">
-                  <div
-                    class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2"
+              <div class="space-y-1 min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="text-[9px] font-black uppercase tracking-wider font-display px-2 py-0.5 rounded-full"
+                    :class="
+                      news.tagColor || 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                    "
                   >
-                    <h5 class="text-sm font-black font-display text-white leading-tight">
-                      {{ news.title }}
-                    </h5>
-                    <span
-                      class="self-start sm:self-auto text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 border"
-                      :class="
-                        news.tagColor || 'bg-violet-500/20 text-violet-300 border-violet-500/30'
-                      "
-                    >
-                      {{ news.tag }}
-                    </span>
-                  </div>
-                  <p
-                    class="text-[11px] sm:text-xs text-gray-400 leading-relaxed line-clamp-3 sm:line-clamp-none"
-                  >
-                    {{ news.description }}
-                  </p>
+                    {{ news.tag || "Info" }}
+                  </span>
+                  <h5 class="text-xs sm:text-sm font-bold text-white font-display truncate">
+                    {{ news.title }}
+                  </h5>
                 </div>
-
-                <div class="flex items-center justify-between gap-2 pt-2 mt-auto">
+                <p class="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                  {{ news.description }}
+                </p>
+                <div class="flex items-center justify-between pt-1">
                   <div class="text-[10px] text-gray-500 font-semibold font-display">
                     {{ formatDate(news.createDate) }}
                   </div>
@@ -686,6 +780,18 @@ const { data: dailyStatus, refresh: refreshDailyStatus } = await useFetch<any>(
   "/api/user/daily/status",
   { server: false },
 );
+
+// Review count & validated count fetching
+const { data: reviewCountData } = await useFetch<{
+  count: number;
+  pendingCount: number;
+  validatedCount: number;
+}>("/api/community/submissions/review-count", { server: false });
+
+const reviewCount = computed(
+  () => reviewCountData.value?.pendingCount ?? reviewCountData.value?.count ?? 0,
+);
+const validatedCount = computed(() => reviewCountData.value?.validatedCount ?? 0);
 
 const onTimelineRefresh = async () => {
   await Promise.all([userStore.fetchUser(true), refreshDailyStatus()]);

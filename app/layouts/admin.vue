@@ -85,6 +85,17 @@
               <span class="font-semibold font-display tracking-wide">Questions</span>
             </NuxtLink>
             <NuxtLink
+              to="/admin/submissions"
+              class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
+              active-class="nav-active text-violet-400 bg-violet-600/10"
+            >
+              <UIcon
+                name="i-heroicons-inbox-stack"
+                class="text-xl group-hover:scale-110 transition-transform text-amber-400"
+              />
+              <span class="font-semibold font-display tracking-wide">Soumissions</span>
+            </NuxtLink>
+            <NuxtLink
               to="/admin/maintenance/themes"
               class="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all group"
               active-class="nav-active text-violet-400 bg-violet-600/10"

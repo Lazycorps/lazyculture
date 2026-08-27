@@ -28,7 +28,18 @@ export function sanitizeQuestionForClient(question: any): any {
 
 export class QuestionService {
   async getById(id: number) {
-    const question = await prisma.question.findFirst({ where: { id } });
+    const question = await prisma.question.findFirst({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
     if (!question) return undefined;
 
     const questionThemes = (question.data as any as QuestionDataDTO).theme;
@@ -38,6 +49,8 @@ export class QuestionService {
 
     return {
       ...question,
+      authorName: question.author?.name || undefined,
+      authorSlug: question.author?.slug || undefined,
       themes: themes.map((t) => t.name),
     };
   }
@@ -45,6 +58,13 @@ export class QuestionService {
   async getAllForAdmin() {
     const questions = await prisma.question.findMany({
       include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         Reporting: {
           where: {
             closed: false, // Inclut seulement les rapports où closed = false
@@ -70,6 +90,9 @@ export class QuestionService {
       questionDTO.userCreate = question.userCreate;
       questionDTO.userUpdate = question.userUpdate;
       questionDTO.deleted = question.deleted;
+      questionDTO.authorId = question.authorId;
+      questionDTO.authorName = question.author?.name || "";
+      questionDTO.authorSlug = question.author?.slug || "";
 
       questionDTO.reportings = question.Reporting.map((report) => {
         const reportingDTO = new QuestionReportingDTO();
@@ -92,7 +115,18 @@ export class QuestionService {
     const id = this.getRandomId(ids);
     if (id === undefined) return null;
 
-    const question = await prisma.question.findFirst({ where: { id } });
+    const question = await prisma.question.findFirst({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
     if (!question) return undefined;
 
     const questionData = question.data as any as QuestionDataDTO;
@@ -103,6 +137,8 @@ export class QuestionService {
 
     return {
       ...question,
+      authorName: question.author?.name || undefined,
+      authorSlug: question.author?.slug || undefined,
       themes: themes.map((t) => t.name),
     };
   }
@@ -352,7 +388,7 @@ export class QuestionService {
       });
 
       return { updatedQuestion };
-    } catch (error) {
+    } catch {
       throw createError({
         statusCode: 400,
         statusMessage: "Erreur lors de la mise à jour de la question.",
@@ -549,7 +585,7 @@ export class QuestionService {
     limit: number,
     fn: (item: T) => Promise<R>,
   ): Promise<R[]> {
-    const results = new Array<R>(items.length);
+    const results: R[] = Array.from({ length: items.length });
     let next = 0;
     const worker = async () => {
       while (next < items.length) {

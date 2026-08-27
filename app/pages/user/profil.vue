@@ -211,6 +211,59 @@
           :initial-tab="followModalTab"
         />
 
+        <!-- Carte Contributeur / L'Atelier (Affiché UNIQUEMENT si >= 1 contribution) -->
+        <UCard
+          v-if="contributorStats"
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+        >
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-light-bulb" class="text-amber-400 text-lg" />
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display">
+                  Atelier & Contributions
+                </h3>
+              </div>
+              <CommunityContributorTrustBadge :trust="contributorStats" size="sm" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-2.5 text-center">
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">Validées</p>
+                <p class="text-lg font-black text-emerald-400 font-display">
+                  {{ contributorStats.totalApproved }}
+                </p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">Taux Succès</p>
+                <p class="text-lg font-black text-white font-display">
+                  {{ contributorStats.approvalRate }}%
+                </p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">PO Gagnées</p>
+                <p class="text-lg font-black text-amber-400 font-display">
+                  {{ contributorStats.totalRoyaltiesEarned }} 🪙
+                </p>
+              </div>
+            </div>
+
+            <div class="pt-1">
+              <UButton
+                to="/community"
+                variant="soft"
+                color="primary"
+                size="xs"
+                block
+                class="font-bold font-display"
+                icon="i-heroicons-arrow-right"
+              >
+                Gérer mes questions dans l'Atelier
+              </UButton>
+            </div>
+          </div>
+        </UCard>
+
         <!-- Statistiques Globales Section -->
         <ProfileGlobalStats :stats="globalStats" :loading="loadingHistory" />
 
@@ -305,6 +358,7 @@ const themeProgress = ref<any[]>([]);
 const brRank = ref<any>(null);
 const showdownRank = ref<any>(null);
 const globalStats = ref<any>(null);
+const contributorStats = ref<any>(null);
 
 // État social (compteurs et modal abonnés/abonnements)
 const social = ref<any>(null);
@@ -364,6 +418,10 @@ async function fetchHistory(userId: string) {
     globalStats.value = data?.globalStats ?? null;
     social.value = data?.social ?? null;
     followersCount.value = data?.social?.followersCount ?? 0;
+
+    contributorStats.value = await $fetch<any>(`/api/community/submissions/stats/${userId}`).catch(
+      () => null,
+    );
   } catch (e) {
     console.error("Failed to load user history:", e);
   } finally {

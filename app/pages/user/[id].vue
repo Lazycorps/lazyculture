@@ -111,6 +111,45 @@
           :initial-tab="followModalTab"
         />
 
+        <!-- Carte Contributeur (Affiché UNIQUEMENT si >= 1 contribution) -->
+        <UCard
+          v-if="contributorStats"
+          class="shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+        >
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-light-bulb" class="text-amber-400 text-lg" />
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display">
+                  Atelier & Contributions
+                </h3>
+              </div>
+              <CommunityContributorTrustBadge :trust="contributorStats" size="sm" />
+            </div>
+
+            <div class="grid grid-cols-3 gap-2.5 text-center">
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">Validées</p>
+                <p class="text-lg font-black text-emerald-400 font-display">
+                  {{ contributorStats.totalApproved }}
+                </p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">Taux Succès</p>
+                <p class="text-lg font-black text-white font-display">
+                  {{ contributorStats.approvalRate }}%
+                </p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-950/40 border border-white/5 space-y-0.5">
+                <p class="text-[9px] uppercase font-bold text-gray-500 font-display">PO Gagnées</p>
+                <p class="text-lg font-black text-amber-400 font-display">
+                  {{ contributorStats.totalRoyaltiesEarned }} 🪙
+                </p>
+              </div>
+            </div>
+          </div>
+        </UCard>
+
         <!-- Statistiques Globales Section -->
         <ProfileGlobalStats v-if="profileData.globalStats" :stats="profileData.globalStats" />
 
@@ -155,6 +194,7 @@ const userId = route.params.id as string;
 
 const loading = ref(true);
 const profileData = ref<any>(null);
+const contributorStats = ref<any>(null);
 
 // État social (suivi, compteurs, modal abonnés/abonnements)
 const isFollowingProfile = ref(false);
@@ -192,6 +232,9 @@ async function fetchProfile() {
   try {
     loading.value = true;
     profileData.value = await authFetch<any>(`/api/user/profile/${userId}`);
+    contributorStats.value = await $fetch<any>(`/api/community/submissions/stats/${userId}`).catch(
+      () => null,
+    );
   } catch (e) {
     console.error("Failed to load user profile:", e);
   } finally {

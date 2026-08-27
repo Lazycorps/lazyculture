@@ -65,6 +65,7 @@
         :showCorrectIncorrectColors="responded"
         :showReporting="true"
         :questionId="question.id"
+        :authorName="question.authorName"
         @selectOption="selectOption"
       />
     </div>
@@ -164,6 +165,7 @@
 import { ResponseDTO } from "#shared/DTO/responseDTO";
 import { QuestionDTO } from "#shared/question";
 import QuestionReporting from "./QuestionReporting.vue";
+import { useQuestToast } from "~/composables/useQuestToast";
 
 const props = defineProps<{ theme?: string }>();
 const achievementStore = useAchievementStore();

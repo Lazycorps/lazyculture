@@ -74,6 +74,15 @@ export class PictureService {
   ) {
     return this.uploadImage(client, fileBuffer, originalName, mimetype, "avatars");
   }
+
+  async uploadQuestionImage(
+    client: SupabaseClient,
+    fileBuffer: Buffer,
+    originalName: string | null | undefined,
+    mimetype: string,
+  ) {
+    return this.uploadImage(client, fileBuffer, originalName, mimetype, "questions");
+  }
 }
 
 export const pictureService = new PictureService();

@@ -29,6 +29,7 @@
         :showCorrectIncorrectColors="responded"
         :showReporting="true"
         :questionId="question.id"
+        :authorName="question.authorName"
         @selectOption="selectOption"
       />
     </div>
@@ -129,6 +130,7 @@ import { ReportingDTO } from "#shared/DTO/reportingDTO";
 import { ResponseDTO } from "#shared/DTO/responseDTO";
 import { QuestionDTO } from "#shared/question";
 import QuestionReporting from "./QuestionReporting.vue";
+import { useQuestToast } from "~/composables/useQuestToast";
 
 const props = defineProps<{
   question?: QuestionDTO | null;

@@ -53,6 +53,13 @@ export class ResponseService {
         },
       });
 
+      // Redevance passive communautaire : +1 PO au créateur de la question (hors auto-réponse)
+      if (question.authorId && question.authorId !== userId) {
+        grantCoins(question.authorId, 1, false, false).catch((err) =>
+          console.error("Erreur versement redevance auteur :", err),
+        );
+      }
+
       await recordUserStreakActivity(userId).catch(console.error);
 
       const successCount = await prisma.questionResponse.count({
