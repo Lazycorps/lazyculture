@@ -312,8 +312,8 @@
               <USelectMenu
                 v-model="selectedTheme"
                 :items="themeOptions"
-                value-attribute="slug"
-                option-attribute="name"
+                label-key="name"
+                value-key="slug"
                 placeholder="Sélectionner un thème"
                 size="md"
                 class="w-full"
@@ -588,7 +588,7 @@
                         :key="t"
                         class="text-[9px] font-bold uppercase font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
                       >
-                        {{ t }}
+                        {{ themeName(t) }}
                       </span>
                     </div>
                   </div>
@@ -733,7 +733,7 @@
                 :key="t"
                 class="text-[9px] font-bold uppercase font-display bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full"
               >
-                {{ t }}
+                {{ themeName(t) }}
               </span>
 
               <span class="text-xs text-gray-400 font-bold font-display"
@@ -978,8 +978,8 @@
               <USelectMenu
                 v-model="editSelectedTheme"
                 :items="themeOptions"
-                value-attribute="slug"
-                option-attribute="name"
+                label-key="name"
+                value-key="slug"
                 size="sm"
                 class="w-full"
               />
@@ -1112,9 +1112,12 @@ const tabs = computed<CommunityTab[]>(() => [
 
 // Theme options
 const { data: themesData } = await useFetch<any[]>("/api/theme/all");
-const themeOptions = computed(
-  () => themesData.value || [{ slug: "culture_generale", name: "Culture Générale" }],
+const themeOptions = computed(() =>
+  themesData.value?.length
+    ? themesData.value
+    : [{ slug: "culture_generale", name: "Culture Générale" }],
 );
+const themeName = (slug: string) => themeOptions.value.find((t) => t.slug === slug)?.name || slug;
 const selectedTheme = ref("culture_generale");
 
 // Form state
