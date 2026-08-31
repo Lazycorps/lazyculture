@@ -392,7 +392,42 @@
       </div>
     </div>
 
-    <!-- TAB 2: MES CONTRIBUTIONS (FORMAT DATA GRID) -->
+    <!-- TAB 2: IMPORT CSV -->
+    <div v-if="currentTab === 'import'" class="space-y-6">
+      <!-- Verrouillage si Niveau < 5 (sauf Admin) -->
+      <div
+        v-if="userLevel < 5 && !userProfile?.admin"
+        class="p-8 rounded-3xl bg-slate-900/50 border border-white/10 text-center space-y-4 max-w-xl mx-auto backdrop-blur-xl"
+      >
+        <div
+          class="w-16 h-16 rounded-full bg-violet-600/10 border border-violet-500/20 flex items-center justify-center text-3xl mx-auto text-violet-400"
+        >
+          🔒
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-lg font-black font-display text-white">
+            Niveau 5 requis pour importer des questions
+          </h3>
+          <p class="text-xs text-gray-400 font-medium leading-relaxed">
+            Vous êtes actuellement
+            <span class="text-violet-400 font-bold">Niveau {{ userLevel }}</span
+            >. Jouez en Solo, Série Quotidienne ou Multijoueur pour progresser et débloquer la
+            création de questions.
+          </p>
+        </div>
+        <UButton to="/solo" color="primary" class="font-bold font-display" icon="i-heroicons-play">
+          Faire des parties
+        </UButton>
+      </div>
+
+      <CommunityCsvImportPanel
+        v-else
+        :theme-options="themeOptions"
+        @imported="fetchMySubmissions"
+      />
+    </div>
+
+    <!-- TAB 3: MES CONTRIBUTIONS (FORMAT DATA GRID) -->
     <div v-if="currentTab === 'submissions'" class="space-y-6">
       <!-- Summary stats bar -->
       <div v-if="myData" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1089,7 +1124,7 @@ useHead({
 const user = useSupabaseUser();
 const userStore = useUserStore();
 
-const currentTab = ref<"create" | "submissions">("create");
+const currentTab = ref<"create" | "import" | "submissions">("create");
 const submitting = ref(false);
 const loadingSubmissions = ref(false);
 const uploadingImage = ref(false);
@@ -1100,13 +1135,14 @@ const userProfile = computed(() => userStore.user);
 const userLevel = computed(() => userStore.user?.UserProgress?.levelId || 1);
 
 interface CommunityTab {
-  id: "create" | "submissions";
+  id: "create" | "import" | "submissions";
   label: string;
   icon: string;
 }
 
 const tabs = computed<CommunityTab[]>(() => [
   { id: "create", label: "✍️ Proposer une question", icon: "i-heroicons-pencil-square" },
+  { id: "import", label: "📥 Import CSV", icon: "i-heroicons-arrow-up-tray" },
   { id: "submissions", label: "📊 Mes Contributions", icon: "i-heroicons-folder" },
 ]);
 

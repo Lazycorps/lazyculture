@@ -5,6 +5,16 @@ import {
   REVIEW_MIN_LEVEL,
 } from "./QuestionSubmissionService";
 import prisma from "../utils/prisma";
+import {
+  SUBMISSION_CSV_DEFAULT_DIFFICULTY,
+  SUBMISSION_CSV_MAX_ROWS,
+} from "../../shared/community/submissionCsvTemplate";
+import type { BulkSubmissionRowPayload } from "../../shared/DTO/questionSubmissionDTO";
+import {
+  COMMENTAIRE_MAX_LENGTH,
+  PROPOSITION_MAX_LENGTH,
+  SOURCE_MAX_LENGTH,
+} from "../../shared/community/questionContentRules";
 
 vi.mock("../utils/prisma", () => {
   return {
@@ -16,6 +26,7 @@ vi.mock("../utils/prisma", () => {
         findMany: vi.fn(),
         findUnique: vi.fn(),
         create: vi.fn(),
+        createManyAndReturn: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
         count: vi.fn(),
@@ -28,6 +39,10 @@ vi.mock("../utils/prisma", () => {
       question: {
         create: vi.fn(),
         update: vi.fn(),
+        findMany: vi.fn(),
+      },
+      questionTheme: {
+        findFirst: vi.fn(),
       },
       questionResponse: {
         count: vi.fn(),
@@ -405,6 +420,306 @@ describe("QuestionSubmissionService", () => {
 
       expect(stats.pendingCount).toBe(4);
       expect(stats.validatedCount).toBe(18);
+    });
+  });
+
+  describe("Import CSV en lot", () => {
+    /** Construit une ligne de CSV valide, surchargée par les champs passés. */
+    function bulkRow(line: number, overrides: Partial<BulkSubmissionRowPayload> = {}) {
+      return {
+        line,
+        libelle: `Quel est le plus grand océan n°${line} ?`,
+        propositions: [
+          { id: 0, value: "Pacifique" },
+          { id: 1, value: "Atlantique" },
+          { id: 2, value: "Indien" },
+          { id: 3, value: "Arctique" },
+        ],
+        response: 0,
+        ...overrides,
+      } as BulkSubmissionRowPayload;
+    }
+
+    /** Prépare un contributeur de niveau suffisant, un thème existant et aucun doublon en base. */
+    function mockHappyPath() {
+      (prisma.user.findUnique as any).mockResolvedValue({
+        id: authorId,
+        name: "Vétéran",
+        slug: "veteran",
+        UserProgress: { levelId: SUBMISSION_MIN_LEVEL },
+      });
+      (prisma.questionTheme.findFirst as any).mockResolvedValue({
+        id: 1,
+        slug: "geographie",
+        name: "Géographie",
+      });
+      (prisma.question.findMany as any).mockResolvedValue([]);
+      (prisma.questionSubmission.findMany as any).mockResolvedValue([]);
+      (prisma.questionSubmission.createManyAndReturn as any).mockImplementation(
+        ({ data }: { data: any[] }) => Promise.resolve(data.map((_, i) => ({ id: 100 + i }))),
+      );
+    }
+
+    it("devrait refuser l'import si l'utilisateur a un niveau < 5", async () => {
+      (prisma.user.findUnique as any).mockResolvedValue({
+        id: authorId,
+        name: "Débutant",
+        UserProgress: { levelId: SUBMISSION_MIN_LEVEL - 1 },
+      });
+
+      await expect(
+        questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [bulkRow(2)]),
+      ).rejects.toThrow(`Niveau ${SUBMISSION_MIN_LEVEL}`);
+      expect(prisma.questionSubmission.createManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it("devrait refuser un import dépassant le plafond de lignes", async () => {
+      mockHappyPath();
+      const rows = Array.from({ length: SUBMISSION_CSV_MAX_ROWS + 1 }, (_, i) => bulkRow(i + 2));
+
+      await expect(
+        questionSubmissionService.createSubmissionsBulk(authorId, "geographie", rows),
+      ).rejects.toThrow(`plus de ${SUBMISSION_CSV_MAX_ROWS} questions`);
+      expect(prisma.questionSubmission.createManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it("devrait refuser un import sans aucune ligne", async () => {
+      mockHappyPath();
+
+      await expect(
+        questionSubmissionService.createSubmissionsBulk(authorId, "geographie", []),
+      ).rejects.toThrow("Aucune question à importer.");
+    });
+
+    it("devrait refuser un thème inexistant", async () => {
+      mockHappyPath();
+      (prisma.questionTheme.findFirst as any).mockResolvedValue(null);
+
+      await expect(
+        questionSubmissionService.createSubmissionsBulk(authorId, "theme-fantome", [bulkRow(2)]),
+      ).rejects.toThrow("thème sélectionné est introuvable");
+      expect(prisma.questionSubmission.createManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it("devrait imposer le thème choisi et la difficulté par défaut, en ignorant ce que le client envoie", async () => {
+      mockHappyPath();
+
+      await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        // Champs parasites : ils ne doivent pas se retrouver en base.
+        { ...bulkRow(2), themes: ["hacking"], difficulty: 5 } as any,
+      ]);
+
+      const created = (prisma.questionSubmission.createManyAndReturn as any).mock.calls[0][0].data;
+      expect(created).toHaveLength(1);
+      expect(created[0].themes).toEqual(["geographie"]);
+      expect(created[0].difficulty).toBe(SUBMISSION_CSV_DEFAULT_DIFFICULTY);
+      expect(created[0].data.theme).toEqual(["geographie"]);
+      expect(created[0].data.difficulty).toBe(SUBMISSION_CSV_DEFAULT_DIFFICULTY);
+      expect(created[0].status).toBe("PENDING");
+    });
+
+    it("devrait importer les lignes valides et rejeter les autres individuellement", async () => {
+      mockHappyPath();
+
+      const result = await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        bulkRow(2),
+        bulkRow(3, { libelle: "Qui" }),
+        bulkRow(4, { response: 9 }),
+        bulkRow(5),
+      ]);
+
+      expect(result.importedCount).toBe(2);
+      expect(result.rejectedCount).toBe(2);
+      expect(result.rows.map((r) => r.line)).toEqual([2, 3, 4, 5]);
+      expect(result.rows.filter((r) => r.status === "REJECTED").map((r) => r.line)).toEqual([3, 4]);
+
+      const created = (prisma.questionSubmission.createManyAndReturn as any).mock.calls[0][0].data;
+      expect(created).toHaveLength(2);
+    });
+
+    it("devrait rejeter un doublon interne au fichier en gardant la première occurrence", async () => {
+      mockHappyPath();
+
+      const result = await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        bulkRow(2, { libelle: "Quelle est la capitale de l'Australie ?" }),
+        bulkRow(3, { libelle: "  quelle EST la Capitale de l'Australie ?  " }),
+      ]);
+
+      expect(result.importedCount).toBe(1);
+      expect(result.rows.find((r) => r.line === 2)?.status).toBe("CREATED");
+      expect(result.rows.find((r) => r.line === 3)?.error).toContain("double dans le fichier");
+    });
+
+    it("devrait rejeter une question déjà présente en base", async () => {
+      mockHappyPath();
+      (prisma.question.findMany as any).mockResolvedValue([
+        { data: { libelle: "Quel est le plus grand océan n°2 ?" } },
+      ]);
+
+      const result = await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        bulkRow(2),
+        bulkRow(3),
+      ]);
+
+      expect(result.importedCount).toBe(1);
+      expect(result.rows.find((r) => r.line === 2)?.error).toContain("existe déjà");
+      expect(result.rows.find((r) => r.line === 3)?.status).toBe("CREATED");
+    });
+
+    it("devrait rejeter une image_url non http(s) envoyée directement à l'API", async () => {
+      mockHappyPath();
+
+      const result = await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        bulkRow(2, { img: "javascript:alert(1)" }),
+        bulkRow(3, { img: "https://ok.fr/a.png" }),
+      ]);
+
+      expect(result.rows.find((r) => r.line === 2)?.error).toContain("image_url");
+      expect(result.rows.find((r) => r.line === 3)?.status).toBe("CREATED");
+      expect(result.importedCount).toBe(1);
+    });
+
+    // Le contenu finit dans une colonne Json qu'aucun schéma ne contraint : ces cas vérifient
+    // qu'un corps de requête forgé ne peut ni faire planter l'import ni écrire de données douteuses.
+    describe("Contenu forgé envoyé directement à l'API", () => {
+      it("devrait rejeter une proposition dont la valeur n'est pas du texte, sans faire échouer l'import", async () => {
+        mockHappyPath();
+
+        const result = await questionSubmissionService.createSubmissionsBulk(
+          authorId,
+          "geographie",
+          [
+            bulkRow(2, {
+              propositions: [
+                { id: 0, value: { evil: 1 } },
+                { id: 1, value: "b" },
+                { id: 2, value: "c" },
+                { id: 3, value: "d" },
+              ],
+            } as any),
+            bulkRow(3),
+          ],
+        );
+
+        expect(result.rows.find((r) => r.line === 2)?.status).toBe("REJECTED");
+        expect(result.rows.find((r) => r.line === 3)?.status).toBe("CREATED");
+      });
+
+      it("devrait rejeter un libellé non textuel au lieu de planter", async () => {
+        mockHappyPath();
+
+        const result = await questionSubmissionService.createSubmissionsBulk(
+          authorId,
+          "geographie",
+          [bulkRow(2, { libelle: { $ne: null } } as any)],
+        );
+
+        expect(result.importedCount).toBe(0);
+        expect(result.rows[0]?.status).toBe("REJECTED");
+      });
+
+      it("devrait rejeter des identifiants de proposition non entiers ou dupliqués", async () => {
+        mockHappyPath();
+
+        const result = await questionSubmissionService.createSubmissionsBulk(
+          authorId,
+          "geographie",
+          [
+            // Ids textuels : la bonne réponse serait introuvable au moment de jouer.
+            bulkRow(2, {
+              propositions: [
+                { id: "x", value: "a" },
+                { id: "x", value: "b" },
+                { id: "x", value: "c" },
+                { id: "x", value: "d" },
+              ],
+              response: "x",
+            } as any),
+            // Ids entiers mais dupliqués.
+            bulkRow(3, {
+              propositions: [
+                { id: 0, value: "a" },
+                { id: 0, value: "b" },
+                { id: 1, value: "c" },
+                { id: 2, value: "d" },
+              ],
+              response: 0,
+            }),
+          ],
+        );
+
+        expect(result.importedCount).toBe(0);
+        expect(result.rejectedCount).toBe(2);
+        expect(prisma.questionSubmission.createManyAndReturn).not.toHaveBeenCalled();
+      });
+
+      it("devrait rejeter des champs textuels démesurés plutôt que de les stocker", async () => {
+        mockHappyPath();
+
+        const result = await questionSubmissionService.createSubmissionsBulk(
+          authorId,
+          "geographie",
+          [
+            bulkRow(2, {
+              propositions: [
+                { id: 0, value: "z".repeat(PROPOSITION_MAX_LENGTH + 1) },
+                { id: 1, value: "b" },
+                { id: 2, value: "c" },
+                { id: 3, value: "d" },
+              ],
+            }),
+            bulkRow(3, { commentaire: "c".repeat(COMMENTAIRE_MAX_LENGTH + 1) }),
+            bulkRow(4, { source: "s".repeat(SOURCE_MAX_LENGTH + 1) }),
+          ],
+        );
+
+        expect(result.importedCount).toBe(0);
+        expect(result.rejectedCount).toBe(3);
+      });
+    });
+
+    it("devrait appliquer les mêmes contrôles à la modification d'une contribution", async () => {
+      (prisma.user.findUnique as any).mockResolvedValue({
+        id: authorId,
+        name: "Vétéran",
+        admin: false,
+        UserProgress: { levelId: SUBMISSION_MIN_LEVEL },
+      });
+      (prisma.questionSubmission.findUnique as any).mockResolvedValue({
+        id: 42,
+        userId: authorId,
+        status: "PENDING",
+        deleted: false,
+      });
+
+      await expect(
+        questionSubmissionService.updateSubmission(42, authorId, {
+          libelle: "Une question tout à fait valable ?",
+          propositions: [
+            { id: 0, value: "a" },
+            { id: 0, value: "b" },
+            { id: 1, value: "c" },
+            { id: 2, value: "d" },
+          ],
+          response: 0,
+          themes: ["geographie"],
+          difficulty: 2,
+        }),
+      ).rejects.toThrow("identifiant de la proposition");
+      expect(prisma.questionSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it("ne devrait insérer aucune ligne si toutes sont invalides", async () => {
+      mockHappyPath();
+
+      const result = await questionSubmissionService.createSubmissionsBulk(authorId, "geographie", [
+        bulkRow(2, { libelle: "Qui" }),
+        bulkRow(3, { response: 9 }),
+      ]);
+
+      expect(result.importedCount).toBe(0);
+      expect(result.rejectedCount).toBe(2);
+      expect(prisma.questionSubmission.createManyAndReturn).not.toHaveBeenCalled();
     });
   });
 });

@@ -89,3 +89,35 @@ export interface CreateSubmissionPayload {
   source?: string;
   img?: string;
 }
+
+/**
+ * Une ligne de fichier CSV : contenu textuel de la question uniquement.
+ * Ni thème ni difficulté : ces deux champs sont imposés par le serveur lors de l'import,
+ * pour qu'aucune valeur contrainte ne puisse provenir du fichier.
+ */
+export interface BulkSubmissionRowPayload {
+  /** N° de ligne dans le fichier, renvoyé tel quel dans le rapport. Jamais utilisé dans la logique serveur. */
+  line: number;
+  libelle: string;
+  propositions: Array<{ id: number; value: string }>;
+  response: number;
+  img?: string;
+  commentaire?: string;
+  source?: string;
+}
+
+/** Sort d'une ligne d'import en lot */
+export interface BulkImportRowResultDTO {
+  line: number;
+  libelle: string;
+  status: "CREATED" | "REJECTED";
+  error?: string;
+  submissionId?: number;
+}
+
+/** Compte-rendu d'un import en lot */
+export interface BulkImportResultDTO {
+  importedCount: number;
+  rejectedCount: number;
+  rows: BulkImportRowResultDTO[];
+}

@@ -1,6 +1,9 @@
 import { createError } from "h3";
 import prisma from "../utils/prisma";
 import type {
+  BulkImportResultDTO,
+  BulkImportRowResultDTO,
+  BulkSubmissionRowPayload,
   ContributorTrustScoreDTO,
   ContributorTrustTier,
   CreateSubmissionPayload,
@@ -11,7 +14,32 @@ import type {
   SubmissionVoteType,
 } from "../../shared/DTO/questionSubmissionDTO";
 import type { QuestionDataDTO } from "../../shared/question";
+import {
+  INVALID_IMAGE_URL_ERROR,
+  SUBMISSION_CSV_DEFAULT_DIFFICULTY,
+  SUBMISSION_CSV_MAX_ROWS,
+  isValidImageUrl,
+  normalizeLibelle,
+} from "../../shared/community/submissionCsvTemplate";
+import {
+  COMMENTAIRE_MAX_LENGTH,
+  IMG_MAX_LENGTH,
+  LIBELLE_MAX_LENGTH,
+  LIBELLE_MIN_LENGTH,
+  PROPOSITION_COUNT,
+  PROPOSITION_MAX_LENGTH,
+  SOURCE_MAX_LENGTH,
+} from "../../shared/community/questionContentRules";
 import { sendPushToUser } from "../utils/pushNotification";
+
+/**
+ * Lit un champ potentiellement non textuel envoyé par un client.
+ * Le corps de requête n'étant pas typé à l'exécution, appeler .trim() directement dessus
+ * ferait planter toute la requête au lieu de rejeter la seule ligne fautive.
+ */
+function readTrimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 export const SUBMISSION_MIN_LEVEL = 5;
 export const REVIEW_MIN_LEVEL = 3;
@@ -119,12 +147,10 @@ export class QuestionSubmissionService {
   }
 
   /**
-   * Crée une nouvelle soumission de question (requiert Niveau >= 5).
+   * Vérifie que l'utilisateur existe et possède le niveau requis pour proposer une question.
+   * Extrait de createSubmission pour que l'import en lot ne contrôle le niveau qu'une seule fois.
    */
-  async createSubmission(
-    userId: string,
-    payload: CreateSubmissionPayload,
-  ): Promise<QuestionSubmissionDTO> {
+  private async assertCanSubmit(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -144,62 +170,115 @@ export class QuestionSubmissionService {
       });
     }
 
-    // Validation du contenu
-    const libelle = payload.libelle?.trim();
-    if (!libelle || libelle.length < 5 || libelle.length > 300) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "L'intitulé de la question doit comporter entre 5 et 300 caractères.",
-      });
+    return user;
+  }
+
+  /**
+   * Valide le contenu d'une soumission et construit son QuestionDataDTO.
+   * Retourne l'erreur au lieu de la lever : l'import en lot a besoin de collecter les erreurs
+   * ligne par ligne au lieu de s'arrêter à la première.
+   */
+  private buildQuestionData(
+    payload: CreateSubmissionPayload,
+  ):
+    | { data: QuestionDataDTO; themes: string[]; difficulty: number; source: string | null }
+    | { error: string } {
+    // Le contenu part dans une colonne Json, qu'aucun schéma ne contraint : chaque champ est
+    // donc vérifié en type ET en longueur avant d'être écrit.
+    if (typeof payload.libelle !== "string") {
+      return { error: "L'intitulé de la question est invalide." };
+    }
+    const libelle = payload.libelle.trim();
+    if (libelle.length < LIBELLE_MIN_LENGTH || libelle.length > LIBELLE_MAX_LENGTH) {
+      return {
+        error: `L'intitulé de la question doit comporter entre ${LIBELLE_MIN_LENGTH} et ${LIBELLE_MAX_LENGTH} caractères.`,
+      };
     }
 
-    if (!Array.isArray(payload.propositions) || payload.propositions.length !== 4) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "La question doit comporter exactement 4 propositions de réponse.",
-      });
+    if (!Array.isArray(payload.propositions) || payload.propositions.length !== PROPOSITION_COUNT) {
+      return {
+        error: `La question doit comporter exactement ${PROPOSITION_COUNT} propositions de réponse.`,
+      };
     }
 
+    const propositions: QuestionDataDTO["propositions"] = [];
+    const seenIds = new Set<number>();
     for (let i = 0; i < payload.propositions.length; i++) {
       const p = payload.propositions[i];
-      if (!p || !p.value || p.value.trim().length === 0) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: `La proposition n°${i + 1} ne peut pas être vide.`,
-        });
+      if (!p || typeof p.value !== "string" || p.value.trim().length === 0) {
+        return { error: `La proposition n°${i + 1} ne peut pas être vide.` };
       }
+      const value = p.value.trim();
+      if (value.length > PROPOSITION_MAX_LENGTH) {
+        return {
+          error: `La proposition n°${i + 1} dépasse ${PROPOSITION_MAX_LENGTH} caractères.`,
+        };
+      }
+      // Sans identifiant entier et unique, la bonne réponse ne peut plus être retrouvée
+      // au moment de jouer la question (voir isCorrectAnswer).
+      if (!Number.isInteger(p.id) || seenIds.has(p.id)) {
+        return { error: `L'identifiant de la proposition n°${i + 1} est invalide.` };
+      }
+      seenIds.add(p.id);
+      propositions.push({ id: p.id, value, img: "" });
     }
 
-    const validResponseIds = payload.propositions.map((p) => p.id);
-    if (!validResponseIds.includes(payload.response)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "La bonne réponse sélectionnée est invalide.",
-      });
+    if (!Number.isInteger(payload.response) || !seenIds.has(payload.response)) {
+      return { error: "La bonne réponse sélectionnée est invalide." };
     }
 
     const themes =
       Array.isArray(payload.themes) && payload.themes.length > 0
-        ? payload.themes
-        : ["culture_generale"];
+        ? payload.themes.map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
+        : [];
+    if (themes.length === 0) themes.push("culture_generale");
 
     const difficulty = Math.min(Math.max(Number(payload.difficulty) || 1, 1), 5);
 
-    const questionData: QuestionDataDTO = {
-      type: "simple",
+    const img = typeof payload.img === "string" ? payload.img.trim() : "";
+    if (img.length > IMG_MAX_LENGTH) {
+      return { error: `L'adresse de l'image dépasse ${IMG_MAX_LENGTH} caractères.` };
+    }
+
+    const commentaire = typeof payload.commentaire === "string" ? payload.commentaire.trim() : "";
+    if (commentaire.length > COMMENTAIRE_MAX_LENGTH) {
+      return { error: `Le commentaire dépasse ${COMMENTAIRE_MAX_LENGTH} caractères.` };
+    }
+
+    const source = typeof payload.source === "string" ? payload.source.trim() : "";
+    if (source.length > SOURCE_MAX_LENGTH) {
+      return { error: `La source dépasse ${SOURCE_MAX_LENGTH} caractères.` };
+    }
+
+    const data: QuestionDataDTO = {
+      type: "choix",
       difficulty,
       theme: themes,
       libelle,
-      img: payload.img?.trim() || "",
+      img,
       response: payload.response,
-      propositions: payload.propositions.map((p) => ({
-        id: p.id,
-        value: p.value.trim(),
-        img: "",
-      })),
-      commentaire: payload.commentaire?.trim() || "",
+      propositions,
+      commentaire,
       commentaireImg: "",
     };
+
+    return { data, themes, difficulty, source: source || null };
+  }
+
+  /**
+   * Crée une nouvelle soumission de question (requiert Niveau >= 5).
+   */
+  async createSubmission(
+    userId: string,
+    payload: CreateSubmissionPayload,
+  ): Promise<QuestionSubmissionDTO> {
+    const user = await this.assertCanSubmit(userId);
+
+    const built = this.buildQuestionData(payload);
+    if ("error" in built) {
+      throw createError({ statusCode: 400, statusMessage: built.error });
+    }
+    const { data: questionData, themes, difficulty, source } = built;
 
     const submission = await prisma.questionSubmission.create({
       data: {
@@ -207,7 +286,7 @@ export class QuestionSubmissionService {
         data: questionData as any,
         themes,
         difficulty,
-        source: payload.source?.trim() || null,
+        source,
         status: "PENDING",
       },
     });
@@ -236,6 +315,166 @@ export class QuestionSubmissionService {
       answersReceivedCount: 0,
       royaltiesEarned: 0,
     };
+  }
+
+  /**
+   * Import en lot depuis un fichier CSV.
+   * Le thème et la difficulté ne proviennent jamais du fichier : le thème est celui choisi dans
+   * l'interface (validé ici) et la difficulté est imposée à SUBMISSION_CSV_DEFAULT_DIFFICULTY.
+   * Les lignes invalides sont rejetées individuellement, sans interrompre l'import des autres.
+   */
+  async createSubmissionsBulk(
+    userId: string,
+    themeSlug: string,
+    rows: BulkSubmissionRowPayload[],
+  ): Promise<BulkImportResultDTO> {
+    await this.assertCanSubmit(userId);
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw createError({ statusCode: 400, statusMessage: "Aucune question à importer." });
+    }
+
+    if (rows.length > SUBMISSION_CSV_MAX_ROWS) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `Vous ne pouvez pas importer plus de ${SUBMISSION_CSV_MAX_ROWS} questions à la fois. (${rows.length} reçues)`,
+      });
+    }
+
+    const theme = await prisma.questionTheme.findFirst({ where: { slug: themeSlug } });
+    if (!theme) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "Le thème sélectionné est introuvable.",
+      });
+    }
+
+    // Doublons déjà en base : une seule requête pour l'ensemble des libellés du fichier.
+    // Un libellé non textuel n'est pas rejeté ici : buildQuestionData s'en charge ligne par ligne.
+    const libelles = rows.map((row) => readTrimmed(row?.libelle)).filter(Boolean);
+    const existingLibelles = await this.findExistingLibelles(libelles);
+
+    const seenInFile = new Set<string>();
+    const results: BulkImportRowResultDTO[] = [];
+    const toCreate: {
+      row: BulkSubmissionRowPayload;
+      data: QuestionDataDTO;
+      source: string | null;
+    }[] = [];
+
+    for (const row of rows) {
+      const line = Number(row?.line) || 0;
+      const libelle = readTrimmed(row?.libelle);
+
+      // Règle du gabarit revalidée ici : sans ce contrôle, un appel direct à l'API
+      // contournerait la validation faite à la prévisualisation.
+      if (!isValidImageUrl(row?.img)) {
+        results.push({ line, libelle, status: "REJECTED", error: INVALID_IMAGE_URL_ERROR });
+        continue;
+      }
+
+      const built = this.buildQuestionData({
+        libelle,
+        propositions: row?.propositions ?? [],
+        response: row?.response,
+        img: row?.img,
+        commentaire: row?.commentaire,
+        source: row?.source,
+        // Imposés par le serveur : ce que le client a pu envoyer est ignoré.
+        themes: [theme.slug],
+        difficulty: SUBMISSION_CSV_DEFAULT_DIFFICULTY,
+      });
+
+      if ("error" in built) {
+        results.push({ line, libelle, status: "REJECTED", error: built.error });
+        continue;
+      }
+
+      const normalized = normalizeLibelle(libelle);
+      if (seenInFile.has(normalized)) {
+        results.push({
+          line,
+          libelle,
+          status: "REJECTED",
+          error: "Cette question est présente en double dans le fichier.",
+        });
+        continue;
+      }
+      if (existingLibelles.has(normalized)) {
+        results.push({
+          line,
+          libelle,
+          status: "REJECTED",
+          error: "Une question identique existe déjà ou est en cours de relecture.",
+        });
+        continue;
+      }
+
+      seenInFile.add(normalized);
+      toCreate.push({ row, data: built.data, source: built.source });
+    }
+
+    if (toCreate.length > 0) {
+      const created = await prisma.questionSubmission.createManyAndReturn({
+        data: toCreate.map(({ data, source }) => ({
+          userId,
+          data: data as any,
+          themes: [theme.slug],
+          difficulty: SUBMISSION_CSV_DEFAULT_DIFFICULTY,
+          source,
+          status: "PENDING",
+        })),
+      });
+
+      created.forEach((submission, index) => {
+        const origin = toCreate[index];
+        if (!origin) return;
+        results.push({
+          line: Number(origin.row?.line) || 0,
+          libelle: origin.data.libelle,
+          status: "CREATED",
+          submissionId: submission.id,
+        });
+      });
+    }
+
+    results.sort((a, b) => a.line - b.line);
+
+    return {
+      importedCount: results.filter((r) => r.status === "CREATED").length,
+      rejectedCount: results.filter((r) => r.status === "REJECTED").length,
+      rows: results,
+    };
+  }
+
+  /**
+   * Renvoie l'ensemble des libellés (normalisés) déjà présents parmi les questions officielles
+   * ou les soumissions en cours de relecture.
+   */
+  private async findExistingLibelles(libelles: string[]): Promise<Set<string>> {
+    if (libelles.length === 0) return new Set();
+
+    const orFilters = libelles.map((libelle) => ({
+      data: { path: ["libelle"], equals: libelle },
+    }));
+
+    const [questions, submissions] = await Promise.all([
+      prisma.question.findMany({
+        where: { deleted: false, OR: orFilters as any },
+        select: { data: true },
+      }),
+      prisma.questionSubmission.findMany({
+        where: { deleted: false, status: "PENDING", OR: orFilters as any },
+        select: { data: true },
+      }),
+    ]);
+
+    const found = new Set<string>();
+    for (const record of [...questions, ...submissions]) {
+      const libelle = (record.data as any)?.libelle;
+      if (typeof libelle === "string") found.add(normalizeLibelle(libelle));
+    }
+    return found;
   }
 
   /**
@@ -859,67 +1098,26 @@ export class QuestionSubmissionService {
       });
     }
 
-    // Validation du contenu
-    const libelle = payload.libelle?.trim();
-    if (!libelle || libelle.length < 5 || libelle.length > 300) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "L'intitulé de la question doit comporter entre 5 et 300 caractères.",
-      });
+    // Même validateur que la création : la modification écrit dans la même colonne Json et
+    // doit donc appliquer exactement les mêmes contrôles de type et de longueur.
+    const built = this.buildQuestionData(payload);
+    if ("error" in built) {
+      throw createError({ statusCode: 400, statusMessage: built.error });
     }
-
-    if (!Array.isArray(payload.propositions) || payload.propositions.length !== 4) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "La question doit comporter exactement 4 propositions de réponse.",
-      });
-    }
-
-    for (let i = 0; i < payload.propositions.length; i++) {
-      const p = payload.propositions[i];
-      if (!p || !p.value || p.value.trim().length === 0) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: `La proposition n°${i + 1} ne peut pas être vide.`,
-        });
-      }
-    }
-
-    if (payload.response < 0 || payload.response > 3) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "La réponse correcte doit être désignée parmi les 4 propositions (0 à 3).",
-      });
-    }
+    const { data: questionData, themes, difficulty, source } = built;
 
     // Supprimer les votes existants pour repartir de 0
     await prisma.questionSubmissionVote.deleteMany({
       where: { submissionId },
     });
 
-    const questionData: QuestionDataDTO = {
-      type: "unique",
-      difficulty: Math.min(5, Math.max(1, payload.difficulty || 1)),
-      theme: payload.themes && payload.themes.length > 0 ? payload.themes : ["culture_generale"],
-      libelle,
-      img: payload.img?.trim() || "",
-      propositions: payload.propositions.map((p, idx) => ({
-        id: idx,
-        value: p.value.trim(),
-        img: p.img || "",
-      })),
-      response: payload.response,
-      commentaire: payload.commentaire?.trim() || "",
-      commentaireImg: payload.commentaireImg || "",
-    };
-
     const updated = await prisma.questionSubmission.update({
       where: { id: submissionId },
       data: {
         data: questionData as any,
-        themes: payload.themes && payload.themes.length > 0 ? payload.themes : ["culture_generale"],
-        difficulty: Math.min(5, Math.max(1, payload.difficulty || 1)),
-        source: payload.source?.trim() || null,
+        themes,
+        difficulty,
+        source,
         approvalCount: 0,
         rejectionCount: 0,
         rejectionReason: null,
