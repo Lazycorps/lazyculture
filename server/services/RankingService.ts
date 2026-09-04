@@ -5,6 +5,7 @@ import { BrainrunRankingDTO } from "#shared/DTO/brainrunRankingDTO";
 import { getRankFromPoints } from "~~/server/utils/rankHelper";
 import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 import { rankBrainrunPlayers } from "~~/server/utils/brainrunLogic";
+import { getMonthKey, getMonthRange } from "#shared/dailySeason";
 
 export class RankingService {
   async getTopUsers(): Promise<UserRankingDTO[]> {
@@ -177,12 +178,29 @@ export class RankingService {
     });
   }
 
-  async getDailyPodiumRanking(monthly?: boolean): Promise<DailyPodiumRankingDTO[]> {
+  /** Saisons (« YYYY-MM ») pour lesquelles au moins une série daily existe, de la plus récente à la
+   * plus ancienne. Le mois en cours est toujours proposé, même si sa première série n'a pas encore
+   * été générée. */
+  async getDailyMonths(): Promise<string[]> {
+    const dates = await prisma.questionSeries.findMany({
+      where: { type: "daily" },
+      select: { date: true },
+      distinct: ["date"],
+    });
+
+    const months = new Set<string>([getMonthKey()]);
+    for (const { date } of dates) months.add(getMonthKey(date));
+
+    return [...months].sort().reverse();
+  }
+
+  /** Classement des podiums daily. `month` (« YYYY-MM ») restreint à une saison mensuelle ;
+   * sans `month`, le classement porte sur toutes les séries daily existantes. */
+  async getDailyPodiumRanking(month?: string): Promise<DailyPodiumRankingDTO[]> {
     const dateFilter: any = {};
-    if (monthly) {
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
-      dateFilter.date = { gte: oneMonthAgo };
+    if (month) {
+      const { start, end } = getMonthRange(month);
+      dateFilter.date = { gte: start, lt: end };
     }
 
     // 1. Récupérer toutes les séries daily correspondantes

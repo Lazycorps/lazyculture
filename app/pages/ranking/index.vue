@@ -119,6 +119,38 @@
       </div>
     </div>
 
+    <!-- Daily Monthly Season Navigator -->
+    <div
+      v-if="currentTab === 'daily' && dailyPeriod === 'monthly'"
+      class="flex justify-center -mt-4"
+    >
+      <div
+        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex items-center w-full max-w-[240px]"
+      >
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          :disabled="!hasOlderMonth"
+          title="Saison précédente"
+          @click="goToPreviousMonth"
+        >
+          <UIcon name="i-heroicons-chevron-left" class="text-sm block" />
+        </button>
+        <span
+          class="flex-1 text-center text-[9px] font-bold uppercase tracking-wider text-white font-display"
+        >
+          {{ selectedMonthLabel }}
+        </span>
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          :disabled="!hasNewerMonth"
+          title="Saison suivante"
+          @click="goToNextMonth"
+        >
+          <UIcon name="i-heroicons-chevron-right" class="text-sm block" />
+        </button>
+      </div>
+    </div>
+
     <!-- 3D Podium for Top 3 Players -->
     <div
       class="grid grid-cols-3 gap-3 items-end pt-6 max-w-md mx-auto"
@@ -503,13 +535,7 @@
         v-else-if="!activeUsers || activeUsers.length === 0"
         class="text-center py-10 text-gray-500 font-medium space-y-4"
       >
-        <p>
-          {{
-            currentTab === "friends"
-              ? "Suivez des joueurs pour les voir apparaître ici !"
-              : "Aucun joueur dans ce classement pour le moment."
-          }}
-        </p>
+        <p>{{ emptyRankingText }}</p>
         <UButton
           v-if="currentTab === 'friends'"
           to="/user/friends"
@@ -528,6 +554,7 @@
 <script setup lang="ts">
 import type { FriendRankingDTO } from "#shared/DTO/followDTO";
 import { brainrunEruditionLabel } from "#shared/brainrunErudition";
+import { formatMonthLabel, getMonthKey } from "#shared/dailySeason";
 
 useSeoMeta({
   title: "Classements Généraux",
@@ -540,6 +567,10 @@ useSeoMeta({
 
 const currentTab = ref<"general" | "br" | "showdown" | "daily" | "brainrun" | "friends">("daily");
 const dailyPeriod = ref<"alltime" | "monthly">("monthly");
+
+// Saison mensuelle consultée : le mois en cours par défaut, navigable vers les mois précédents.
+const selectedMonth = ref(getMonthKey());
+const selectedMonthLabel = computed(() => formatMonthLabel(selectedMonth.value));
 
 const userStore = useUserStore();
 const { authFetch } = useAuthFetch();
@@ -571,9 +602,36 @@ const { data: dailyAlltimeUsers } = await useFetch<any[]>(
   "/api/ranking/daily-podium?period=alltime",
 );
 const { data: dailyMonthlyUsers } = await useFetch<any[]>(
-  "/api/ranking/daily-podium?period=monthly",
+  () => `/api/ranking/daily-podium?month=${selectedMonth.value}`,
 );
+const { data: dailyMonths } = await useFetch<string[]>("/api/ranking/daily-months");
 const { data: brainrunUsers } = await useFetch<any[]>("/api/ranking/brainrun");
+
+// Saisons disponibles, de la plus récente à la plus ancienne (l'API garantit le mois en cours).
+const availableMonths = computed(() => dailyMonths.value ?? [selectedMonth.value]);
+const selectedMonthIndex = computed(() => availableMonths.value.indexOf(selectedMonth.value));
+const hasOlderMonth = computed(
+  () =>
+    selectedMonthIndex.value >= 0 && selectedMonthIndex.value < availableMonths.value.length - 1,
+);
+const hasNewerMonth = computed(() => selectedMonthIndex.value > 0);
+
+function goToPreviousMonth() {
+  const previous = availableMonths.value[selectedMonthIndex.value + 1];
+  if (hasOlderMonth.value && previous) selectedMonth.value = previous;
+}
+
+function goToNextMonth() {
+  const next = availableMonths.value[selectedMonthIndex.value - 1];
+  if (hasNewerMonth.value && next) selectedMonth.value = next;
+}
+
+const emptyRankingText = computed(() => {
+  if (currentTab.value === "friends") return "Suivez des joueurs pour les voir apparaître ici !";
+  if (currentTab.value === "daily" && dailyPeriod.value === "monthly")
+    return `Aucun podium en ${selectedMonthLabel.value} pour le moment.`;
+  return "Aucun joueur dans ce classement pour le moment.";
+});
 
 const activeUsers = computed(() => {
   if (currentTab.value === "general") return users.value || [];
