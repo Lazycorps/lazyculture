@@ -135,6 +135,7 @@ export type BrainrunRoomResponse = {
   correctResponseId?: number;
   commentaire?: string;
   commentaireImg?: string;
+  completedQuests?: any[];
 };
 
 /** Résultat réellement appliqué de l'option d'Événement choisie (cf. resolveEvent) : les deltas

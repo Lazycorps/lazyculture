@@ -7,7 +7,9 @@ import {
 } from "~~/server/services/QuestionService";
 import { updateUserProgress } from "~~/server/utils/userProgressHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
-import { dailyRewardService } from "./DailyRewardService";
+import { dailyRewardService, type CompletedQuestNotificationDTO } from "./DailyRewardService";
+import { grantCoins } from "~~/server/utils/walletHelper";
+import { recordUserStreakActivity } from "~~/server/utils/activityStreakHelper";
 import {
   applyBossMalusToDamage,
   applyEruditionToGold,
@@ -749,9 +751,43 @@ export class BrainrunService {
     const timedOut =
       isBossRoom && !skipTimeoutForFirstAnswer && isBossAnswerTimedOut(elapsedMs, bonusTimeMs);
     const success = !timedOut && isCorrectAnswer(question, userResponseId);
-    if (success) {
-      const questionThemes = ((question as any)?.data?.theme as string[]) || [];
-      await dailyRewardService.handleQuestionAnswered(userId, questionThemes, 1);
+
+    const questionData = (question.data as any) || {};
+    const rawThemes =
+      questionData.theme ||
+      questionData.themes ||
+      (question as any).themes ||
+      (question as any).theme ||
+      [];
+    const questionThemes: string[] = Array.isArray(rawThemes)
+      ? rawThemes.map((t: any) => String(t))
+      : typeof rawThemes === "string"
+        ? [rawThemes]
+        : [];
+
+    let completedQuests: CompletedQuestNotificationDTO[] = [];
+    if (!run.isDebugRun) {
+      await prisma.questionResponse.create({
+        data: {
+          userId,
+          questionId: question.id,
+          success,
+          date: new Date(),
+        },
+      });
+
+      if (question.authorId && question.authorId !== userId) {
+        grantCoins(question.authorId, 1, false, false).catch((err) =>
+          console.error("Erreur versement redevance auteur :", err),
+        );
+      }
+
+      await recordUserStreakActivity(userId).catch(console.error);
+
+      if (success) {
+        completedQuests =
+          (await dailyRewardService.handleQuestionAnswered(userId, questionThemes, 1)) ?? [];
+      }
     }
     // Une mauvaise réponse fait toujours perdre exactement 1 PV, quelle que soit la difficulté
     // de la question (plus de palier 1/2/3 PV) — seul un Bouclier peut encore annuler la perte.
@@ -782,7 +818,6 @@ export class BrainrunService {
           return applyBossMalusToDamage(withConsumable, bossDef?.malus, reveal.malusCancelled);
         })()
       : 0;
-    const questionData = question.data as any;
     const newResponses: BrainrunRoomResponse[] = [
       ...responses,
       {
@@ -794,6 +829,7 @@ export class BrainrunService {
         commentaire: questionData.commentaire || "",
         commentaireImg: questionData.commentaireImg || "",
         ...(isBossRoom ? { bossDamage, timedOut } : {}),
+        ...(completedQuests.length > 0 ? { completedQuests } : {}),
       },
     ];
     let newHealthPoint = run.healthPoint - hpLoss;

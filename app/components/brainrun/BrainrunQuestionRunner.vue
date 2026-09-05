@@ -225,6 +225,8 @@ const emit = defineEmits<{
 
 const brainrun = useBrainrunSession();
 const userStore = useUserStore();
+const achievementStore = useAchievementStore();
+const { handleCompletedQuests } = useQuestToast();
 const showBottomNav = useState("showBottomNav", () => true);
 // Signale à la page parente de garder cet écran affiché tant que le feedback de la
 // dernière question d'une salle est visible, même si l'état serveur (currentQuestion/
@@ -566,6 +568,10 @@ async function validateResponse() {
         redResponse.value = selectedResponse.value;
         greenResponse.value = lastResponse.correctResponseId ?? null;
       }
+      if (lastResponse.completedQuests?.length) {
+        handleCompletedQuests(lastResponse.completedQuests);
+      }
+      achievementStore.answerQuestion();
     }
 
     scrollFeedbackIntoView();
@@ -598,6 +604,7 @@ async function handleBossTimeout() {
       commentaire.value = lastResponse.commentaire || "";
       redResponse.value = null;
       greenResponse.value = lastResponse.correctResponseId ?? null;
+      achievementStore.answerQuestion();
     }
 
     scrollFeedbackIntoView();
