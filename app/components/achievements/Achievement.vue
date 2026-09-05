@@ -5,17 +5,48 @@
       :key="achievement.id"
       class="flex justify-center"
     >
-      <UTooltip
-        :popper="{ placement: 'top' }"
+      <UPopover
+        :mode="isTouch ? 'click' : 'hover'"
+        :content="{ side: 'top', sideOffset: 8 }"
         :ui="{
           content:
-            'h-auto max-h-none py-2.5 px-3 bg-slate-950/95 border border-white/10 rounded-xl shadow-glass flex flex-col items-center justify-center text-center select-text',
+            'h-auto max-h-none py-2.5 px-3 bg-slate-950/95 border border-white/10 rounded-xl shadow-glass flex flex-col items-center justify-center text-center ring-0 z-50',
         }"
-        class="w-full"
+        class="w-full flex justify-center"
       >
-        <!-- Custom Tooltip Content inside :content fallback or custom slot -->
+        <!-- Achievement Badge Trigger Button -->
+        <button
+          type="button"
+          class="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center cursor-pointer transition-all duration-200 focus:outline-none"
+          :class="
+            userHasAchievement(achievement.id)
+              ? 'scale-100 hover:scale-105 active:scale-95'
+              : 'grayscale opacity-40 scale-95 hover:opacity-65 hover:scale-[0.98] active:scale-90'
+          "
+          :aria-label="achievement.title"
+        >
+          <!-- Badge Icon Image -->
+          <img
+            v-if="achievement?.icon"
+            :src="achievement.icon"
+            alt="Achievement Icon"
+            class="w-full h-full object-cover pointer-events-none"
+          />
+          <!-- Fallback Trophy Emoji -->
+          <span v-else class="text-3xl sm:text-4xl pointer-events-none">🏆</span>
+
+          <!-- Locked padlock badge -->
+          <span
+            v-if="!userHasAchievement(achievement.id)"
+            class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-slate-950/90 border border-white/10 flex items-center justify-center text-[10px] text-gray-400 z-10 pointer-events-none"
+          >
+            🔒
+          </span>
+        </button>
+
+        <!-- Custom Tooltip Content inside Popover -->
         <template #content>
-          <div class="p-1.5 space-y-0.5 text-center">
+          <div class="p-1.5 space-y-0.5 text-center select-text">
             <p class="font-extrabold text-white text-xs">{{ achievement.title }}</p>
             <p class="text-[10px] text-amber-400 font-bold font-display">
               +{{ achievement.xpEarned }} XP
@@ -25,35 +56,7 @@
             </p>
           </div>
         </template>
-
-        <!-- Achievement Badge Container -->
-        <div
-          class="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center cursor-help transition-all duration-200"
-          :class="
-            userHasAchievement(achievement.id)
-              ? 'scale-100 hover:scale-105'
-              : 'grayscale opacity-40 scale-95 hover:opacity-65 hover:scale-[0.98]'
-          "
-        >
-          <!-- Badge Icon Image -->
-          <img
-            v-if="achievement?.icon"
-            :src="achievement.icon"
-            alt="Achievement Icon"
-            class="w-full h-full object-cover"
-          />
-          <!-- Fallback Trophy Emoji -->
-          <span v-else class="text-3xl sm:text-4xl">🏆</span>
-
-          <!-- Locked padlock badge badge -->
-          <span
-            v-if="!userHasAchievement(achievement.id)"
-            class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-slate-950/90 border border-white/10 flex items-center justify-center text-[10px] text-gray-400 z-10"
-          >
-            🔒
-          </span>
-        </div>
-      </UTooltip>
+      </UPopover>
     </div>
   </div>
 </template>
@@ -72,6 +75,15 @@ const finalAchievements = computed(() => props.achievements ?? achievementsStore
 const finalUserAchievements = computed(
   () => props.userAchievements ?? achievementsStore.userAchievements,
 );
+
+const isTouch = ref(false);
+
+onMounted(() => {
+  isTouch.value =
+    "ontouchstart" in window ||
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia("(pointer: coarse)").matches;
+});
 
 function userHasAchievement(achievementId: number) {
   return finalUserAchievements.value.some((a) => a.achievementId === achievementId);
