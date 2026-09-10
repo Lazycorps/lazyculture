@@ -177,6 +177,15 @@
         </template>
       </template>
     </UCard>
+
+    <!-- Review Section Card (Outside existing card and below it) -->
+    <UCard
+      v-if="user && completed"
+      class="mt-4 shadow-glass bg-[#111827]/70 backdrop-blur-xl border border-white/10 rounded-2xl"
+      :ui="{ body: 'p-4 sm:p-5' }"
+    >
+      <SeriesDailyReview :series-id="userSeries?.series?.id" />
+    </UCard>
   </div>
 </template>
 

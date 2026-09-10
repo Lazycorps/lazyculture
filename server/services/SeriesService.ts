@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { createError } from "h3";
 import prisma from "~~/server/utils/prisma";
 import type {
   QuestionSeriesData,
@@ -30,6 +31,11 @@ import type {
   DailyTimelineItemDTO,
   DailyCalendarDayDTO,
 } from "#shared/DTO/dailySeriesRankingDTO";
+import type {
+  DailySeriesReviewDTO,
+  DailyQuestionReviewDTO,
+  DailyReviewPropositionDTO,
+} from "#shared/DTO/dailyReviewDTO";
 import { formatShortDay, getDaysInMonth, getMonthRange } from "#shared/dailySeason";
 
 export class SeriesService {
@@ -73,6 +79,134 @@ export class SeriesService {
       series: currentDailySeries as unknown as QuestionSeriesDTO,
       userResponse: (userResponse as unknown as QuestionSeriesResponseDTO) ?? null,
     } as UserSeriesDTO;
+  }
+
+  async getDailyReview(userId: string, seriesId?: number): Promise<DailySeriesReviewDTO> {
+    const today = new Date().toJSON().slice(0, 10);
+
+    const currentDailySeries = seriesId
+      ? await prisma.questionSeries.findFirst({
+          where: { id: seriesId, type: "daily" },
+        })
+      : await prisma.questionSeries.findFirst({
+          where: { type: "daily", date: new Date(today) },
+        });
+
+    if (!currentDailySeries) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: "Série quotidienne introuvable.",
+      });
+    }
+
+    const userResponse = await prisma.questionSeriesResponse.findFirst({
+      where: { seriesId: currentDailySeries.id, userId },
+    });
+
+    const seriesData = currentDailySeries.data as any as QuestionSeriesData;
+    const questionsIds: number[] = seriesData?.questionsIds || [];
+    const responseData = userResponse?.data as any as QuestionSeriesResponseData;
+    const userResponses = responseData?.responses || [];
+
+    // Sécurité anti-triche : l'utilisateur doit avoir complété la série
+    if (questionsIds.length === 0 || userResponses.length < questionsIds.length) {
+      throw createError({
+        statusCode: 403,
+        statusMessage:
+          "Vous devez terminer la série quotidienne avant de pouvoir consulter les réponses et explications.",
+      });
+    }
+
+    const questions = await prisma.question.findMany({
+      where: { id: { in: questionsIds } },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    // Mappage des noms de thèmes
+    const allSlugs = new Set<string>();
+    for (const q of questions) {
+      const qData = q.data as any as QuestionDataDTO;
+      const rawThemes = qData?.theme || (qData as any)?.themes || [];
+      if (Array.isArray(rawThemes)) {
+        rawThemes.forEach((t) => allSlugs.add(String(t)));
+      } else if (typeof rawThemes === "string") {
+        allSlugs.add(rawThemes);
+      }
+    }
+
+    const dbThemes = await prisma.questionTheme.findMany({
+      where: { slug: { in: Array.from(allSlugs) } },
+      select: { slug: true, name: true },
+    });
+    const themeMap = new Map(dbThemes.map((t) => [t.slug, t.name]));
+
+    const questionById = new Map(questions.map((q) => [q.id, q]));
+    const userResponseByQuestionId = new Map(userResponses.map((r) => [r.questionId, r]));
+
+    const reviewQuestions: DailyQuestionReviewDTO[] = [];
+
+    questionsIds.forEach((qId, index) => {
+      const q = questionById.get(qId);
+      if (!q || !q.data) return;
+
+      const qData = q.data as any as QuestionDataDTO;
+      const userResp = userResponseByQuestionId.get(qId);
+      const rawThemes = qData.theme || (qData as any).themes || [];
+      const themeSlugs = Array.isArray(rawThemes)
+        ? rawThemes.map(String)
+        : typeof rawThemes === "string"
+          ? [rawThemes]
+          : [];
+      const themes = themeSlugs.map((slug) => themeMap.get(slug) || slug);
+
+      const userResponseId = userResp?.responseId ?? 0;
+      const correctResponseId = qData.response;
+      const isCorrect = userResp?.success ?? userResponseId === correctResponseId;
+
+      const propositions: DailyReviewPropositionDTO[] = (qData.propositions || []).map((p) => ({
+        id: p.id,
+        value: p.value,
+        img: p.img || undefined,
+      }));
+
+      reviewQuestions.push({
+        questionId: q.id,
+        order: index + 1,
+        libelle: qData.libelle,
+        img: qData.img || q.picture || undefined,
+        themes,
+        authorName: q.author?.name || undefined,
+        authorSlug: q.author?.slug || undefined,
+        propositions,
+        userResponseId,
+        correctResponseId,
+        isCorrect,
+        commentaire: qData.commentaire || "",
+        commentaireImg: qData.commentaireImg || undefined,
+      });
+    });
+
+    const seriesDateStr =
+      currentDailySeries.date instanceof Date
+        ? currentDailySeries.date.toISOString().slice(0, 10)
+        : String(currentDailySeries.date).slice(0, 10);
+
+    return {
+      seriesId: currentDailySeries.id,
+      title: currentDailySeries.title,
+      date: seriesDateStr,
+      score: responseData.score ?? 0,
+      totalQuestions: questionsIds.length,
+      questions: reviewQuestions,
+    };
   }
 
   async submitDailyResponse(body: SeriesResponseDTO, userId: string) {
