@@ -254,10 +254,6 @@ const bossElapsedMs = ref(0);
 let bossTimerInterval: ReturnType<typeof setInterval> | null = null;
 
 const isBossRoom = computed(() => brainrun.currentRoom.value?.type === "BOSS");
-// Malus "Alain" (memory_recall) : décompte de mémorisation forcée de la 1re question du combat,
-// sans réponses ni chrono contre-la-montre — dérivé de l'état serveur (currentQuestion null tant
-// que rien n'est validable), cf. useBrainrunSession.
-const isAlainIntroPhase = brainrun.isAlainMemoryIntro;
 
 // 50/50 / Appel à un ami / Sablier Fêlé / Coup de Grâce / Antidote : effet calculé et persisté
 // côté serveur pour la question en cours (le client a déjà data.response/propositions, mais
@@ -411,6 +407,17 @@ watch(
     }
   },
 );
+
+// Malus "Alain" (memory_recall) : décompte de mémorisation forcée, sans réponses ni chrono
+// contre-la-montre. Dérivé de l'état serveur (brainrun.isAlainMemoryIntro : rien de validable),
+// mais gelé derrière localQuestion comme tout le reste de l'affichage — le serveur repasse en
+// phase de mémorisation dès le retour de submitAnswer quand l'Antidote a laissé le tampon
+// d'avance retomber à 1 (cf. requiredLead dans BrainrunService.submitAnswer), or à cet instant le
+// joueur lit encore le feedback de la réponse qu'il vient de valider. Sans ce gel, l'écran
+// basculait immédiatement sur le décompte, ce qui démontait la barre d'action et son bouton
+// "Continuer" — le seul déclencheur de prepareNextBossQuestion : plus de question, plus de
+// réponses, décompte figé, combat définitivement bloqué (bug corrigé le 2026-09-10).
+const isAlainIntroPhase = computed(() => brainrun.isAlainMemoryIntro.value && !localQuestion.value);
 
 // Position de localQuestion dans currentRoom.questionIds (figé à la création de la salle pour
 // Standard/Elite, cf. BrainrunService.chooseNode) plutôt que responses.length + 1 : ce dernier
@@ -636,6 +643,39 @@ async function handleAlainIntroTimeout() {
     alainIntroAdvancing = false;
   }
 }
+
+// Filet de sécurité pour la même phase : le décompte a besoin d'un questionDeadline pour
+// s'écouler, et c'est normalement "Continuer" (nextQuestion) qui le fait poser par le serveur.
+// Si l'écran arrive en phase de mémorisation sans chrono démarré sans être passé par là
+// (rechargement de page, combat repris plus tard, ou run laissée bloquée par le bug ci-dessus),
+// personne ne rappellerait prepareNextBossQuestion et l'écran resterait figé. Réservé aux
+// questions suivantes (au moins une réponse déjà donnée) : le décompte de la toute première est
+// démarré par la transition d'entrée en combat, pas ici (cf. handleCombatIntroDone dans
+// app/pages/brainrun/index.vue) — l'anticiper grignoterait le temps de mémorisation du joueur
+// pendant que l'overlay d'entrée masque encore la question.
+let alainIntroStarting = false;
+async function startAlainIntroCountdown() {
+  if (alainIntroStarting) return;
+  alainIntroStarting = true;
+  try {
+    await brainrun.readyNextBossQuestion();
+    startBossTimerIfNeeded();
+  } catch (e) {
+    console.error("Failed to start Alain's memory countdown:", e);
+  } finally {
+    alainIntroStarting = false;
+  }
+}
+
+watch(
+  [isAlainIntroPhase, () => brainrun.currentRoom.value?.questionDeadline],
+  ([introPhase, deadline]) => {
+    if (!introPhase || deadline) return;
+    if ((brainrun.currentRoom.value?.responses.length ?? 0) === 0) return;
+    void startAlainIntroCountdown();
+  },
+  { immediate: true },
+);
 
 async function nextQuestion() {
   // Levé dès le clic : si une question suivante existe, currentQuestion reste de toute
