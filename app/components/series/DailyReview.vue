@@ -1,15 +1,21 @@
 <template>
   <div class="w-full select-none space-y-4">
     <!-- Header of the Review Card -->
-    <div class="flex items-center justify-between pb-2 border-b border-white/5">
+    <div
+      class="flex items-center justify-between transition-colors cursor-pointer group select-none"
+      :class="{ 'pb-3 border-b border-white/5': isOpen }"
+      @click="isOpen = !isOpen"
+    >
       <div class="flex items-center space-x-2">
         <div
-          class="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400"
+          class="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform"
         >
           <UIcon name="i-heroicons-document-magnifying-glass" class="text-lg" />
         </div>
         <div>
-          <h3 class="text-sm sm:text-base font-black font-display text-white tracking-wide">
+          <h3
+            class="text-sm sm:text-base font-black font-display text-white tracking-wide group-hover:text-violet-300 transition-colors"
+          >
             Revue des questions
           </h3>
           <p class="text-[10px] sm:text-xs text-gray-400 font-medium font-display">
@@ -33,9 +39,8 @@
 
         <button
           type="button"
-          class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+          class="p-1.5 rounded-lg text-gray-400 group-hover:text-white transition-colors cursor-pointer"
           :title="isOpen ? 'Replier la revue' : 'Déplier la revue'"
-          @click="isOpen = !isOpen"
         >
           <UIcon
             :name="isOpen ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
@@ -332,7 +337,7 @@ const props = defineProps<{
   seriesId?: number;
 }>();
 
-const isOpen = ref(true);
+const isOpen = ref(false);
 const currentIndex = ref(0);
 
 // Fetch daily review lazily or reactively
