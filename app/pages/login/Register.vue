@@ -13,6 +13,26 @@
       </template>
 
       <form @submit.prevent="register" class="space-y-4">
+        <!-- Pseudo Field -->
+        <UFormField
+          label="Pseudonyme"
+          name="username"
+          :ui="{
+            label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+          }"
+        >
+          <UInput
+            v-model="username"
+            type="text"
+            placeholder="Ex: SuperQuizzer"
+            icon="i-heroicons-user"
+            required
+            autocomplete="username"
+            class="w-full"
+            :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+          />
+        </UFormField>
+
         <!-- Email Field -->
         <UFormField
           label="Adresse Email"
@@ -27,6 +47,7 @@
             placeholder="nom@exemple.com"
             icon="i-heroicons-envelope"
             required
+            autocomplete="email"
             class="w-full"
             :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           />
@@ -46,6 +67,7 @@
             placeholder="Min 8 caractères, 1 Maj, 1 Chiffre"
             icon="i-heroicons-lock-closed"
             required
+            autocomplete="new-password"
             class="w-full"
             :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
           >
@@ -99,10 +121,15 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { validateUsername } from "#shared/user";
+import { useUserStore } from "~/stores/userStore";
+
 const router = useRouter();
 const config = useRuntimeConfig();
+const userStore = useUserStore();
 
 const passwordType = ref<"password" | "text">("password");
+const username = ref("");
 const email = ref("");
 const password = ref("");
 const errorDisplay = ref("");
@@ -115,7 +142,14 @@ function togglePassword() {
 async function register() {
   errorDisplay.value = "";
 
-  // Validation Rules
+  // 1. Validation Pseudo (format)
+  const pseudoValidation = validateUsername(username.value);
+  if (!pseudoValidation.valid) {
+    errorDisplay.value = pseudoValidation.error || "Pseudonyme invalide.";
+    return;
+  }
+
+  // 2. Validation Email & Mot de passe
   if (!email.value || !password.value) {
     errorDisplay.value = "L'adresse email et le mot de passe sont requis.";
     return;
@@ -136,6 +170,21 @@ async function register() {
 
   try {
     loading.value = true;
+
+    // Vérification de la disponibilité du pseudo au moment du clic
+    const checkRes = await $fetch<{ available: boolean; message?: string }>(
+      "/api/user/check-username",
+      {
+        params: { username: pseudoValidation.trimmed },
+      },
+    ).catch(() => null);
+
+    if (checkRes && !checkRes.available) {
+      errorDisplay.value =
+        checkRes.message || "Ce pseudonyme est déjà utilisé par un autre joueur.";
+      return;
+    }
+
     const supabase = useSupabaseClient();
     const rawBaseUrl = config.public.baseUrl || "http://localhost:3000";
     const baseUrl = rawBaseUrl.includes("://") ? rawBaseUrl : `https://${rawBaseUrl}`;
@@ -144,16 +193,45 @@ async function register() {
       email: email.value,
       password: password.value,
       options: {
+        data: {
+          username: pseudoValidation.trimmed,
+          lazyculture_username: pseudoValidation.trimmed,
+        },
         emailRedirectTo: baseUrl,
       },
     });
+
     if (error) {
-      errorDisplay.value = error.message;
+      if (
+        error.message?.toLowerCase().includes("already registered") ||
+        error.message?.toLowerCase().includes("already exists")
+      ) {
+        errorDisplay.value =
+          "Un compte existe déjà avec cette adresse email. Veuillez vous connecter avec vos identifiants existants.";
+      } else {
+        errorDisplay.value = error.message;
+      }
+      return;
+    }
+
+    // Si la session est directement disponible (ex: confirmation par email désactivée)
+    if (data?.session) {
+      const token = data.session.access_token;
+      await $fetch("/api/user/create", {
+        method: "post",
+        headers: { Authorization: `Bearer ${token}` },
+        body: {
+          username: pseudoValidation.trimmed,
+        },
+      }).catch(() => {});
+      await userStore.fetchUser(true);
+      router.push("/");
     } else {
       router.push("/login/registerValidation");
     }
   } catch (err: any) {
-    errorDisplay.value = "Une erreur est survenue lors de l'inscription.";
+    errorDisplay.value =
+      err?.data?.statusMessage || err?.message || "Une erreur est survenue lors de l'inscription.";
   } finally {
     loading.value = false;
   }

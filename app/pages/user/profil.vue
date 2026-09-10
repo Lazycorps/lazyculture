@@ -20,6 +20,7 @@
             :frame-style-key="userStore.frameStyleKey"
             is-own-profile
             @open-follow-modal="openFollowModal"
+            @edit-username="openEditUsernameModal"
           />
 
           <hr class="border-white/5 my-6" />
@@ -42,91 +43,6 @@
                 :ui="{ base: 'bg-white/5 border border-white/10 text-gray-400 cursor-not-allowed' }"
               />
             </UFormField>
-
-            <!-- Username Input -->
-            <UFormField
-              label="Nom d'utilisateur"
-              name="username"
-              :ui="{
-                label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
-              }"
-            >
-              <div class="flex flex-col sm:flex-row gap-3">
-                <UInput
-                  v-model="username"
-                  placeholder="Entrez votre pseudonyme..."
-                  icon="i-heroicons-user"
-                  class="flex-grow w-full"
-                  :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
-                />
-                <UButton
-                  color="primary"
-                  :disabled="!isUsernameSaveable"
-                  :loading="loadingUpdateUser"
-                  icon="i-heroicons-check-circle"
-                  class="font-black font-display uppercase tracking-widest px-6 shrink-0 h-10 flex items-center justify-center"
-                  @click="handleSaveUsername"
-                >
-                  <template v-if="!isInitialUsername">
-                    Modifier ({{ USERNAME_CHANGE_COST }} 🪙)
-                  </template>
-                  <template v-else> Enregistrer </template>
-                </UButton>
-              </div>
-
-              <!-- Message informatif de coût et solde -->
-              <p
-                v-if="!isInitialUsername && !hasEnoughCoins"
-                class="text-xs text-amber-400 flex items-center gap-1.5 mt-2 font-medium"
-              >
-                <UIcon name="i-heroicons-exclamation-triangle" class="text-sm shrink-0" />
-                Solde insuffisant : changer de pseudonyme requiert {{ USERNAME_CHANGE_COST }} 🪙
-                (vous possédez {{ userStore.coins }} 🪙).
-              </p>
-              <p
-                v-else-if="!isInitialUsername"
-                class="text-xs text-gray-400 flex items-center gap-1.5 mt-2"
-              >
-                <UIcon
-                  name="i-heroicons-information-circle"
-                  class="text-sm text-amber-400 shrink-0"
-                />
-                Changer de pseudonyme coûte
-                <span class="text-amber-300 font-semibold">{{ USERNAME_CHANGE_COST }} 🪙</span>
-                (solde actuel : {{ userStore.coins }} 🪙).
-              </p>
-              <p v-else class="text-xs text-emerald-400 flex items-center gap-1.5 mt-2">
-                <UIcon name="i-heroicons-check-circle" class="text-sm shrink-0" />
-                Premier choix de pseudonyme offert (gratuit).
-              </p>
-            </UFormField>
-
-            <!-- Personnalisation avatar -->
-            <div class="pt-5 border-t border-white/5">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4
-                    class="text-xs font-bold text-gray-400 uppercase tracking-wider font-display flex items-center"
-                  >
-                    <UIcon name="i-heroicons-face-smile" class="mr-1.5 text-violet-400 text-sm" />
-                    Avatar et cadre
-                  </h4>
-                  <p class="text-[11px] text-gray-500 mt-1 max-w-md leading-relaxed">
-                    Débloquez de nouveaux avatars et cadres avec vos pièces ou vos exploits.
-                  </p>
-                </div>
-                <UButton
-                  to="/user/avatars"
-                  color="primary"
-                  variant="soft"
-                  size="sm"
-                  icon="i-heroicons-sparkles"
-                  class="font-bold font-display uppercase tracking-wide text-xs shrink-0"
-                >
-                  Personnaliser
-                </UButton>
-              </div>
-            </div>
 
             <!-- Notifications Push Section -->
             <div class="pt-5 border-t border-white/5 space-y-4">
@@ -240,20 +156,20 @@
           :initial-tab="followModalTab"
         />
 
-        <!-- Modal confirmation changement de pseudo payant -->
-        <UModal v-model:open="confirmPseudoModalOpen" :ui="{ content: 'max-w-md' }">
+        <!-- Modal modification de pseudonyme -->
+        <UModal v-model:open="editUsernameModalOpen" :ui="{ content: 'max-w-md' }">
           <template #content>
             <UCard :ui="{ body: 'p-5 sm:p-6' }">
               <template #header>
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <div
-                      class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-sm"
+                      class="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 text-sm"
                     >
-                      🪙
+                      <UIcon name="i-heroicons-pencil-square" class="text-base" />
                     </div>
                     <h3 class="text-base font-black font-display text-white tracking-wide">
-                      Confirmation du changement
+                      Modifier votre pseudonyme
                     </h3>
                   </div>
                   <UButton
@@ -261,65 +177,110 @@
                     variant="ghost"
                     icon="i-heroicons-x-mark-20-solid"
                     class="-my-1"
-                    @click="confirmPseudoModalOpen = false"
+                    @click="editUsernameModalOpen = false"
                   />
                 </div>
               </template>
 
-              <div class="space-y-4">
-                <p class="text-sm text-gray-300 leading-relaxed">
-                  Vous êtes sur le point de changer votre pseudonyme pour :
-                </p>
-                <div class="p-3 bg-white/5 rounded-xl border border-white/10 text-center">
-                  <span class="text-lg font-black font-display text-white tracking-wider">
-                    {{ username }}
-                  </span>
-                </div>
+              <form @submit.prevent="handleSaveUsernameModal" class="space-y-4">
+                <UFormField
+                  label="Nouveau pseudonyme"
+                  name="newUsername"
+                  :ui="{
+                    label: 'text-xs font-bold text-gray-400 uppercase tracking-wider font-display',
+                  }"
+                >
+                  <UInput
+                    v-model="editUsernameValue"
+                    placeholder="Entrez votre pseudonyme..."
+                    icon="i-heroicons-user"
+                    size="lg"
+                    required
+                    autocomplete="off"
+                    class="w-full"
+                    :ui="{ base: 'bg-white/5 border border-white/10 text-white' }"
+                  />
+                </UFormField>
 
+                <!-- Information de coût et solde -->
                 <div
-                  class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-2 text-xs"
+                  v-if="!isInitialUsername"
+                  class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-1.5 text-xs"
                 >
                   <div class="flex justify-between items-center text-gray-300">
-                    <span>Coût de l'opération :</span>
+                    <span>Coût de la modification :</span>
                     <span class="font-bold text-amber-300 font-display text-sm"
                       >{{ USERNAME_CHANGE_COST }} 🪙</span
                     >
                   </div>
-                  <div class="flex justify-between items-center text-gray-300">
+                  <div class="flex justify-between items-center text-gray-400 text-[11px]">
                     <span>Votre solde actuel :</span>
-                    <span class="font-bold text-white font-display">{{ userStore.coins }} 🪙</span>
-                  </div>
-                  <div class="border-t border-amber-500/20 pt-2 flex justify-between items-center">
-                    <span class="text-gray-400">Solde après débit :</span>
-                    <span class="font-black text-amber-400 font-display">
-                      {{ Math.max(0, userStore.coins - USERNAME_CHANGE_COST) }} 🪙
+                    <span
+                      :class="
+                        hasEnoughCoins
+                          ? 'text-gray-300 font-semibold'
+                          : 'text-rose-400 font-semibold'
+                      "
+                    >
+                      {{ userStore.coins }} 🪙
                     </span>
                   </div>
+                  <p v-if="!hasEnoughCoins" class="text-rose-400 font-medium text-[11px] pt-1">
+                    Solde insuffisant pour changer de pseudonyme.
+                  </p>
                 </div>
-              </div>
+                <div
+                  v-else
+                  class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-400 flex items-center gap-2"
+                >
+                  <UIcon name="i-heroicons-sparkles" class="text-sm shrink-0" />
+                  <span>Premier choix de pseudonyme offert (gratuit).</span>
+                </div>
 
-              <template #footer>
-                <div class="flex justify-end gap-2.5">
+                <!-- Règles du pseudo -->
+                <div
+                  class="text-[11px] text-gray-400 space-y-0.5 bg-white/5 rounded-xl p-3 border border-white/5"
+                >
+                  <p class="font-semibold text-gray-300">Règles :</p>
+                  <p>• Entre 4 et 16 caractères</p>
+                  <p>• Lettres, chiffres, tirets et underscores</p>
+                </div>
+
+                <!-- Affichage d'erreur -->
+                <div v-if="editUsernameError">
+                  <UAlert
+                    color="error"
+                    variant="soft"
+                    icon="i-heroicons-exclamation-triangle"
+                    :title="editUsernameError"
+                    :ui="{ wrapper: 'rounded-xl' }"
+                  />
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-3 pt-2">
                   <UButton
                     color="neutral"
                     variant="ghost"
                     class="font-display font-bold uppercase tracking-wider text-xs"
-                    :disabled="loadingUpdateUser"
-                    @click="confirmPseudoModalOpen = false"
+                    @click="editUsernameModalOpen = false"
                   >
                     Annuler
                   </UButton>
                   <UButton
+                    type="submit"
                     color="primary"
-                    class="font-display font-black uppercase tracking-wider text-xs"
                     :loading="loadingUpdateUser"
-                    icon="i-heroicons-check"
-                    @click="confirmAndUpdateUsername"
+                    :disabled="loadingUpdateUser || (!isInitialUsername && !hasEnoughCoins)"
+                    class="font-display font-black uppercase tracking-wider text-xs px-5 py-2.5"
                   >
-                    Confirmer ({{ USERNAME_CHANGE_COST }} 🪙)
+                    <template v-if="!isInitialUsername">
+                      Confirmer ({{ USERNAME_CHANGE_COST }} 🪙)
+                    </template>
+                    <template v-else> Enregistrer </template>
                   </UButton>
                 </div>
-              </template>
+              </form>
             </UCard>
           </template>
         </UModal>
@@ -416,7 +377,7 @@
 </template>
 
 <script setup lang="ts">
-import { USERNAME_CHANGE_COST } from "#shared/user";
+import { USERNAME_CHANGE_COST, validateUsername } from "#shared/user";
 
 const supabase = useSupabaseClient();
 const router = useRouter();
@@ -456,7 +417,9 @@ const pushButtonText = computed(() => {
   return pushPermission.value === "denied" ? "Bloqué" : "Activer";
 });
 
-const confirmPseudoModalOpen = ref(false);
+const editUsernameModalOpen = ref(false);
+const editUsernameValue = ref("");
+const editUsernameError = ref("");
 
 const isInitialUsername = computed(
   () => !initialUsername.value || initialUsername.value.trim() === "",
@@ -465,29 +428,10 @@ const hasEnoughCoins = computed(
   () => isInitialUsername.value || userStore.coins >= USERNAME_CHANGE_COST,
 );
 
-const isUsernameSaveable = computed(() => {
-  const trimmed = username.value.trim();
-  return (
-    trimmed !== initialUsername.value &&
-    trimmed.length >= 4 &&
-    trimmed.length <= 16 &&
-    hasEnoughCoins.value
-  );
-});
-
-function handleSaveUsername() {
-  if (!isUsernameSaveable.value) return;
-
-  if (isInitialUsername.value) {
-    updateUsername();
-  } else {
-    confirmPseudoModalOpen.value = true;
-  }
-}
-
-async function confirmAndUpdateUsername() {
-  await updateUsername();
-  confirmPseudoModalOpen.value = false;
+function openEditUsernameModal() {
+  editUsernameValue.value = username.value;
+  editUsernameError.value = "";
+  editUsernameModalOpen.value = true;
 }
 
 const achievements = ref<any[]>([]);
@@ -570,28 +514,62 @@ async function fetchHistory(userId: string) {
   }
 }
 
-async function updateUsername() {
-  const trimmed = username.value.trim();
-  if (!trimmed || trimmed.length < 4 || trimmed.length > 16) {
+async function handleSaveUsernameModal() {
+  editUsernameError.value = "";
+
+  const validation = validateUsername(editUsernameValue.value);
+  if (!validation.valid) {
+    editUsernameError.value = validation.error || "Pseudonyme invalide.";
     return;
   }
+
+  if (validation.trimmed === initialUsername.value) {
+    editUsernameModalOpen.value = false;
+    return;
+  }
+
+  const isPaying = !isInitialUsername.value;
+  if (isPaying && !hasEnoughCoins.value) {
+    editUsernameError.value = `Solde insuffisant : changer de pseudonyme requiert ${USERNAME_CHANGE_COST} 🪙 (vous possédez ${userStore.coins} 🪙).`;
+    return;
+  }
+
   try {
     loadingUpdateUser.value = true;
-    const isPaying = !isInitialUsername.value;
+
+    // Vérification de la disponibilité du pseudo au moment du clic
+    const checkRes = await $fetch<{ available: boolean; message?: string }>(
+      "/api/user/check-username",
+      {
+        params: { username: validation.trimmed },
+      },
+    ).catch(() => null);
+
+    if (checkRes && !checkRes.available) {
+      editUsernameError.value =
+        checkRes.message || "Ce pseudonyme est déjà utilisé par un autre joueur.";
+      return;
+    }
+
     const userUpdated = await authFetch<any>("/api/user/username", {
       method: "POST",
       body: {
-        username: trimmed,
+        username: validation.trimmed,
       },
     });
-    username.value = userUpdated?.name ?? "";
-    initialUsername.value = userUpdated?.name ?? "";
+
+    username.value = userUpdated?.name ?? validation.trimmed;
+    initialUsername.value = userUpdated?.name ?? validation.trimmed;
+
     if (userStore.user) {
       userStore.user.name = username.value;
       if (userUpdated?.Wallet) {
         userStore.user.Wallet = userUpdated.Wallet;
       }
     }
+
+    editUsernameModalOpen.value = false;
+
     toast.add({
       title: "Profil mis à jour",
       description: isPaying
@@ -601,11 +579,8 @@ async function updateUsername() {
     });
   } catch (e: any) {
     console.error("Failed to update username:", e);
-    toast.add({
-      title: "Erreur",
-      description: e?.data?.statusMessage || "Impossible de mettre à jour le pseudonyme.",
-      color: "error",
-    });
+    editUsernameError.value =
+      e?.data?.statusMessage || e?.message || "Impossible de mettre à jour le pseudonyme.";
   } finally {
     loadingUpdateUser.value = false;
   }

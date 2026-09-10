@@ -219,4 +219,40 @@ describe("UserService - setUsername", () => {
       expect(userService.slugify("Gamer#123!")).toBe("gamer123");
     });
   });
+
+  describe("Méthode isUsernameAvailable", () => {
+    it("doit retourner false pour une chaîne vide", async () => {
+      expect(await userService.isUsernameAvailable("   ")).toBe(false);
+    });
+
+    it("doit retourner true si aucun utilisateur ne possède ce pseudo ou slug", async () => {
+      (prisma.user.findFirst as any).mockResolvedValue(null);
+      const res = await userService.isUsernameAvailable("UniqueGamer");
+      expect(res).toBe(true);
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          OR: [{ name: { equals: "UniqueGamer", mode: "insensitive" } }, { slug: "uniquegamer" }],
+        },
+        select: { id: true },
+      });
+    });
+
+    it("doit retourner false si un utilisateur existe avec le même pseudo", async () => {
+      (prisma.user.findFirst as any).mockResolvedValue({ id: "other-user" });
+      const res = await userService.isUsernameAvailable("ExistingGamer");
+      expect(res).toBe(false);
+    });
+
+    it("doit exclure l'ID de l'utilisateur actuel si spécifié", async () => {
+      (prisma.user.findFirst as any).mockResolvedValue(null);
+      await userService.isUsernameAvailable("MyOwnPseudo", "user-123");
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: { not: "user-123" },
+          OR: [{ name: { equals: "MyOwnPseudo", mode: "insensitive" } }, { slug: "myownpseudo" }],
+        },
+        select: { id: true },
+      });
+    });
+  });
 });

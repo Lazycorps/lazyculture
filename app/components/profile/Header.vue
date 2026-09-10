@@ -20,9 +20,22 @@
     </div>
     <div class="flex-1 text-center sm:text-left space-y-1.5 w-full">
       <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-3 gap-1">
-        <h2 class="text-2xl font-black font-display text-white tracking-wide truncate">
-          {{ name || "Joueur" }}
-        </h2>
+        <div class="flex items-center gap-1.5 justify-center sm:justify-start">
+          <h2 class="text-2xl font-black font-display text-white tracking-wide truncate">
+            {{ name || "Joueur" }}
+          </h2>
+          <UButton
+            v-if="isOwnProfile"
+            variant="ghost"
+            color="neutral"
+            size="xs"
+            icon="i-heroicons-pencil-square"
+            class="hover:bg-white/10 text-gray-400 hover:text-white rounded-lg p-1 transition-colors"
+            title="Modifier votre pseudonyme"
+            aria-label="Modifier votre pseudonyme"
+            @click="emit('editUsername')"
+          />
+        </div>
         <span
           class="inline-flex items-center justify-center self-center bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-extrabold px-3 py-1 rounded-full font-display"
         >
@@ -104,6 +117,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   openFollowModal: [tab: "followers" | "following"];
+  editUsername: [];
 }>();
 
 const xpProgress = computed(() => {

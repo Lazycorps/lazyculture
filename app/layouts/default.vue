@@ -113,6 +113,27 @@ onUnmounted(() => {
 
 const route = useRoute();
 
+function checkNeedsPseudo() {
+  if (
+    user.value &&
+    userStore.loaded &&
+    (!userStore.username || userStore.username.trim() === "") &&
+    route.path !== "/choose-pseudo" &&
+    !route.path.startsWith("/login") &&
+    route.path !== "/confirm"
+  ) {
+    router.replace("/choose-pseudo");
+  }
+}
+
+watch(
+  [user, () => userStore.loaded, () => userStore.username, () => route.path],
+  () => {
+    checkNeedsPseudo();
+  },
+  { immediate: true },
+);
+
 const pageTitle = computed(() => {
   const match = navItems.value.find((item) => {
     if (item.path === "/") return route.path === "/";

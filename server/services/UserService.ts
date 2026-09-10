@@ -7,12 +7,28 @@ import type { QuestionSeriesResponseData } from "#shared/series";
 import { themeService } from "~~/server/services/ThemeService";
 import { followService } from "~~/server/services/FollowService";
 import { computeActivityStreak } from "~~/server/utils/activityStreakHelper";
-import { USERNAME_CHANGE_COST } from "#shared/user";
+import { USERNAME_CHANGE_COST, validateUsername } from "#shared/user";
 import { spendCoins } from "~~/server/utils/walletHelper";
 import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 
 export class UserService {
-  async getCurrentUser(userId: string, email: string | undefined) {
+  async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {
+    const trimmed = username.trim();
+    if (!trimmed) return false;
+    const slug = this.slugify(trimmed);
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+        OR: [{ name: { equals: trimmed, mode: "insensitive" } }, { slug }],
+      },
+      select: { id: true },
+    });
+
+    return !existingUser;
+  }
+
+  async getCurrentUser(userId: string, email: string | undefined, userMetadata?: any) {
     let user = await prisma.user.findFirst({
       where: { id: userId },
       include: {
@@ -26,11 +42,26 @@ export class UserService {
     });
 
     if (user == null) {
+      let initialName = "";
+      let initialSlug = "";
+
+      const requestedUsername = userMetadata?.lazyculture_username || userMetadata?.username;
+      if (typeof requestedUsername === "string" && requestedUsername.trim()) {
+        const validation = validateUsername(requestedUsername);
+        if (validation.valid) {
+          const available = await this.isUsernameAvailable(validation.trimmed, userId);
+          if (available) {
+            initialName = validation.trimmed;
+            initialSlug = this.slugify(validation.trimmed);
+          }
+        }
+      }
+
       user = await prisma.user.create({
         data: {
           id: userId,
-          name: "",
-          slug: "",
+          name: initialName,
+          slug: initialSlug,
           createDate: new Date(),
           updateDate: new Date(),
         },
@@ -78,12 +109,12 @@ export class UserService {
     };
   }
 
-  async createUserIfMissing(userId: string, name: string, slug: string) {
-    const userInDb = await prisma.user.findFirst({
+  async createUserIfMissing(userId: string, name: string = "", slug: string = "") {
+    let userInDb = await prisma.user.findFirst({
       where: { id: userId },
     });
     if (userInDb == null) {
-      await prisma.user.create({
+      userInDb = await prisma.user.create({
         data: {
           id: userId,
           name,
@@ -93,6 +124,7 @@ export class UserService {
         },
       });
     }
+    return userInDb;
   }
 
   async setUsername(userId: string, email: string | undefined, username: string) {

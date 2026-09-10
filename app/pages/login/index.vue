@@ -115,6 +115,8 @@
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from "~/stores/userStore";
+
 const supabase = useSupabaseClient();
 const router = useRouter();
 
@@ -147,16 +149,25 @@ async function signIn() {
       displayError.value = error.message;
     } else if (data?.user) {
       const token = data.session?.access_token;
-      await $fetch("/api/user/create", {
-        method: "post",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: {
-          id: data.user.id,
-          name: "",
-          slug: "",
+      const userRes = await $fetch<{ id: string; name: string; needsPseudo: boolean }>(
+        "/api/user/create",
+        {
+          method: "post",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: {
+            id: data.user.id,
+          },
         },
-      });
-      router.push("/");
+      ).catch(() => null);
+
+      const userStore = useUserStore();
+      await userStore.fetchUser(true);
+
+      if (userRes?.needsPseudo || !userStore.username) {
+        router.push("/choose-pseudo");
+      } else {
+        router.push("/");
+      }
     }
   } catch (err: any) {
     displayError.value = "Identifiants invalides.";
