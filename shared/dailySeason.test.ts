@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vite-plus/test";
-import { formatMonthLabel, getMonthKey, getMonthRange, isValidMonthKey } from "./dailySeason";
+import {
+  formatDayLabel,
+  formatMonthLabel,
+  getDayKey,
+  getMonthKey,
+  getMonthRange,
+  isValidDayKey,
+  isValidMonthKey,
+} from "./dailySeason";
 
 describe("getMonthKey", () => {
   it("formate la clé en YYYY-MM à partir de la date UTC", () => {
@@ -43,5 +51,51 @@ describe("getMonthRange", () => {
 describe("formatMonthLabel", () => {
   it("produit un libellé français mois + année", () => {
     expect(formatMonthLabel("2026-09")).toBe("septembre 2026");
+  });
+});
+
+describe("getDayKey", () => {
+  it("formate la clé en YYYY-MM-DD à partir de la date UTC", () => {
+    expect(getDayKey(new Date("2026-09-10T14:30:00Z"))).toBe("2026-09-10");
+    expect(getDayKey(new Date("2026-01-01T00:00:00Z"))).toBe("2026-01-01");
+  });
+});
+
+describe("isValidDayKey", () => {
+  it("accepte les dates bien formées", () => {
+    expect(isValidDayKey("2026-09-10")).toBe(true);
+    expect(isValidDayKey("2026-01-01")).toBe(true);
+    expect(isValidDayKey("2026-12-31")).toBe(true);
+  });
+
+  it("rejette les formats invalides", () => {
+    for (const invalid of ["2026-09", "2026-13-01", "2026-00-01", "2026-09-32", "", "abc"]) {
+      expect(isValidDayKey(invalid)).toBe(false);
+    }
+  });
+});
+
+describe("formatDayLabel", () => {
+  const refDate = new Date("2026-09-10T12:00:00Z");
+
+  it("identifie Aujourd'hui avec ou sans titre", () => {
+    expect(formatDayLabel("2026-09-10", "Daily 368", refDate)).toBe("Aujourd'hui • Daily 368");
+    expect(formatDayLabel("2026-09-10", undefined, refDate)).toBe("Aujourd'hui");
+  });
+
+  it("identifie Hier avec ou sans titre", () => {
+    expect(formatDayLabel("2026-09-09", "Daily 367", refDate)).toBe("Hier • Daily 367");
+    expect(formatDayLabel("2026-09-09", undefined, refDate)).toBe("Hier");
+  });
+
+  it("formate une date passée de la même année", () => {
+    const label = formatDayLabel("2026-09-08", "Daily 366", refDate);
+    expect(label).toContain("8 sept.");
+    expect(label).toContain("Daily 366");
+  });
+
+  it("inclut l'année si différente", () => {
+    const label = formatDayLabel("2025-09-08", "Daily 1", refDate);
+    expect(label).toContain("2025");
   });
 });

@@ -258,7 +258,7 @@
                     Revenez demain !
                   </p>
                   <UButton
-                    to="/ranking/daily"
+                    to="/ranking"
                     color="primary"
                     size="md"
                     block

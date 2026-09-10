@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full max-w-xl py-2 space-y-6 select-none pb-18">
+  <div class="w-full max-w-xl mx-auto py-2 space-y-6 select-none pb-18">
     <!-- Header Title -->
     <div class="text-center md:text-left space-y-2">
       <h1
@@ -96,8 +96,17 @@
     <!-- Daily Sub-Tabs Switcher -->
     <div v-if="currentTab === 'daily'" class="flex justify-center -mt-2">
       <div
-        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex space-x-1 w-full max-w-[240px]"
+        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex space-x-1 w-full max-w-[300px]"
       >
+        <button
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          :class="
+            dailyPeriod === 'day' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+          "
+          @click="dailyPeriod = 'day'"
+        >
+          Du jour
+        </button>
         <button
           class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
           :class="
@@ -115,6 +124,35 @@
           @click="dailyPeriod = 'alltime'"
         >
           Tout le temps
+        </button>
+      </div>
+    </div>
+
+    <!-- Daily Day Navigator -->
+    <div v-if="currentTab === 'daily' && dailyPeriod === 'day'" class="flex justify-center -mt-4">
+      <div
+        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex items-center w-full max-w-[280px]"
+      >
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          :disabled="!hasOlderDay"
+          title="Jour précédent"
+          @click="goToPreviousDay"
+        >
+          <UIcon name="i-heroicons-chevron-left" class="text-sm block" />
+        </button>
+        <span
+          class="flex-1 text-center text-[9px] font-bold uppercase tracking-wider text-white font-display truncate px-1"
+        >
+          {{ selectedDayLabel }}
+        </span>
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          :disabled="!hasNewerDay"
+          title="Jour suivant"
+          @click="goToNextDay"
+        >
+          <UIcon name="i-heroicons-chevron-right" class="text-sm block" />
         </button>
       </div>
     </div>
@@ -210,15 +248,23 @@
                 class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
                 v-else-if="currentTab === 'daily'"
               >
-                <span
-                  >🥇{{ secondPlace.firstPlaces }} 🥈{{ secondPlace.secondPlaces }} 🥉{{
-                    secondPlace.thirdPlaces
-                  }}</span
-                >
-                <span
-                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
-                  >{{ secondPlace.score }} PTS</span
-                >
+                <template v-if="dailyPeriod === 'day'">
+                  <span class="text-emerald-400 font-extrabold">{{ secondPlace.score }}/10</span>
+                  <span class="block text-[8px] text-gray-400 uppercase tracking-wider mt-0.5"
+                    >⏱️ {{ secondPlace.elapsedTime }} min</span
+                  >
+                </template>
+                <template v-else>
+                  <span
+                    >🥇{{ secondPlace.firstPlaces }} 🥈{{ secondPlace.secondPlaces }} 🥉{{
+                      secondPlace.thirdPlaces
+                    }}</span
+                  >
+                  <span
+                    class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                    >{{ secondPlace.score }} PTS</span
+                  >
+                </template>
               </p>
               <p
                 class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
@@ -301,15 +347,23 @@
                 class="text-xs font-black text-gray-300 font-display flex flex-col items-center"
                 v-else-if="currentTab === 'daily'"
               >
-                <span
-                  >🥇{{ firstPlace.firstPlaces }} 🥈{{ firstPlace.secondPlaces }} 🥉{{
-                    firstPlace.thirdPlaces
-                  }}</span
-                >
-                <span
-                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
-                  >{{ firstPlace.score }} PTS</span
-                >
+                <template v-if="dailyPeriod === 'day'">
+                  <span class="text-emerald-400 font-extrabold">{{ firstPlace.score }}/10</span>
+                  <span class="block text-[8px] text-gray-400 uppercase tracking-wider mt-0.5"
+                    >⏱️ {{ firstPlace.elapsedTime }} min</span
+                  >
+                </template>
+                <template v-else>
+                  <span
+                    >🥇{{ firstPlace.firstPlaces }} 🥈{{ firstPlace.secondPlaces }} 🥉{{
+                      firstPlace.thirdPlaces
+                    }}</span
+                  >
+                  <span
+                    class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                    >{{ firstPlace.score }} PTS</span
+                  >
+                </template>
               </p>
               <p
                 class="text-xs font-black text-gray-300 font-display flex flex-col items-center"
@@ -388,15 +442,23 @@
                 class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
                 v-else-if="currentTab === 'daily'"
               >
-                <span
-                  >🥇{{ thirdPlace.firstPlaces }} 🥈{{ thirdPlace.secondPlaces }} 🥉{{
-                    thirdPlace.thirdPlaces
-                  }}</span
-                >
-                <span
-                  class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
-                  >{{ thirdPlace.score }} PTS</span
-                >
+                <template v-if="dailyPeriod === 'day'">
+                  <span class="text-emerald-400 font-extrabold">{{ thirdPlace.score }}/10</span>
+                  <span class="block text-[8px] text-gray-400 uppercase tracking-wider mt-0.5"
+                    >⏱️ {{ thirdPlace.elapsedTime }} min</span
+                  >
+                </template>
+                <template v-else>
+                  <span
+                    >🥇{{ thirdPlace.firstPlaces }} 🥈{{ thirdPlace.secondPlaces }} 🥉{{
+                      thirdPlace.thirdPlaces
+                    }}</span
+                  >
+                  <span
+                    class="block text-[8px] text-violet-400 font-extrabold uppercase tracking-wider mt-0.5"
+                    >{{ thirdPlace.score }} PTS</span
+                  >
+                </template>
               </p>
               <p
                 class="text-[10px] font-bold text-gray-400 font-display flex flex-col items-center"
@@ -501,14 +563,24 @@
               >
             </div>
             <div class="text-right flex flex-col items-end" v-else-if="currentTab === 'daily'">
-              <div class="flex items-center space-x-1 text-xs text-gray-400 font-display">
-                <span>🥇{{ userItem.firstPlaces }}</span>
-                <span>🥈{{ userItem.secondPlaces }}</span>
-                <span>🥉{{ userItem.thirdPlaces }}</span>
-              </div>
-              <div class="text-[10px] font-black text-violet-400 font-display mt-0.5">
-                {{ userItem.score }} PTS
-              </div>
+              <template v-if="dailyPeriod === 'day'">
+                <span class="font-extrabold text-emerald-400 font-display"
+                  >{{ userItem.score }} / 10</span
+                >
+                <span class="text-[10px] font-semibold text-gray-400 font-display mt-0.5"
+                  >⏱️ {{ userItem.elapsedTime }} min</span
+                >
+              </template>
+              <template v-else>
+                <div class="flex items-center space-x-1 text-xs text-gray-400 font-display">
+                  <span>🥇{{ userItem.firstPlaces }}</span>
+                  <span>🥈{{ userItem.secondPlaces }}</span>
+                  <span>🥉{{ userItem.thirdPlaces }}</span>
+                </div>
+                <div class="text-[10px] font-black text-violet-400 font-display mt-0.5">
+                  {{ userItem.score }} PTS
+                </div>
+              </template>
             </div>
             <div class="text-right flex flex-col items-end" v-else-if="currentTab === 'brainrun'">
               <span
@@ -553,8 +625,9 @@
 
 <script setup lang="ts">
 import type { FriendRankingDTO } from "#shared/DTO/followDTO";
+import type { DailySeriesRankingDTO, DailySeriesDayDTO } from "#shared/DTO/dailySeriesRankingDTO";
 import { brainrunEruditionLabel } from "#shared/brainrunErudition";
-import { formatMonthLabel, getMonthKey } from "#shared/dailySeason";
+import { formatDayLabel, formatMonthLabel, getDayKey, getMonthKey } from "#shared/dailySeason";
 
 useSeoMeta({
   title: "Classements Généraux",
@@ -565,8 +638,59 @@ useSeoMeta({
     "Découvrez les meilleurs compétiteurs de LazyCulture. Consultez les classements d'expérience (XP), Battle Royale, Showdown et défis quotidiens.",
 });
 
-const currentTab = ref<"general" | "br" | "showdown" | "daily" | "brainrun" | "friends">("daily");
-const dailyPeriod = ref<"alltime" | "monthly">("monthly");
+const route = useRoute();
+const currentTab = ref<"general" | "br" | "showdown" | "daily" | "brainrun" | "friends">(
+  (route.query.tab as any) || "daily",
+);
+const dailyPeriod = ref<"day" | "monthly" | "alltime">((route.query.period as any) || "day");
+
+// Jours daily disponibles
+const { data: dailyDays } = await useFetch<DailySeriesDayDTO[]>("/api/ranking/daily-days");
+const availableDays = computed(() => dailyDays.value ?? []);
+
+// Jour sélectionné : date passée en query ou le jour le plus récent disponible, sinon aujourd'hui
+const selectedDay = ref<string>(
+  (route.query.date as string) || dailyDays.value?.[0]?.date || getDayKey(),
+);
+
+// Si le fetch des jours se termine et qu'aucune date n'était en query, synchroniser sur le premier jour dispo
+watch(
+  dailyDays,
+  (days) => {
+    if (days && days.length > 0 && !route.query.date) {
+      const firstDay = days[0];
+      if (firstDay && !days.some((d) => d.date === selectedDay.value)) {
+        selectedDay.value = firstDay.date;
+      }
+    }
+  },
+  { immediate: true },
+);
+
+const selectedDayObj = computed(() =>
+  availableDays.value.find((d) => d.date === selectedDay.value),
+);
+const selectedDayIndex = computed(() =>
+  availableDays.value.findIndex((d) => d.date === selectedDay.value),
+);
+const hasOlderDay = computed(
+  () => selectedDayIndex.value >= 0 && selectedDayIndex.value < availableDays.value.length - 1,
+);
+const hasNewerDay = computed(() => selectedDayIndex.value > 0);
+
+function goToPreviousDay() {
+  const previous = availableDays.value[selectedDayIndex.value + 1];
+  if (hasOlderDay.value && previous) selectedDay.value = previous.date;
+}
+
+function goToNextDay() {
+  const next = availableDays.value[selectedDayIndex.value - 1];
+  if (hasNewerDay.value && next) selectedDay.value = next.date;
+}
+
+const selectedDayLabel = computed(() =>
+  formatDayLabel(selectedDay.value, selectedDayObj.value?.title),
+);
 
 // Saison mensuelle consultée : le mois en cours par défaut, navigable vers les mois précédents.
 const selectedMonth = ref(getMonthKey());
@@ -598,6 +722,9 @@ async function fetchFriendsRanking() {
 const { data: users } = await useFetch<any[]>("/api/ranking/top");
 const { data: brUsers } = await useFetch<any[]>("/api/ranking/br");
 const { data: showdownUsers } = await useFetch<any[]>("/api/ranking/showdown");
+const { data: dailyDayUsers } = await useFetch<DailySeriesRankingDTO[]>(
+  () => `/api/series/dailyRanking?date=${selectedDay.value}`,
+);
 const { data: dailyAlltimeUsers } = await useFetch<any[]>(
   "/api/ranking/daily-podium?period=alltime",
 );
@@ -628,8 +755,11 @@ function goToNextMonth() {
 
 const emptyRankingText = computed(() => {
   if (currentTab.value === "friends") return "Suivez des joueurs pour les voir apparaître ici !";
-  if (currentTab.value === "daily" && dailyPeriod.value === "monthly")
-    return `Aucun podium en ${selectedMonthLabel.value} pour le moment.`;
+  if (currentTab.value === "daily") {
+    if (dailyPeriod.value === "day") return "Aucun joueur dans le classement pour ce jour.";
+    if (dailyPeriod.value === "monthly")
+      return `Aucun podium en ${selectedMonthLabel.value} pour le moment.`;
+  }
   return "Aucun joueur dans ce classement pour le moment.";
 });
 
@@ -639,6 +769,13 @@ const activeUsers = computed(() => {
   if (currentTab.value === "showdown") return showdownUsers.value || [];
   if (currentTab.value === "brainrun") return brainrunUsers.value || [];
   if (currentTab.value === "daily") {
+    if (dailyPeriod.value === "day") {
+      return (dailyDayUsers.value || []).map((u) => ({
+        ...u,
+        name: u.userName,
+        isMe: userStore.user?.id === u.userId,
+      }));
+    }
     return dailyPeriod.value === "alltime"
       ? dailyAlltimeUsers.value || []
       : dailyMonthlyUsers.value || [];

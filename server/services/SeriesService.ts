@@ -24,14 +24,7 @@ import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import { dailyRewardService } from "./DailyRewardService";
 import { recordUserStreakActivity } from "~~/server/utils/activityStreakHelper";
 
-type DailySeriesRankingDTO = {
-  userId: string;
-  userName: string;
-  score: number;
-  elapsedTime: string;
-  avatarUrl: string | null;
-  frameStyleKey: string | null;
-};
+import type { DailySeriesRankingDTO, DailySeriesDayDTO } from "#shared/DTO/dailySeriesRankingDTO";
 
 export class SeriesService {
   // ===================== Daily =====================
@@ -178,16 +171,53 @@ export class SeriesService {
     return { participants: responses.length, finishers };
   }
 
-  async getDailyRanking() {
-    const lastSeries = await prisma.questionSeries.findFirst({
+  async getDailyDays(): Promise<DailySeriesDayDTO[]> {
+    const series = await prisma.questionSeries.findMany({
       where: { type: "daily" },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+      },
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+    });
+
+    const seenDates = new Set<string>();
+    const uniqueDays: DailySeriesDayDTO[] = [];
+
+    for (const s of series) {
+      const dateKey = s.date.toISOString().slice(0, 10);
+      if (!seenDates.has(dateKey)) {
+        seenDates.add(dateKey);
+        uniqueDays.push({
+          id: s.id,
+          title: s.title,
+          date: dateKey,
+        });
+      }
+    }
+
+    return uniqueDays;
+  }
+
+  async getDailyRanking(options?: { date?: string; seriesId?: number }) {
+    let whereCondition: Prisma.QuestionSeriesWhereInput = { type: "daily" };
+
+    if (options?.seriesId) {
+      whereCondition = { type: "daily", id: options.seriesId };
+    } else if (options?.date) {
+      whereCondition = { type: "daily", date: new Date(options.date) };
+    }
+
+    const series = await prisma.questionSeries.findFirst({
+      where: whereCondition,
       orderBy: { id: "desc" },
       select: { id: true },
     });
-    if (!lastSeries) return;
+    if (!series) return [];
 
     const usersResponses = await prisma.questionSeriesResponse.findMany({
-      where: { seriesId: lastSeries.id },
+      where: { seriesId: series.id },
       include: {
         user: {
           include: {
@@ -199,7 +229,7 @@ export class SeriesService {
     });
 
     const ranking = usersResponses
-      .filter((u) => (u.data as any).score)
+      .filter((u) => (u.data as any)?.score !== undefined)
       .sort((a, b) => {
         const aData = a.data as any as QuestionSeriesResponseData;
         const bData = b.data as any as QuestionSeriesResponseData;

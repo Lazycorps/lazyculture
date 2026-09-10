@@ -168,7 +168,7 @@
                 block
                 icon="i-heroicons-chart-bar"
                 class="font-black font-display uppercase tracking-widest py-3.5"
-                @click="router.push('/ranking/daily')"
+                @click="router.push('/ranking')"
               >
                 Classement du Jour
               </UButton>
