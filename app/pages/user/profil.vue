@@ -65,11 +65,40 @@
                   :loading="loadingUpdateUser"
                   icon="i-heroicons-check-circle"
                   class="font-black font-display uppercase tracking-widest px-6 shrink-0 h-10 flex items-center justify-center"
-                  @click="updateUsername"
+                  @click="handleSaveUsername"
                 >
-                  Enregistrer
+                  <template v-if="!isInitialUsername">
+                    Modifier ({{ USERNAME_CHANGE_COST }} 🪙)
+                  </template>
+                  <template v-else> Enregistrer </template>
                 </UButton>
               </div>
+
+              <!-- Message informatif de coût et solde -->
+              <p
+                v-if="!isInitialUsername && !hasEnoughCoins"
+                class="text-xs text-amber-400 flex items-center gap-1.5 mt-2 font-medium"
+              >
+                <UIcon name="i-heroicons-exclamation-triangle" class="text-sm shrink-0" />
+                Solde insuffisant : changer de pseudonyme requiert {{ USERNAME_CHANGE_COST }} 🪙
+                (vous possédez {{ userStore.coins }} 🪙).
+              </p>
+              <p
+                v-else-if="!isInitialUsername"
+                class="text-xs text-gray-400 flex items-center gap-1.5 mt-2"
+              >
+                <UIcon
+                  name="i-heroicons-information-circle"
+                  class="text-sm text-amber-400 shrink-0"
+                />
+                Changer de pseudonyme coûte
+                <span class="text-amber-300 font-semibold">{{ USERNAME_CHANGE_COST }} 🪙</span>
+                (solde actuel : {{ userStore.coins }} 🪙).
+              </p>
+              <p v-else class="text-xs text-emerald-400 flex items-center gap-1.5 mt-2">
+                <UIcon name="i-heroicons-check-circle" class="text-sm shrink-0" />
+                Premier choix de pseudonyme offert (gratuit).
+              </p>
             </UFormField>
 
             <!-- Personnalisation avatar -->
@@ -211,6 +240,90 @@
           :initial-tab="followModalTab"
         />
 
+        <!-- Modal confirmation changement de pseudo payant -->
+        <UModal v-model:open="confirmPseudoModalOpen" :ui="{ content: 'max-w-md' }">
+          <template #content>
+            <UCard :ui="{ body: 'p-5 sm:p-6' }">
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-sm"
+                    >
+                      🪙
+                    </div>
+                    <h3 class="text-base font-black font-display text-white tracking-wide">
+                      Confirmation du changement
+                    </h3>
+                  </div>
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-heroicons-x-mark-20-solid"
+                    class="-my-1"
+                    @click="confirmPseudoModalOpen = false"
+                  />
+                </div>
+              </template>
+
+              <div class="space-y-4">
+                <p class="text-sm text-gray-300 leading-relaxed">
+                  Vous êtes sur le point de changer votre pseudonyme pour :
+                </p>
+                <div class="p-3 bg-white/5 rounded-xl border border-white/10 text-center">
+                  <span class="text-lg font-black font-display text-white tracking-wider">
+                    {{ username }}
+                  </span>
+                </div>
+
+                <div
+                  class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-2 text-xs"
+                >
+                  <div class="flex justify-between items-center text-gray-300">
+                    <span>Coût de l'opération :</span>
+                    <span class="font-bold text-amber-300 font-display text-sm"
+                      >{{ USERNAME_CHANGE_COST }} 🪙</span
+                    >
+                  </div>
+                  <div class="flex justify-between items-center text-gray-300">
+                    <span>Votre solde actuel :</span>
+                    <span class="font-bold text-white font-display">{{ userStore.coins }} 🪙</span>
+                  </div>
+                  <div class="border-t border-amber-500/20 pt-2 flex justify-between items-center">
+                    <span class="text-gray-400">Solde après débit :</span>
+                    <span class="font-black text-amber-400 font-display">
+                      {{ Math.max(0, userStore.coins - USERNAME_CHANGE_COST) }} 🪙
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <template #footer>
+                <div class="flex justify-end gap-2.5">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    class="font-display font-bold uppercase tracking-wider text-xs"
+                    :disabled="loadingUpdateUser"
+                    @click="confirmPseudoModalOpen = false"
+                  >
+                    Annuler
+                  </UButton>
+                  <UButton
+                    color="primary"
+                    class="font-display font-black uppercase tracking-wider text-xs"
+                    :loading="loadingUpdateUser"
+                    icon="i-heroicons-check"
+                    @click="confirmAndUpdateUsername"
+                  >
+                    Confirmer ({{ USERNAME_CHANGE_COST }} 🪙)
+                  </UButton>
+                </div>
+              </template>
+            </UCard>
+          </template>
+        </UModal>
+
         <!-- Carte Contributeur / L'Atelier (Affiché UNIQUEMENT si >= 1 contribution) -->
         <UCard
           v-if="contributorStats"
@@ -303,6 +416,8 @@
 </template>
 
 <script setup lang="ts">
+import { USERNAME_CHANGE_COST } from "#shared/user";
+
 const supabase = useSupabaseClient();
 const router = useRouter();
 const userStore = useUserStore();
@@ -341,13 +456,39 @@ const pushButtonText = computed(() => {
   return pushPermission.value === "denied" ? "Bloqué" : "Activer";
 });
 
+const confirmPseudoModalOpen = ref(false);
+
+const isInitialUsername = computed(
+  () => !initialUsername.value || initialUsername.value.trim() === "",
+);
+const hasEnoughCoins = computed(
+  () => isInitialUsername.value || userStore.coins >= USERNAME_CHANGE_COST,
+);
+
 const isUsernameSaveable = computed(() => {
+  const trimmed = username.value.trim();
   return (
-    username.value !== initialUsername.value &&
-    username.value.length >= 4 &&
-    username.value.length <= 16
+    trimmed !== initialUsername.value &&
+    trimmed.length >= 4 &&
+    trimmed.length <= 16 &&
+    hasEnoughCoins.value
   );
 });
+
+function handleSaveUsername() {
+  if (!isUsernameSaveable.value) return;
+
+  if (isInitialUsername.value) {
+    updateUsername();
+  } else {
+    confirmPseudoModalOpen.value = true;
+  }
+}
+
+async function confirmAndUpdateUsername() {
+  await updateUsername();
+  confirmPseudoModalOpen.value = false;
+}
 
 const achievements = ref<any[]>([]);
 const userAchievements = ref<any[]>([]);
@@ -430,25 +571,32 @@ async function fetchHistory(userId: string) {
 }
 
 async function updateUsername() {
-  if (!username.value || username.value.length < 4 || username.value.length > 16) {
+  const trimmed = username.value.trim();
+  if (!trimmed || trimmed.length < 4 || trimmed.length > 16) {
     return;
   }
   try {
     loadingUpdateUser.value = true;
+    const isPaying = !isInitialUsername.value;
     const userUpdated = await authFetch<any>("/api/user/username", {
       method: "POST",
       body: {
-        username: username.value,
+        username: trimmed,
       },
     });
     username.value = userUpdated?.name ?? "";
     initialUsername.value = userUpdated?.name ?? "";
     if (userStore.user) {
       userStore.user.name = username.value;
+      if (userUpdated?.Wallet) {
+        userStore.user.Wallet = userUpdated.Wallet;
+      }
     }
     toast.add({
       title: "Profil mis à jour",
-      description: "Votre pseudonyme a été enregistré avec succès.",
+      description: isPaying
+        ? `Votre pseudonyme a bien été changé (${USERNAME_CHANGE_COST} 🪙 débitées).`
+        : "Votre pseudonyme a été enregistré avec succès.",
       color: "success",
     });
   } catch (e: any) {

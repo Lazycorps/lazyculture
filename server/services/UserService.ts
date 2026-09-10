@@ -1,3 +1,4 @@
+import { createError } from "h3";
 import prisma from "~~/server/utils/prisma";
 import { getRankFromPoints } from "~~/server/utils/rankHelper";
 import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
@@ -6,6 +7,9 @@ import type { QuestionSeriesResponseData } from "#shared/series";
 import { themeService } from "~~/server/services/ThemeService";
 import { followService } from "~~/server/services/FollowService";
 import { computeActivityStreak } from "~~/server/utils/activityStreakHelper";
+import { USERNAME_CHANGE_COST } from "#shared/user";
+import { spendCoins } from "~~/server/utils/walletHelper";
+import { checkAndAwardAchievements } from "~~/server/utils/achievementHelper";
 
 export class UserService {
   async getCurrentUser(userId: string, email: string | undefined) {
@@ -92,21 +96,100 @@ export class UserService {
   }
 
   async setUsername(userId: string, email: string | undefined, username: string) {
-    const user = await prisma.user.upsert({
-      where: { id: userId },
-      update: {
-        name: username,
-        slug: this.slugify(username),
-      },
-      create: {
-        id: userId,
-        name: username,
-        slug: this.slugify(username),
-      },
+    const trimmed = username.trim();
+    const newSlug = this.slugify(trimmed);
+
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      let currentUser = await tx.user.findUnique({
+        where: { id: userId },
+        include: { Wallet: true },
+      });
+
+      if (!currentUser) {
+        currentUser = await tx.user.create({
+          data: {
+            id: userId,
+            name: "",
+            slug: "",
+            createDate: new Date(),
+            updateDate: new Date(),
+          },
+          include: { Wallet: true },
+        });
+      }
+
+      // Si le pseudonyme est strictement identique à l'actuel, pas de modification ni de frais
+      if (currentUser.name === trimmed) {
+        const fullUser = await tx.user.findUnique({
+          where: { id: userId },
+          include: {
+            UserProgress: { include: { level: true } },
+            BattleRoyaleRank: true,
+            ShowdownRank: true,
+            equippedAvatar: true,
+            equippedFrame: true,
+            Wallet: true,
+          },
+        });
+        return fullUser || currentUser;
+      }
+
+      // Vérification d'unicité : aucun autre utilisateur ne doit posséder ce pseudo ou ce slug
+      const existingUser = await tx.user.findFirst({
+        where: {
+          id: { not: userId },
+          OR: [{ name: { equals: trimmed, mode: "insensitive" } }, { slug: newSlug }],
+        },
+        select: { id: true, name: true, slug: true },
+      });
+
+      if (existingUser) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "Ce pseudonyme est déjà utilisé par un autre joueur.",
+        });
+      }
+
+      // Facturation : premier pseudo gratuit (quand name est vide), modifications ultérieures = 500 pièces
+      const isInitialSetup = !currentUser.name || currentUser.name.trim() === "";
+      const cost = isInitialSetup ? 0 : USERNAME_CHANGE_COST;
+
+      if (cost > 0) {
+        const userCoins = currentUser.Wallet?.coins ?? 0;
+        if (userCoins < cost) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: `Pièces insuffisantes : vous possédez ${userCoins} 🪙 sur les ${cost} 🪙 requises pour changer de pseudo.`,
+          });
+        }
+        await spendCoins(tx, userId, cost);
+      }
+
+      const result = await tx.user.update({
+        where: { id: userId },
+        data: {
+          name: trimmed,
+          slug: newSlug,
+          updateDate: new Date(),
+        },
+        include: {
+          UserProgress: { include: { level: true } },
+          BattleRoyaleRank: true,
+          ShowdownRank: true,
+          equippedAvatar: true,
+          equippedFrame: true,
+          Wallet: true,
+        },
+      });
+
+      return result;
     });
 
+    // Déclenchement de l'exploit "changePseudo" si configuré
+    await checkAndAwardAchievements(userId, "changePseudo", 1).catch(() => {});
+
     return {
-      ...user,
+      ...updatedUser,
       email,
     };
   }
@@ -439,7 +522,7 @@ export class UserService {
     };
   }
 
-  private slugify(str: string) {
+  slugify(str: string) {
     str = str.replace(/^\s+|\s+$/g, ""); // trim leading/trailing white space
     str = str.toLowerCase(); // convert string to lowercase
     str = str
