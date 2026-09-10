@@ -1,153 +1,149 @@
 <template>
-  <div class="w-full max-w-xl mx-auto py-2 space-y-6 select-none pb-18">
+  <div class="w-full max-w-3xl mx-auto py-2 space-y-6 select-none pb-20">
     <!-- Header Title -->
-    <div class="text-center md:text-left space-y-2">
+    <div class="text-center space-y-1.5 sm:space-y-2">
       <h1
-        class="text-3xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
+        class="text-3xl sm:text-4xl font-black font-display tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent"
       >
         Classements
       </h1>
-      <p class="text-sm text-gray-400 font-medium">
+      <p class="text-xs sm:text-sm text-gray-400 font-medium max-w-md mx-auto">
         Découvrez les meilleurs joueurs de Lazyculture et grimpez au sommet de la gloire.
       </p>
     </div>
 
-    <!-- Tabs Switcher -->
-    <div class="flex justify-center pt-2">
-      <div
-        class="bg-slate-950/60 p-1 rounded-2xl border border-white/5 grid grid-cols-3 gap-1 w-full max-w-[260px] sm:max-w-md"
-      >
-        <button
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'daily'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'daily'"
+    <!-- Modes Ribbon Switcher (Single row on desktop, soft swipe on mobile) with subtle indicator arrows -->
+    <div class="flex justify-center max-w-full">
+      <div class="relative max-w-full">
+        <!-- Flèche gauche indicatrice (affichée uniquement si défilement gauche possible) -->
+        <Transition
+          enter-active-class="transition-opacity duration-200"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
         >
-          <UIcon name="i-heroicons-calendar" class="text-xs" />
-          <span>Quotidien</span>
-        </button>
-        <button
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'br'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'br'"
+          <button
+            v-if="canScrollRibbonLeft"
+            type="button"
+            class="absolute left-0 inset-y-0 z-10 w-8 flex items-center justify-start pl-2 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent rounded-l-2xl text-violet-300 hover:text-white transition-colors cursor-pointer"
+            title="Défiler vers la gauche"
+            @click="scrollRibbon('left')"
+          >
+            <UIcon name="i-heroicons-chevron-left" class="text-xs" />
+          </button>
+        </Transition>
+
+        <!-- Ruban scrollable des onglets -->
+        <div
+          ref="ribbonContainer"
+          class="bg-slate-950/70 p-1.5 rounded-2xl border border-white/10 flex items-center gap-1 max-w-full overflow-x-auto no-scrollbar shadow-inner scroll-smooth"
+          @scroll="updateRibbonScroll"
         >
-          <UIcon name="i-heroicons-shield-check" class="text-xs" />
-          <span>BR</span>
-        </button>
-        <button
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'showdown'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'showdown'"
+          <button
+            v-for="tab in modeTabs"
+            :key="tab.id"
+            class="py-2 px-3 sm:px-4 rounded-xl text-xs font-black font-display uppercase tracking-wider transition-all duration-200 flex items-center space-x-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+            :class="
+              currentTab === tab.id
+                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            "
+            @click="selectTab(tab.id, $event)"
+          >
+            <UIcon :name="tab.icon" class="text-sm" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </div>
+
+        <!-- Flèche droite indicatrice (affichée uniquement si défilement droit possible) -->
+        <Transition
+          enter-active-class="transition-opacity duration-200"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
         >
-          <UIcon name="i-heroicons-bolt" class="text-xs" />
-          <span>Showdown</span>
-        </button>
-        <button
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'general'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'general'"
-        >
-          <UIcon name="i-heroicons-sparkles" class="text-xs" />
-          <span>XP</span>
-        </button>
-        <button
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'brainrun'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'brainrun'"
-        >
-          <UIcon name="i-heroicons-fire" class="text-xs" />
-          <span>Brainrun</span>
-        </button>
-        <button
-          v-if="userStore.isLoggedIn"
-          class="py-2 px-2.5 rounded-xl text-[10px] font-black font-display uppercase tracking-wider transition-all duration-300 flex items-center justify-center space-x-1"
-          :class="
-            currentTab === 'friends'
-              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/10'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          "
-          @click="currentTab = 'friends'"
-        >
-          <UIcon name="i-heroicons-user-group" class="text-xs" />
-          <span>Amis</span>
-        </button>
+          <button
+            v-if="canScrollRibbonRight"
+            type="button"
+            class="absolute right-0 inset-y-0 z-10 w-8 flex items-center justify-end pr-2 bg-gradient-to-l from-slate-950 via-slate-950/80 to-transparent rounded-r-2xl text-violet-300 hover:text-white transition-colors cursor-pointer"
+            title="Défiler vers la droite"
+            @click="scrollRibbon('right')"
+          >
+            <UIcon name="i-heroicons-chevron-right" class="text-xs" />
+          </button>
+        </Transition>
       </div>
     </div>
 
-    <!-- Daily Sub-Tabs Switcher -->
-    <div v-if="currentTab === 'daily'" class="flex justify-center -mt-2">
-      <div
-        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex space-x-1 w-full max-w-[300px]"
-      >
+    <!-- Contextual Toolbar for Daily (Period switcher + Temporal navigator on one row) -->
+    <div
+      v-if="currentTab === 'daily'"
+      class="bg-slate-950/50 p-2 sm:p-2.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2.5 max-w-xl mx-auto backdrop-blur-md"
+    >
+      <!-- Sub-Tabs Switcher (Du jour / Mensuel / Tout le temps) -->
+      <div class="bg-black/40 p-1 rounded-xl border border-white/5 flex space-x-1 w-full sm:w-auto">
         <button
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          class="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200"
           :class="
-            dailyPeriod === 'day' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+            dailyPeriod === 'day'
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-gray-400 hover:text-white'
           "
           @click="dailyPeriod = 'day'"
         >
           Du jour
         </button>
         <button
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          class="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200"
           :class="
-            dailyPeriod === 'monthly' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+            dailyPeriod === 'monthly'
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-gray-400 hover:text-white'
           "
           @click="dailyPeriod = 'monthly'"
         >
           Mensuel
         </button>
         <button
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200"
+          class="flex-1 sm:flex-initial py-1.5 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200"
           :class="
-            dailyPeriod === 'alltime' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'
+            dailyPeriod === 'alltime'
+              ? 'bg-white/10 text-white shadow-sm'
+              : 'text-gray-400 hover:text-white'
           "
           @click="dailyPeriod = 'alltime'"
         >
           Tout le temps
         </button>
       </div>
-    </div>
 
-    <!-- Daily Day Navigator -->
-    <div v-if="currentTab === 'daily' && dailyPeriod === 'day'" class="flex justify-center -mt-4">
+      <!-- Temporal Navigator (Day or Month) -->
       <div
-        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex items-center w-full max-w-[280px]"
+        v-if="dailyPeriod === 'day'"
+        class="bg-black/40 p-1 rounded-xl border border-white/5 flex items-center justify-between w-full sm:w-auto sm:min-w-[210px]"
       >
         <button
-          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
           :disabled="!hasOlderDay"
           title="Jour précédent"
           @click="goToPreviousDay"
         >
           <UIcon name="i-heroicons-chevron-left" class="text-sm block" />
         </button>
-        <span
-          class="flex-1 text-center text-[9px] font-bold uppercase tracking-wider text-white font-display truncate px-1"
-        >
-          {{ selectedDayLabel }}
-        </span>
         <button
-          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          type="button"
+          class="flex items-center justify-center space-x-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors text-center text-[10px] font-bold uppercase tracking-wider text-white font-display truncate group cursor-pointer"
+          title="Ouvrir le calendrier du mois"
+          @click="calendarMonthModalOpen = true"
+        >
+          <span class="truncate">{{ selectedDayLabel }}</span>
+          <UIcon
+            name="i-heroicons-calendar-days"
+            class="text-xs text-violet-400 group-hover:scale-110 transition-transform shrink-0"
+          />
+        </button>
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
           :disabled="!hasNewerDay"
           title="Jour suivant"
           @click="goToNextDay"
@@ -155,31 +151,33 @@
           <UIcon name="i-heroicons-chevron-right" class="text-sm block" />
         </button>
       </div>
-    </div>
 
-    <!-- Daily Monthly Season Navigator -->
-    <div
-      v-if="currentTab === 'daily' && dailyPeriod === 'monthly'"
-      class="flex justify-center -mt-4"
-    >
       <div
-        class="bg-slate-950/40 p-0.5 rounded-xl border border-white/5 flex items-center w-full max-w-[240px]"
+        v-else-if="dailyPeriod === 'monthly'"
+        class="bg-black/40 p-1 rounded-xl border border-white/5 flex items-center justify-between w-full sm:w-auto sm:min-w-[210px]"
       >
         <button
-          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
           :disabled="!hasOlderMonth"
           title="Saison précédente"
           @click="goToPreviousMonth"
         >
           <UIcon name="i-heroicons-chevron-left" class="text-sm block" />
         </button>
-        <span
-          class="flex-1 text-center text-[9px] font-bold uppercase tracking-wider text-white font-display"
-        >
-          {{ selectedMonthLabel }}
-        </span>
         <button
-          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          type="button"
+          class="flex items-center justify-center space-x-1.5 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors text-center text-[10px] font-bold uppercase tracking-wider text-white font-display truncate group cursor-pointer"
+          title="Ouvrir les saisons mensuelles"
+          @click="calendarYearModalOpen = true"
+        >
+          <span class="truncate">{{ selectedMonthLabel }}</span>
+          <UIcon
+            name="i-heroicons-calendar"
+            class="text-xs text-violet-400 group-hover:scale-110 transition-transform shrink-0"
+          />
+        </button>
+        <button
+          class="p-1 rounded-lg transition-colors text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:text-gray-400 disabled:hover:bg-transparent disabled:cursor-not-allowed"
           :disabled="!hasNewerMonth"
           title="Saison suivante"
           @click="goToNextMonth"
@@ -187,11 +185,161 @@
           <UIcon name="i-heroicons-chevron-right" class="text-sm block" />
         </button>
       </div>
+
+      <div
+        v-else
+        class="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-300 font-display flex items-center space-x-1"
+      >
+        <UIcon name="i-heroicons-trophy" class="text-xs text-amber-400" />
+        <span>Historique des médailles</span>
+      </div>
+    </div>
+
+    <!-- 7-Day Timeline Strip for Daily Series -->
+    <div
+      v-if="currentTab === 'daily' && dailyPeriod === 'day' && dailyTimeline.length > 0"
+      class="max-w-xl mx-auto grid grid-cols-7 gap-1.5 sm:gap-2"
+    >
+      <button
+        v-for="item in dailyTimelineChronological"
+        :key="item.id"
+        type="button"
+        class="py-2.5 px-1 rounded-xl border text-center flex flex-col items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer group shadow-sm"
+        :class="
+          selectedDay === item.date
+            ? 'bg-gradient-to-b from-violet-500 to-indigo-600 border-2 border-violet-300 text-white shadow-xl shadow-violet-600/40 scale-[1.04]'
+            : 'bg-slate-800 hover:bg-slate-700/90 border-slate-600/80 hover:border-slate-400 hover:scale-[1.02] shadow-md shadow-black/40'
+        "
+        @click="selectedDay = item.date"
+      >
+        <span
+          class="text-[9px] sm:text-[10px] font-extrabold uppercase font-display leading-tight truncate w-full"
+          :class="selectedDay === item.date ? 'text-white' : 'text-gray-200 group-hover:text-white'"
+        >
+          {{ item.shortDay === "Aujourd'hui" ? "Auj." : item.shortDay }}
+        </span>
+        <template v-if="selectedDay === item.date">
+          <span
+            v-if="item.userRank"
+            class="text-[10px] sm:text-xs font-black font-display px-2 py-0.5 rounded-md border shadow-xs leading-none"
+            :class="{
+              'bg-amber-400 text-slate-950 border-amber-300': item.userRank === 1,
+              'bg-slate-100 text-slate-950 border-white': item.userRank === 2,
+              'bg-amber-500 text-slate-950 border-amber-300': item.userRank === 3,
+              'bg-white/20 text-white border-white/30': item.userRank > 3,
+            }"
+          >
+            #{{ item.userRank }}
+          </span>
+          <span
+            v-else
+            class="text-[10px] font-bold text-white/80 bg-white/15 border border-white/20 px-2 py-0.5 rounded-md leading-none"
+          >
+            -
+          </span>
+        </template>
+        <template v-else>
+          <span
+            v-if="item.userRank"
+            class="text-[10px] sm:text-xs font-black font-display px-2 py-0.5 rounded-md border shadow-xs leading-none"
+            :class="{
+              'bg-amber-400/30 text-amber-300 border-amber-400/60 shadow-amber-950/30':
+                item.userRank === 1,
+              'bg-slate-200/30 text-white border-slate-300/60 shadow-slate-950/30':
+                item.userRank === 2,
+              'bg-amber-600/35 text-amber-300 border-amber-500/60 shadow-amber-950/30':
+                item.userRank === 3,
+              'bg-violet-600/40 text-violet-200 border-violet-400/50 shadow-violet-950/30':
+                item.userRank > 3,
+            }"
+          >
+            #{{ item.userRank }}
+          </span>
+          <span
+            v-else
+            class="text-[10px] font-bold text-gray-400 bg-slate-950/60 border border-slate-700/70 px-2 py-0.5 rounded-md leading-none"
+          >
+            -
+          </span>
+        </template>
+      </button>
+    </div>
+
+    <!-- 6-Month Timeline Strip for Monthly Seasons -->
+    <div
+      v-else-if="currentTab === 'daily' && dailyPeriod === 'monthly' && monthlyTimeline.length > 0"
+      class="max-w-xl mx-auto grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2"
+    >
+      <button
+        v-for="item in monthlyTimelineChronological"
+        :key="item.monthKey"
+        type="button"
+        class="py-2.5 px-1.5 rounded-xl border text-center flex flex-col items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer group shadow-sm"
+        :class="
+          selectedMonth === item.monthKey
+            ? 'bg-gradient-to-b from-violet-500 to-indigo-600 border-2 border-violet-300 text-white shadow-xl shadow-violet-600/40 scale-[1.04]'
+            : 'bg-slate-800 hover:bg-slate-700/90 border-slate-600/80 hover:border-slate-400 hover:scale-[1.02] shadow-md shadow-black/40'
+        "
+        @click="selectedMonth = item.monthKey"
+      >
+        <span
+          class="text-[10px] sm:text-xs font-extrabold uppercase font-display leading-tight truncate w-full"
+          :class="
+            selectedMonth === item.monthKey ? 'text-white' : 'text-gray-200 group-hover:text-white'
+          "
+        >
+          {{ item.shortMonth }}
+        </span>
+        <template v-if="selectedMonth === item.monthKey">
+          <span
+            v-if="item.userRank"
+            class="text-[10px] sm:text-xs font-black font-display px-2.5 py-0.5 rounded-md border shadow-xs leading-none"
+            :class="{
+              'bg-amber-400 text-slate-950 border-amber-300': item.userRank === 1,
+              'bg-slate-100 text-slate-950 border-white': item.userRank === 2,
+              'bg-amber-500 text-slate-950 border-amber-300': item.userRank === 3,
+              'bg-white/20 text-white border-white/30': item.userRank > 3,
+            }"
+          >
+            #{{ item.userRank }}
+          </span>
+          <span
+            v-else
+            class="text-[10px] font-bold text-white/80 bg-white/15 border border-white/20 px-2.5 py-0.5 rounded-md leading-none"
+          >
+            -
+          </span>
+        </template>
+        <template v-else>
+          <span
+            v-if="item.userRank"
+            class="text-[10px] sm:text-xs font-black font-display px-2.5 py-0.5 rounded-md border shadow-xs leading-none"
+            :class="{
+              'bg-amber-400/30 text-amber-300 border-amber-400/60 shadow-amber-950/30':
+                item.userRank === 1,
+              'bg-slate-200/30 text-white border-slate-300/60 shadow-slate-950/30':
+                item.userRank === 2,
+              'bg-amber-600/35 text-amber-300 border-amber-500/60 shadow-amber-950/30':
+                item.userRank === 3,
+              'bg-violet-600/40 text-violet-200 border-violet-400/50 shadow-violet-950/30':
+                item.userRank > 3,
+            }"
+          >
+            #{{ item.userRank }}
+          </span>
+          <span
+            v-else
+            class="text-[10px] font-bold text-gray-400 bg-slate-950/60 border border-slate-700/70 px-2.5 py-0.5 rounded-md leading-none"
+          >
+            -
+          </span>
+        </template>
+      </button>
     </div>
 
     <!-- 3D Podium for Top 3 Players -->
     <div
-      class="grid grid-cols-3 gap-3 items-end pt-6 max-w-md mx-auto"
+      class="grid grid-cols-3 gap-2.5 sm:gap-4 items-end pt-4 max-w-xl mx-auto"
       v-if="activeUsers && activeUsers.length > 0"
     >
       <!-- 2nd Place (Left) -->
@@ -217,7 +365,7 @@
                 <UIcon :name="secondPlace.rankInfo.icon" class="text-[10px]" />
               </span>
               <span
-                class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+                class="absolute -top-3 -right-2 bg-slate-400 text-slate-950 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display shadow-md"
               >
                 2
               </span>
@@ -283,7 +431,7 @@
         </template>
         <!-- Podium Stand -->
         <div
-          class="w-full h-24 rounded-t-2xl border-t border-x border-slate-400/20 bg-slate-900/30 flex items-center justify-center font-black font-display text-2xl text-slate-500 shadow-inner"
+          class="w-full h-24 rounded-t-2xl border-t border-x border-slate-400/20 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center font-black font-display text-2xl text-slate-400/70 shadow-inner"
         >
           Ⅱ
         </div>
@@ -316,7 +464,7 @@
                 <UIcon :name="firstPlace.rankInfo.icon" class="text-xs" />
               </span>
               <span
-                class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display"
+                class="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-950 font-display shadow-md"
               >
                 1
               </span>
@@ -382,7 +530,7 @@
         </template>
         <!-- Podium Stand -->
         <div
-          class="w-full h-32 rounded-t-2xl border-t border-x border-amber-500/30 bg-amber-500/5 flex items-center justify-center font-black font-display text-4xl text-amber-500/70 shadow-lg shadow-amber-500/5"
+          class="w-full h-32 rounded-t-2xl border-t border-x border-amber-500/30 bg-amber-500/10 backdrop-blur-sm flex items-center justify-center font-black font-display text-4xl text-amber-400/80 shadow-lg shadow-amber-500/10"
         >
           Ⅰ
         </div>
@@ -411,7 +559,7 @@
                 <UIcon :name="thirdPlace.rankInfo.icon" class="text-[10px]" />
               </span>
               <span
-                class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display"
+                class="absolute -top-3 -right-2 bg-amber-700 text-white font-black text-xs w-5 h-5 rounded-full flex items-center justify-center border border-white/20 font-display shadow-md"
               >
                 3
               </span>
@@ -477,7 +625,7 @@
         </template>
         <!-- Podium Stand -->
         <div
-          class="w-full h-20 rounded-t-2xl border-t border-x border-amber-700/20 bg-slate-900/30 flex items-center justify-center font-black font-display text-2xl text-amber-700/50 shadow-inner"
+          class="w-full h-20 rounded-t-2xl border-t border-x border-amber-700/20 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center font-black font-display text-2xl text-amber-600/60 shadow-inner"
         >
           Ⅲ
         </div>
@@ -494,13 +642,13 @@
           v-for="(userItem, index) in remainingUsers"
           :key="userItem.userId"
           :to="'/user/' + userItem.userId"
-          class="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors group cursor-pointer block"
+          class="flex items-center justify-between px-5 sm:px-6 py-3.5 hover:bg-white/5 transition-colors group cursor-pointer block"
           :class="userItem.isMe ? 'bg-violet-600/10 border-l-2 border-violet-500' : ''"
         >
           <!-- Rank & Avatar -->
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-3.5 sm:space-x-4 min-w-0">
             <span
-              class="w-6 text-center font-black font-display text-sm text-gray-500 group-hover:text-violet-400 transition-colors"
+              class="w-6 text-center font-black font-display text-xs sm:text-sm text-gray-500 group-hover:text-violet-400 transition-colors shrink-0"
             >
               {{ index + 4 }}
             </span>
@@ -508,14 +656,14 @@
               :src="userItem.avatarUrl"
               :frame="userItem.frameStyleKey"
               size="sm"
-              avatar-class="bg-white/5 text-gray-400 border border-white/10"
+              avatar-class="bg-white/5 text-gray-400 border border-white/10 shrink-0"
             />
-            <div class="text-left flex flex-col space-y-0.5">
+            <div class="text-left flex flex-col space-y-0.5 min-w-0">
               <span
-                class="font-bold text-sm text-gray-200 group-hover:text-white transition-colors"
+                class="font-bold text-xs sm:text-sm text-gray-200 group-hover:text-white transition-colors truncate"
               >
                 {{ userItem.name || "Joueur Anonyme" }}
-                <span v-if="userItem.isMe" class="text-violet-400 text-xs font-display"
+                <span v-if="userItem.isMe" class="text-violet-400 text-xs font-display ml-1"
                   >(vous)</span
                 >
               </span>
@@ -546,8 +694,8 @@
             </div>
           </div>
 
-          <!-- XP / LP Score -->
-          <div class="flex items-center space-x-6 text-sm">
+          <!-- XP / LP / Daily Score -->
+          <div class="flex items-center space-x-4 sm:space-x-6 text-sm shrink-0 pl-3">
             <div class="text-right" v-if="currentTab === 'general' || currentTab === 'friends'">
               <span class="font-extrabold text-white font-display">{{ userItem.xp }}</span>
               <span
@@ -605,8 +753,9 @@
       </div>
       <div
         v-else-if="!activeUsers || activeUsers.length === 0"
-        class="text-center py-10 text-gray-500 font-medium space-y-4"
+        class="text-center py-12 text-gray-500 font-medium space-y-4 px-4"
       >
+        <UIcon name="i-heroicons-sparkles" class="text-3xl text-gray-600 block mx-auto" />
         <p>{{ emptyRankingText }}</p>
         <UButton
           v-if="currentTab === 'friends'"
@@ -620,12 +769,32 @@
         </UButton>
       </div>
     </UCard>
+
+    <!-- Modales Calendriers (Mois / Année) -->
+    <DailyMonthCalendarModal
+      v-model:open="calendarMonthModalOpen"
+      :selected-date="selectedDay"
+      @select-date="(date) => (selectedDay = date)"
+    />
+
+    <DailyYearCalendarModal
+      v-model:open="calendarYearModalOpen"
+      :selected-month="selectedMonth"
+      @select-month="(month) => (selectedMonth = month)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { FriendRankingDTO } from "#shared/DTO/followDTO";
-import type { DailySeriesRankingDTO, DailySeriesDayDTO } from "#shared/DTO/dailySeriesRankingDTO";
+import type {
+  DailySeriesRankingDTO,
+  DailySeriesDayDTO,
+  DailyTimelineItemDTO,
+  MonthlyTimelineItemDTO,
+} from "#shared/DTO/dailySeriesRankingDTO";
+import DailyMonthCalendarModal from "~/components/ranking/DailyMonthCalendarModal.vue";
+import DailyYearCalendarModal from "~/components/ranking/DailyYearCalendarModal.vue";
 import { brainrunEruditionLabel } from "#shared/brainrunErudition";
 import { formatDayLabel, formatMonthLabel, getDayKey, getMonthKey } from "#shared/dailySeason";
 
@@ -639,10 +808,128 @@ useSeoMeta({
 });
 
 const route = useRoute();
+const userStore = useUserStore();
+const { authFetch } = useAuthFetch();
+
 const currentTab = ref<"general" | "br" | "showdown" | "daily" | "brainrun" | "friends">(
   (route.query.tab as any) || "daily",
 );
 const dailyPeriod = ref<"day" | "monthly" | "alltime">((route.query.period as any) || "day");
+
+// Modales calendriers
+const calendarMonthModalOpen = ref(false);
+const calendarYearModalOpen = ref(false);
+
+// Lignes du temps Daily (7 jours) et Monthly (6 mois)
+const { data: initialDailyTimeline } = await useFetch<DailyTimelineItemDTO[]>(
+  "/api/ranking/daily-timeline",
+);
+const { data: initialMonthlyTimeline } = await useFetch<MonthlyTimelineItemDTO[]>(
+  "/api/ranking/monthly-timeline",
+);
+
+const dailyTimeline = ref<DailyTimelineItemDTO[]>(initialDailyTimeline.value || []);
+const monthlyTimeline = ref<MonthlyTimelineItemDTO[]>(initialMonthlyTimeline.value || []);
+
+watch(initialDailyTimeline, (val) => {
+  if (val) dailyTimeline.value = val;
+});
+watch(initialMonthlyTimeline, (val) => {
+  if (val) monthlyTimeline.value = val;
+});
+
+async function refreshPersonalTimelines() {
+  if (!userStore.isLoggedIn) return;
+  try {
+    const [dRes, mRes] = await Promise.all([
+      authFetch<DailyTimelineItemDTO[]>("/api/ranking/daily-timeline"),
+      authFetch<MonthlyTimelineItemDTO[]>("/api/ranking/monthly-timeline"),
+    ]);
+    if (dRes) dailyTimeline.value = dRes;
+    if (mRes) monthlyTimeline.value = mRes;
+  } catch (e) {
+    console.error("Failed to load personal timelines:", e);
+  }
+}
+
+// Défilement horizontal du ruban des modes (avec flèches au lieu de barre de défilement)
+const ribbonContainer = ref<HTMLElement | null>(null);
+const canScrollRibbonLeft = ref(false);
+const canScrollRibbonRight = ref(false);
+const hasRibbonOverflow = ref(false);
+let ribbonResizeObserver: ResizeObserver | null = null;
+
+function updateRibbonScroll() {
+  const el = ribbonContainer.value;
+  if (!el) return;
+  const { scrollLeft, scrollWidth, clientWidth } = el;
+  hasRibbonOverflow.value = scrollWidth > clientWidth + 4;
+  canScrollRibbonLeft.value = hasRibbonOverflow.value && scrollLeft > 6;
+  canScrollRibbonRight.value =
+    hasRibbonOverflow.value && scrollLeft + clientWidth < scrollWidth - 6;
+}
+
+function scrollRibbon(direction: "left" | "right") {
+  const el = ribbonContainer.value;
+  if (!el) return;
+  const delta = direction === "left" ? -180 : 180;
+  el.scrollBy({ left: delta, behavior: "smooth" });
+}
+
+function selectTab(tabId: typeof currentTab.value, event?: MouseEvent) {
+  currentTab.value = tabId;
+  const btn = event?.currentTarget as HTMLElement | undefined;
+  if (btn && ribbonContainer.value) {
+    btn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+}
+
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    refreshPersonalTimelines();
+  }
+
+  nextTick(() => {
+    updateRibbonScroll();
+    if (ribbonContainer.value && typeof ResizeObserver !== "undefined") {
+      ribbonResizeObserver = new ResizeObserver(() => {
+        updateRibbonScroll();
+      });
+      ribbonResizeObserver.observe(ribbonContainer.value);
+    }
+  });
+});
+
+onBeforeUnmount(() => {
+  if (ribbonResizeObserver) {
+    ribbonResizeObserver.disconnect();
+  }
+});
+
+watch(
+  () => userStore.user?.id,
+  (id) => {
+    if (id) refreshPersonalTimelines();
+  },
+);
+
+const dailyTimelineChronological = computed(() => [...dailyTimeline.value].reverse());
+const monthlyTimelineChronological = computed(() => [...monthlyTimeline.value].reverse());
+
+// Onglets de navigation des modes
+const modeTabs = computed(() => {
+  const tabs = [
+    { id: "daily" as const, label: "Quotidien", icon: "i-heroicons-calendar" },
+    { id: "br" as const, label: "Battle Royale", icon: "i-heroicons-shield-check" },
+    { id: "showdown" as const, label: "Showdown", icon: "i-heroicons-bolt" },
+    { id: "general" as const, label: "XP", icon: "i-heroicons-sparkles" },
+    { id: "brainrun" as const, label: "Brainrun", icon: "i-heroicons-fire" },
+  ];
+  if (userStore.isLoggedIn) {
+    tabs.push({ id: "friends" as const, label: "Amis", icon: "i-heroicons-user-group" });
+  }
+  return tabs;
+});
 
 // Jours daily disponibles
 const { data: dailyDays } = await useFetch<DailySeriesDayDTO[]>("/api/ranking/daily-days");
@@ -695,9 +982,6 @@ const selectedDayLabel = computed(() =>
 // Saison mensuelle consultée : le mois en cours par défaut, navigable vers les mois précédents.
 const selectedMonth = ref(getMonthKey());
 const selectedMonthLabel = computed(() => formatMonthLabel(selectedMonth.value));
-
-const userStore = useUserStore();
-const { authFetch } = useAuthFetch();
 
 // Classement amis : chargé à la demande car il nécessite l'authentification
 const friendsUsers = ref<FriendRankingDTO[]>([]);
@@ -784,10 +1068,7 @@ const activeUsers = computed(() => {
   return [];
 });
 
-/** Libellé de l'étage max atteint pour le classement Brainrun (« Victoire » ou « Acte X · Étage Y »).
- * Les vainqueurs affichent en plus leur plus haute Érudition gagnée — c'est le critère de tri
- * principal, il doit être lisible directement dans le classement (omise à l'Érudition 0, où elle
- * n'apporte aucune information). */
+/** Libellé de l'étage max atteint pour le classement Brainrun (« Victoire » ou « Acte X · Étage Y »). */
 function brainrunFloorText(item: any): string {
   if (!item) return "";
   if (!item.isVictory) return `Acte ${item.bestAct} · Étage ${item.bestRow}`;

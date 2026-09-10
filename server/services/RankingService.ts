@@ -2,10 +2,16 @@ import prisma from "~~/server/utils/prisma";
 import { UserRankingDTO } from "#shared/DTO/userRankingDTO";
 import { DailyPodiumRankingDTO } from "#shared/DTO/dailyPodiumRankingDTO";
 import { BrainrunRankingDTO } from "#shared/DTO/brainrunRankingDTO";
+import type { MonthlyTimelineItemDTO } from "#shared/DTO/dailySeriesRankingDTO";
 import { getRankFromPoints } from "~~/server/utils/rankHelper";
 import { getShowdownRankFromPoints } from "~~/server/utils/showdownRankHelper";
 import { rankBrainrunPlayers } from "~~/server/utils/brainrunLogic";
-import { getMonthKey, getMonthRange } from "#shared/dailySeason";
+import {
+  formatMonthLabel,
+  formatShortMonth,
+  getMonthKey,
+  getMonthRange,
+} from "#shared/dailySeason";
 
 export class RankingService {
   async getTopUsers(): Promise<UserRankingDTO[]> {
@@ -331,6 +337,95 @@ export class RankingService {
     });
 
     return rankingList;
+  }
+
+  /** Ligne du temps des 6 derniers mois avec rang personnel et points */
+  async getMonthlyTimeline(userId?: string): Promise<MonthlyTimelineItemDTO[]> {
+    const allMonths = await this.getDailyMonths();
+    const last6Months = allMonths.slice(0, 6);
+
+    const timeline: MonthlyTimelineItemDTO[] = [];
+    for (const monthKey of last6Months) {
+      const ranking = await this.getDailyPodiumRanking(monthKey);
+      let userRank: number | null = null;
+      let userPoints: number | null = null;
+      let firstPlaces = 0;
+      let secondPlaces = 0;
+      let thirdPlaces = 0;
+
+      if (userId) {
+        const userIndex = ranking.findIndex((u) => u.userId === userId);
+        if (userIndex !== -1) {
+          userRank = userIndex + 1;
+          const uItem = ranking[userIndex];
+          if (uItem) {
+            userPoints = uItem.score;
+            firstPlaces = uItem.firstPlaces;
+            secondPlaces = uItem.secondPlaces;
+            thirdPlaces = uItem.thirdPlaces;
+          }
+        }
+      }
+
+      timeline.push({
+        monthKey,
+        shortMonth: formatShortMonth(monthKey),
+        monthLabel: formatMonthLabel(monthKey),
+        userRank,
+        userPoints,
+        firstPlaces,
+        secondPlaces,
+        thirdPlaces,
+        totalParticipants: ranking.length,
+      });
+    }
+
+    return timeline;
+  }
+
+  /** Vue calendrier annuel : les 12 mois de l'année avec rang personnel */
+  async getMonthlyCalendarYear(year: number, userId?: string): Promise<MonthlyTimelineItemDTO[]> {
+    const calendar: MonthlyTimelineItemDTO[] = [];
+
+    for (let m = 1; m <= 12; m++) {
+      const monthPad = String(m).padStart(2, "0");
+      const monthKey = `${year}-${monthPad}`;
+      const ranking = await this.getDailyPodiumRanking(monthKey);
+
+      let userRank: number | null = null;
+      let userPoints: number | null = null;
+      let firstPlaces = 0;
+      let secondPlaces = 0;
+      let thirdPlaces = 0;
+
+      if (userId) {
+        const userIndex = ranking.findIndex((u) => u.userId === userId);
+        if (userIndex !== -1) {
+          userRank = userIndex + 1;
+          const uItem = ranking[userIndex];
+          if (uItem) {
+            userPoints = uItem.score;
+            firstPlaces = uItem.firstPlaces;
+            secondPlaces = uItem.secondPlaces;
+            thirdPlaces = uItem.thirdPlaces;
+          }
+        }
+      }
+
+      calendar.push({
+        monthKey,
+        shortMonth: formatShortMonth(monthKey),
+        monthLabel: formatMonthLabel(monthKey),
+        userRank,
+        userPoints,
+        firstPlaces,
+        secondPlaces,
+        thirdPlaces,
+        totalParticipants: ranking.length,
+      });
+    }
+
+    return calendar;
   }
 }
 

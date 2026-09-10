@@ -2,9 +2,15 @@ import { describe, it, expect } from "vite-plus/test";
 import {
   formatDayLabel,
   formatMonthLabel,
+  formatShortDay,
+  formatShortMonth,
   getDayKey,
+  getDaysInMonth,
+  getMonthFirstDayOffset,
   getMonthKey,
   getMonthRange,
+  getNextMonthKey,
+  getPreviousMonthKey,
   isValidDayKey,
   isValidMonthKey,
 } from "./dailySeason";
@@ -97,5 +103,60 @@ describe("formatDayLabel", () => {
   it("inclut l'année si différente", () => {
     const label = formatDayLabel("2025-09-08", "Daily 1", refDate);
     expect(label).toContain("2025");
+  });
+});
+
+describe("formatShortDay", () => {
+  const refDate = new Date("2026-09-10T12:00:00Z");
+
+  it("identifie Aujourd'hui et Hier", () => {
+    expect(formatShortDay("2026-09-10", refDate)).toBe("Aujourd'hui");
+    expect(formatShortDay("2026-09-09", refDate)).toBe("Hier");
+  });
+
+  it("formate les autres jours avec jour de semaine et numéro", () => {
+    const label = formatShortDay("2026-09-08", refDate);
+    expect(label).toContain("8");
+  });
+});
+
+describe("formatShortMonth", () => {
+  it("formate le mois court avec année", () => {
+    expect(formatShortMonth("2026-09")).toBe("Sept. 26");
+    expect(formatShortMonth("2026-01")).toBe("Janv. 26");
+  });
+});
+
+describe("getDaysInMonth", () => {
+  it("retourne 30 jours pour septembre", () => {
+    const days = getDaysInMonth("2026-09");
+    expect(days.length).toBe(30);
+    expect(days[0]?.date).toBe("2026-09-01");
+    expect(days[29]?.date).toBe("2026-09-30");
+  });
+
+  it("gère février bissextile ou non", () => {
+    expect(getDaysInMonth("2024-02").length).toBe(29);
+    expect(getDaysInMonth("2025-02").length).toBe(28);
+  });
+});
+
+describe("getMonthFirstDayOffset", () => {
+  it("calcule le décalage correct avec lundi = 0", () => {
+    // 2026-09-01 est un mardi -> décalage 1
+    expect(getMonthFirstDayOffset("2026-09")).toBe(1);
+    // 2026-06-01 est un lundi -> décalage 0
+    expect(getMonthFirstDayOffset("2026-06")).toBe(0);
+    // 2026-02-01 est un dimanche -> décalage 6
+    expect(getMonthFirstDayOffset("2026-02")).toBe(6);
+  });
+});
+
+describe("getPreviousMonthKey & getNextMonthKey", () => {
+  it("navigue entre les mois correctement y compris au changement d'année", () => {
+    expect(getPreviousMonthKey("2026-09")).toBe("2026-08");
+    expect(getNextMonthKey("2026-09")).toBe("2026-10");
+    expect(getPreviousMonthKey("2026-01")).toBe("2025-12");
+    expect(getNextMonthKey("2026-12")).toBe("2027-01");
   });
 });

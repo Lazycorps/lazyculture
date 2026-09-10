@@ -75,3 +75,75 @@ export function formatDayLabel(
 
   return title ? `${dateLabel} • ${title}` : dateLabel;
 }
+
+/** Libellé court d'un jour pour la ligne du temps, ex. « Aujourd'hui », « Hier », ou « Mar 8 ». */
+export function formatShortDay(dayKey: string, referenceDate: Date = new Date()): string {
+  const todayKey = getDayKey(referenceDate);
+  const yesterdayDate = new Date(referenceDate);
+  yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+  const yesterdayKey = getDayKey(yesterdayDate);
+
+  if (dayKey === todayKey) return "Aujourd'hui";
+  if (dayKey === yesterdayKey) return "Hier";
+
+  const [year, month, day] = dayKey.split("-").map(Number) as [number, number, number];
+  const targetDate = new Date(Date.UTC(year, month - 1, day));
+  const weekday = targetDate.toLocaleDateString("fr-FR", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+  // Première lettre en majuscule, ex: "Mar 8"
+  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1, 3);
+  return `${capitalizedWeekday} ${day}`;
+}
+
+/** Libellé court d'un mois pour la ligne du temps, ex. « Sept. 26 ». */
+export function formatShortMonth(monthKey: string): string {
+  const { start } = getMonthRange(monthKey);
+  const monthName = start.toLocaleDateString("fr-FR", {
+    month: "short",
+    timeZone: "UTC",
+  });
+  const yearShort = String(start.getUTCFullYear()).slice(-2);
+  const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  return `${capitalized} ${yearShort}`;
+}
+
+/** Liste de toutes les dates « YYYY-MM-DD » d'un mois donné. */
+export function getDaysInMonth(monthKey: string): { date: string; dayNumber: number }[] {
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  // Le jour 0 du mois suivant correspond au dernier jour du mois en cours
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const days: { date: string; dayNumber: number }[] = [];
+  const monthPad = String(month).padStart(2, "0");
+
+  for (let d = 1; d <= lastDay; d++) {
+    const dayPad = String(d).padStart(2, "0");
+    days.push({
+      date: `${year}-${monthPad}-${dayPad}`,
+      dayNumber: d,
+    });
+  }
+  return days;
+}
+
+/** Calcule le décalage (0 à 6) du premier jour du mois par rapport au lundi (0 = Lundi, 6 = Dimanche). */
+export function getMonthFirstDayOffset(monthKey: string): number {
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  const firstDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  return firstDay === 0 ? 6 : firstDay - 1;
+}
+
+/** Mois précédent sous forme YYYY-MM */
+export function getPreviousMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  const date = new Date(Date.UTC(year, month - 2, 1));
+  return getMonthKey(date);
+}
+
+/** Mois suivant sous forme YYYY-MM */
+export function getNextMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  const date = new Date(Date.UTC(year, month, 1));
+  return getMonthKey(date);
+}

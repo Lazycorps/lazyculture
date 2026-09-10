@@ -24,7 +24,13 @@ import { coinsFromXp, grantCoins } from "~~/server/utils/walletHelper";
 import { dailyRewardService } from "./DailyRewardService";
 import { recordUserStreakActivity } from "~~/server/utils/activityStreakHelper";
 
-import type { DailySeriesRankingDTO, DailySeriesDayDTO } from "#shared/DTO/dailySeriesRankingDTO";
+import type {
+  DailySeriesRankingDTO,
+  DailySeriesDayDTO,
+  DailyTimelineItemDTO,
+  DailyCalendarDayDTO,
+} from "#shared/DTO/dailySeriesRankingDTO";
+import { formatShortDay, getDaysInMonth, getMonthRange } from "#shared/dailySeason";
 
 export class SeriesService {
   // ===================== Daily =====================
@@ -198,6 +204,193 @@ export class SeriesService {
     }
 
     return uniqueDays;
+  }
+
+  async getDailyTimeline(userId?: string): Promise<DailyTimelineItemDTO[]> {
+    const series = await prisma.questionSeries.findMany({
+      where: { type: "daily" },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+      },
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+    });
+
+    const seenDates = new Set<string>();
+    const last7Series: { id: number; title: string; date: string }[] = [];
+    for (const s of series) {
+      const dateKey = s.date.toISOString().slice(0, 10);
+      if (!seenDates.has(dateKey)) {
+        seenDates.add(dateKey);
+        last7Series.push({
+          id: s.id,
+          title: s.title,
+          date: dateKey,
+        });
+        if (last7Series.length === 7) break;
+      }
+    }
+
+    const seriesIds = last7Series.map((s) => s.id);
+    const responses =
+      seriesIds.length > 0
+        ? await prisma.questionSeriesResponse.findMany({
+            where: {
+              seriesId: { in: seriesIds },
+              seriesType: "daily",
+            },
+            select: {
+              seriesId: true,
+              userId: true,
+              data: true,
+              createDate: true,
+              updateDate: true,
+            },
+          })
+        : [];
+
+    return last7Series.map((s) => {
+      const sResps = responses.filter(
+        (r) => r.seriesId === s.id && (r.data as any)?.score !== undefined,
+      );
+      sResps.sort((a, b) => {
+        const scoreA = (a.data as any).score ?? 0;
+        const scoreB = (b.data as any).score ?? 0;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        const elapsedA = a.updateDate.getTime() - a.createDate.getTime();
+        const elapsedB = b.updateDate.getTime() - b.createDate.getTime();
+        return elapsedA - elapsedB;
+      });
+
+      let userRank: number | null = null;
+      let userScore: number | null = null;
+      let userTime: string | null = null;
+
+      if (userId) {
+        const userIndex = sResps.findIndex((r) => r.userId === userId);
+        if (userIndex !== -1) {
+          userRank = userIndex + 1;
+          const uResp = sResps[userIndex];
+          if (uResp) {
+            const uData = uResp.data as any;
+            userScore = uData?.score ?? 0;
+            userTime = this.millisToMinutesAndSeconds(
+              uResp.updateDate.getTime() - uResp.createDate.getTime(),
+            );
+          }
+        }
+      }
+
+      return {
+        id: s.id,
+        title: s.title,
+        date: s.date,
+        shortDay: formatShortDay(s.date),
+        userRank,
+        userScore,
+        userTime,
+        totalParticipants: sResps.length,
+      };
+    });
+  }
+
+  async getDailyCalendarMonth(month: string, userId?: string): Promise<DailyCalendarDayDTO[]> {
+    const days = getDaysInMonth(month);
+    const { start, end } = getMonthRange(month);
+
+    const series = await prisma.questionSeries.findMany({
+      where: {
+        type: "daily",
+        date: { gte: start, lt: end },
+      },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+      },
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+    });
+
+    const seriesByDate: Record<string, { id: number; title: string }> = {};
+    for (const s of series) {
+      const dateKey = s.date.toISOString().slice(0, 10);
+      if (!seriesByDate[dateKey]) {
+        seriesByDate[dateKey] = { id: s.id, title: s.title };
+      }
+    }
+
+    const seriesIds = Object.values(seriesByDate).map((s) => s.id);
+    const responses =
+      seriesIds.length > 0
+        ? await prisma.questionSeriesResponse.findMany({
+            where: {
+              seriesId: { in: seriesIds },
+              seriesType: "daily",
+            },
+            select: {
+              seriesId: true,
+              userId: true,
+              data: true,
+              createDate: true,
+              updateDate: true,
+            },
+          })
+        : [];
+
+    return days.map((day) => {
+      const s = seriesByDate[day.date];
+      if (!s) {
+        return {
+          date: day.date,
+          dayNumber: day.dayNumber,
+          hasSeries: false,
+          seriesId: null,
+          seriesTitle: null,
+          userRank: null,
+          userScore: null,
+          totalParticipants: 0,
+        };
+      }
+
+      const sResps = responses.filter(
+        (r) => r.seriesId === s.id && (r.data as any)?.score !== undefined,
+      );
+      sResps.sort((a, b) => {
+        const scoreA = (a.data as any).score ?? 0;
+        const scoreB = (b.data as any).score ?? 0;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        const elapsedA = a.updateDate.getTime() - a.createDate.getTime();
+        const elapsedB = b.updateDate.getTime() - b.createDate.getTime();
+        return elapsedA - elapsedB;
+      });
+
+      let userRank: number | null = null;
+      let userScore: number | null = null;
+
+      if (userId) {
+        const userIndex = sResps.findIndex((r) => r.userId === userId);
+        if (userIndex !== -1) {
+          userRank = userIndex + 1;
+          const uResp = sResps[userIndex];
+          if (uResp) {
+            const uData = uResp.data as any;
+            userScore = uData?.score ?? 0;
+          }
+        }
+      }
+
+      return {
+        date: day.date,
+        dayNumber: day.dayNumber,
+        hasSeries: true,
+        seriesId: s.id,
+        seriesTitle: s.title,
+        userRank,
+        userScore,
+        totalParticipants: sResps.length,
+      };
+    });
   }
 
   async getDailyRanking(options?: { date?: string; seriesId?: number }) {
