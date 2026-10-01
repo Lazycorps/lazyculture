@@ -118,8 +118,8 @@ BUSINESS_SENSE ──▶ SHARP_EYE ──▶ GENEROSITY ─┘
   optionnel (défaut `BRAINRUN_BONUS_OFFER_COUNT`) — le call site dans `submitAnswer` passe
   `BRAINRUN_BONUS_OFFER_COUNT + 1` uniquement quand `activeRoom.type === "ELITE"` et le talent
   actif ; le Boss reste toujours à `BRAINRUN_BONUS_OFFER_COUNT`.
-- `COMPOUND_INTEREST` : `BrainrunService.knowledgePointsForRun(userId, gold)` calcule
-  `base = goldToKnowledgePoints(gold)` puis `bonus = floor(base * pct / 100)`, crédite `base + bonus`
+- `COMPOUND_INTEREST` : `BrainrunService.knowledgePointsForRun(run)` calcule
+  `base = brainrunKnowledgePoints(...)` (performance + progression, cf. `rules-and-progression.md`) puis `bonus = floor(base * pct / 100)`, crédite `base + bonus`
   et persiste `bonus` séparément (`BrainrunRun.knowledgePointsBonus`) pour l'affichage détaillé du
   récap de fin de run (`+24 PS (+3)`, `app/pages/brainrun/index.vue`). Appelé depuis `abandonRun`
   et `finalizeRun` (WON/LOST/ABANDONED, comme la conversion or→PS elle-même) — jamais pour une run

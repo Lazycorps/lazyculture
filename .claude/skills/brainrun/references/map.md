@@ -222,6 +222,14 @@ Toutes les salles d'un acte affichent toujours leur type (`BrainrunMapNodeDTO.ty
 masqué/`null`, cf. `buildState` dans `BrainrunService.ts`) — retiré le 2026-07-09 (l'ancien système
 révélait seulement la rangée accessible + `extraRows` rangées supplémentaires via une relique).
 
+Seules les salles accessibles/visitées portent un libellé texte sous leur icône ; les autres n'ont
+que l'icône. D'où la **légende en jeu** (`BrainrunMapLegend.vue`, au-dessus de la carte dans
+`app/pages/brainrun/index.vue`, 2026-10-01) : repliée par défaut en une rangée d'icônes (95% des
+joueurs sont sur mobile — ne pas manger de hauteur), dépliable en grille icône + libellé, état
+mémorisé en `localStorage`, lien vers `BrainrunHelpModal` (aide détaillée du lobby). Icônes et
+libellés viennent tous de `useBrainrunRoomTypeDisplay` (carte, légende, aide) : un nouveau type de
+salle s'ajoute là, plus dans `LEGEND_TYPES` et la liste `rooms` de l'aide.
+
 ## Relique Prévoyance (`FORESIGHT`) : prévisualisation d'ennemi
 
 Repensée le 2026-07-09 en même temps que le retrait du brouillard de guerre : elle ne touche plus la

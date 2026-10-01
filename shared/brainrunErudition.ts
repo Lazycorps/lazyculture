@@ -103,3 +103,18 @@ export function brainrunEruditionLabel(level: number): string {
   if (level <= 0) return "Standard";
   return `Érudition ${ROMAN_NUMERALS[level - 1] ?? level}`;
 }
+
+/** PV rendus par la Bibliothèque (salle REST). Monté de 1 à 2 en même temps que l'ajout de
+ * l'Érudition : à 1 PV, ce repos garanti avant le boss était trop tiède pour que le niveau IV
+ * (qui le ramène à 1) retire quelque chose de réel au joueur. Partagé (et non dans
+ * brainrunConfig.ts) pour que l'UI affiche le vrai montant plutôt qu'un "+1 PV" codé en dur. */
+export const BRAINRUN_REST_HEAL = 2;
+
+/** Soin nominal de la Bibliothèque au degré d'Érudition donné (avant plafonnement aux PV max).
+ * Plancher à 0 — un repos ne blesse jamais. */
+export function brainrunRestHealAmount(eruditionLevel: number = 0): number {
+  return Math.max(
+    0,
+    BRAINRUN_REST_HEAL - getBrainrunEruditionEffects(eruditionLevel).restHealMalus,
+  );
+}

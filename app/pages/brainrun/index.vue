@@ -146,9 +146,10 @@
           <!-- Reliques possédées (gauche) et emplacements de consommables (droite, 3 slots fixes,
              5 avec la relique Sac à Dos — chaque exemplaire prend son propre emplacement, remplis
              de gauche à droite au fur et à mesure des objets obtenus, sans compteur x2/x3).
-             Seul un emplacement occupé a une action au clic (bouton "Jeter" dans l'infobulle) —
-             l'usage d'un consommable pendant une question passe par un bouton dédié dans
-             BrainrunQuestionRunner. -->
+             Seul un emplacement occupé a une action au clic : infobulle avec "Utiliser" pour les
+             consommables hors question (Bouclier/Potion/Cargaison), sinon une aide indiquant où
+             l'utiliser, et "Jeter" (à confirmer). L'usage sur une question passe toujours par la
+             barre dédiée de BrainrunQuestionRunner. -->
           <div class="flex items-center justify-between gap-2 mt-2">
             <div class="flex flex-wrap gap-1.5">
               <div v-for="relic in ownedRelics" :key="relic.id" class="relative">
@@ -212,12 +213,36 @@
                       {{ consumable.description }}
                     </p>
                   </div>
+                  <!-- Usage d'abord (action principale), "Jeter" relégué en action secondaire à
+                       confirmer : des joueurs jetaient leurs objets en croyant les utiliser. -->
+                  <button
+                    v-if="consumableUsableFromHud(consumable.id)"
+                    type="button"
+                    :disabled="consumableActionLoading"
+                    class="w-full flex items-center justify-center gap-1 text-[11px] font-black font-display uppercase tracking-wider text-slate-950 bg-amber-400 border border-amber-300 rounded-lg py-2 hover:bg-amber-300 disabled:opacity-50"
+                    @click.stop="handleUseConsumableFromHud(consumable.id)"
+                  >
+                    <UIcon name="i-heroicons-sparkles" class="text-xs" />
+                    Utiliser
+                  </button>
+                  <p
+                    v-else
+                    class="text-[10px] leading-snug text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1.5"
+                  >
+                    {{ consumableUsageHint(consumable.id) }}
+                  </p>
                   <button
                     type="button"
-                    class="w-full text-[10px] font-black font-display uppercase tracking-wider text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg py-1.5 hover:bg-rose-500/20"
-                    @click.stop="handleDiscardConsumable(consumable.id)"
+                    :disabled="consumableActionLoading"
+                    class="w-full text-[10px] font-bold font-display uppercase tracking-wider rounded-lg py-2 disabled:opacity-50"
+                    :class="
+                      discardConfirmSlot === index
+                        ? 'text-white bg-rose-600 border border-rose-500 hover:bg-rose-500'
+                        : 'text-gray-500 hover:text-rose-400'
+                    "
+                    @click.stop="handleDiscardClick(index, consumable.id)"
                   >
-                    Jeter
+                    {{ discardConfirmSlot === index ? "Confirmer : jeter l'objet" : "Jeter" }}
                   </button>
                 </div>
               </div>
@@ -361,7 +386,7 @@
                       Bibliothèque
                     </h3>
                     <p class="text-xs text-gray-400 max-w-xs mx-auto">
-                      Reposez-vous pour regagner un point de vie, ou bannissez un thème pour le
+                      Reposez-vous pour regagner {{ restHealLabel }}, ou bannissez un thème pour le
                       reste de la run.
                     </p>
                   </div>
@@ -375,7 +400,7 @@
                       class="font-black font-display uppercase tracking-widest py-3"
                       @click="handleRestHeal"
                     >
-                      Se reposer (+1 PV)
+                      Se reposer (+{{ restHealAmount }} PV)
                     </UButton>
                     <UButton
                       size="lg"
@@ -431,6 +456,7 @@
                 >
                   Choisissez votre chemin
                 </p>
+                <BrainrunMapLegend class="mb-1" />
                 <BrainrunMap
                   :map-nodes="mapNodes"
                   :current-row="run?.currentRow ?? 1"
@@ -696,10 +722,11 @@ import {
 import {
   BRAINRUN_CONSUMABLES,
   BRAINRUN_RELICS,
+  brainrunConsumableUsage,
   type BrainrunConsumableId,
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
-import { brainrunEruditionLabel } from "#shared/brainrunErudition";
+import { brainrunEruditionLabel, brainrunRestHealAmount } from "#shared/brainrunErudition";
 import { getBrainrunEnemyById } from "#shared/brainrunEnemies";
 import { getBrainrunBossById } from "#shared/brainrunBosses";
 import { useUserStore } from "~/stores/userStore";
@@ -723,6 +750,12 @@ const restBanMode = ref(false);
 // de fin de salle juste après résolution — la salle CLEARED seule ne permet pas de distinguer
 // les deux cas côté serveur.
 const lastRestChoice = ref<"HEAL" | "BAN_THEME" | null>(null);
+const lastRestHealed = ref(0);
+// Soin nominal de la Bibliothèque (2 PV, 1 à partir de l'Érudition IV) — même source que le serveur.
+const restHealAmount = computed(() => brainrunRestHealAmount(run.value?.erudition ?? 0));
+const restHealLabel = computed(() =>
+  restHealAmount.value > 1 ? `${restHealAmount.value} points de vie` : "un point de vie",
+);
 const lastBannedTheme = ref<string | null>(null);
 // Modale "Mes coefficients" (thèmes investis coef > 0), accessible pendant toute la run.
 const showCoefficients = ref(false);
@@ -876,7 +909,8 @@ const roomRecap = computed(() => {
     heartsLost,
     healed: specializationHealed || restHealed,
     specializationHealed,
-    netHeartsChange: (specializationHealed ? 1 : 0) + (restHealed ? 1 : 0) - heartsLost,
+    netHeartsChange:
+      (specializationHealed ? 1 : 0) + (restHealed ? lastRestHealed.value : 0) - heartsLost,
     bannedTheme:
       room.type === "REST" && lastRestChoice.value === "BAN_THEME" ? lastBannedTheme.value : null,
     enemyName:
@@ -899,8 +933,8 @@ const ownedRelics = computed(() => {
 
 // Infobulle relique/consommable ouverte par tap ; refermée par un tap sur elle-même ou ailleurs
 // dans la carte. Les reliques n'ont pas d'action au clic ; un emplacement de consommable occupé
-// gagne un bouton "Jeter" (l'usage pendant une question passe par un bouton dédié dans
-// BrainrunQuestionRunner), donc pas besoin d'appui long ici.
+// gagne "Utiliser" (si utilisable hors question) et "Jeter" (cf. consumableUsableFromHud), donc pas
+// besoin d'appui long ici.
 const openedRelicId = ref<BrainrunRelicId | null>(null);
 // Index d'emplacement plutôt que id de consommable : 2 emplacements peuvent porter le même id
 // depuis que les exemplaires identiques ne se stackent plus (cf. ownedConsumableUnits).
@@ -930,9 +964,58 @@ const consumableSlots = computed(() => {
   });
 });
 
-async function handleDiscardConsumable(type: BrainrunConsumableId) {
-  openedConsumableSlot.value = null;
-  await brainrun.discardConsumable(type);
+// Jeter en 2 temps (1er tap arme, 2e confirme), réarmé à chaque ouverture d'infobulle.
+const discardConfirmSlot = ref<number | null>(null);
+watch(openedConsumableSlot, () => (discardConfirmSlot.value = null));
+const consumableActionLoading = ref(false);
+
+/** Consommables utilisables directement depuis l'infobulle du HUD : ceux qui agissent hors
+ * question (Bouclier, Potion, Cargaison). Les autres passent par la barre sous l'énoncé
+ * (BrainrunQuestionRunner), seul endroit où la question ciblée est sans ambiguïté. */
+function consumableUsableFromHud(type: BrainrunConsumableId): boolean {
+  if (brainrunConsumableUsage(type) !== "ANYTIME") return false;
+  if (type === "HEAL_POTION")
+    return !!run.value && run.value.healthPoint < run.value.maxHealthPoint;
+  return true;
+}
+
+function consumableUsageHint(type: BrainrunConsumableId): string {
+  switch (brainrunConsumableUsage(type)) {
+    case "QUESTION":
+      return "S'utilise pendant une question de combat, via les boutons sous l'énoncé.";
+    case "BOSS_QUESTION":
+      return "S'utilise pendant une question de combat de boss, via les boutons sous l'énoncé.";
+    case "AUTO":
+      return "S'active automatiquement si vous tombez à 0 PV.";
+    case "ANYTIME":
+      return "Vos points de vie sont déjà au maximum.";
+  }
+}
+
+async function handleUseConsumableFromHud(type: BrainrunConsumableId) {
+  consumableActionLoading.value = true;
+  try {
+    await brainrun.useConsumable(type);
+    openedConsumableSlot.value = null;
+  } catch (e) {
+    console.error("Failed to use brainrun consumable:", e);
+  } finally {
+    consumableActionLoading.value = false;
+  }
+}
+
+async function handleDiscardClick(slot: number, type: BrainrunConsumableId) {
+  if (discardConfirmSlot.value !== slot) {
+    discardConfirmSlot.value = slot;
+    return;
+  }
+  consumableActionLoading.value = true;
+  try {
+    openedConsumableSlot.value = null;
+    await brainrun.discardConsumable(type);
+  } finally {
+    consumableActionLoading.value = false;
+  }
 }
 
 // Boutique/bonus post-combat : désactive la prise d'un consommable quand l'inventaire est déjà
@@ -1032,7 +1115,10 @@ async function handleThemeBanPick(theme: string) {
 
 async function handleRestHeal() {
   lastRestChoice.value = "HEAL";
+  const hpBefore = run.value?.healthPoint ?? 0;
   await brainrun.resolveRest("HEAL");
+  // PV réellement rendus (plafonnés aux PV max), pour le récap — pas le montant nominal.
+  lastRestHealed.value = Math.max(0, (run.value?.healthPoint ?? 0) - hpBefore);
 }
 
 async function handleRestBanPick(theme: string) {

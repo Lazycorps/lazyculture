@@ -76,7 +76,7 @@ export function recordConsumableDiscovery(userId: string, consumableId: string):
   return recordDiscovery(userId, "discoveredConsumables", consumableId);
 }
 
-/** Ajoute des Points de Savoir déjà calculés (cf. goldToKnowledgePoints) au solde du joueur. */
+/** Ajoute des Points de Savoir déjà calculés (cf. brainrunKnowledgePoints) au solde du joueur. */
 export async function grantKnowledgePoints(
   userId: string,
   amount: number,

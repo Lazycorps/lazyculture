@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type BrainrunRoom, type BrainrunRun } from "@prisma/client";
 import prisma from "~~/server/utils/prisma";
 import {
   isCorrectAnswer,
@@ -36,7 +36,7 @@ import {
   getActiveRelicEffects,
   getActiveTalentEffects,
   getCandidateCols,
-  goldToKnowledgePoints,
+  brainrunKnowledgePoints,
   grantShieldCharge,
   instantRoomHealthDelta,
   isAlainMemoryIntro,
@@ -88,6 +88,7 @@ import {
   BRAINRUN_EVENT_MIN_MAX_HP,
   BRAINRUN_EVENTS,
   BRAINRUN_RELICS,
+  brainrunConsumableUsage,
   getBrainrunEventIdsByAct,
   type BrainrunConsumableId,
   type BrainrunConsumableReveal,
@@ -241,16 +242,35 @@ export class BrainrunService {
     return { excludedCardThemes, excludedQuestionIds };
   }
 
-  /** Points de Savoir gagnés en fin de run (WON/LOST/ABANDONED) : or converti
-   * (goldToKnowledgePoints), majoré du bonus du talent Intérêts Composés (`bonus`, 0 si le
-   * talent n'est pas débloqué) — `bonus` est exposé séparément pour l'affichage détaillé du
-   * récap ("+24 PS (+3)"). */
+  /** Points de Savoir gagnés en fin de run (WON/LOST/ABANDONED) : bonnes réponses pondérées par
+   * leur difficulté + étage atteint + boss vaincus (brainrunKnowledgePoints), majorés du bonus du
+   * talent Intérêts Composés (`bonus`, 0 si le talent n'est pas débloqué) — `bonus` est exposé
+   * séparément pour l'affichage détaillé du récap ("+24 PS (+3)"). `run.rooms` doit être chargé. */
   private async knowledgePointsForRun(
-    userId: string,
-    gold: number,
+    run: Pick<BrainrunRun, "userId" | "currentAct" | "currentRow"> & { rooms: BrainrunRoom[] },
   ): Promise<{ total: number; bonus: number }> {
-    const base = goldToKnowledgePoints(gold);
-    const talentEffects = getActiveTalentEffects((await getMetaProgress(userId)).unlockedTalents);
+    const correctQuestionIds = run.rooms.flatMap((room) =>
+      ((room.responses as unknown as BrainrunRoomResponse[] | null) ?? [])
+        .filter((r) => r.success)
+        .map((r) => r.questionId),
+    );
+    const questions = correctQuestionIds.length
+      ? await prisma.question.findMany({
+          where: { id: { in: [...new Set(correctQuestionIds)] } },
+          select: { id: true, difficulty: true },
+        })
+      : [];
+    const difficultyById = new Map(questions.map((q) => [q.id, q.difficulty]));
+    const base = brainrunKnowledgePoints({
+      correctAnswerDifficulties: correctQuestionIds.map((id) => difficultyById.get(id) ?? 0),
+      floorReached: brainrunGlobalFloor(run.currentAct, run.currentRow),
+      bossesClearedActs: run.rooms
+        .filter((room) => room.type === "BOSS" && room.status === "CLEARED")
+        .map((room) => room.act),
+    });
+    const talentEffects = getActiveTalentEffects(
+      (await getMetaProgress(run.userId)).unlockedTalents,
+    );
     const bonus =
       talentEffects.knowledgePointsGainPct > 0
         ? Math.floor((base * talentEffects.knowledgePointsGainPct) / 100)
@@ -259,14 +279,17 @@ export class BrainrunService {
   }
 
   async abandonRun(userId: string): Promise<void> {
-    const run = await prisma.brainrunRun.findFirst({ where: { userId, status: "IN_PROGRESS" } });
+    const run = await prisma.brainrunRun.findFirst({
+      where: { userId, status: "IN_PROGRESS" },
+      include: { rooms: true },
+    });
     if (!run) return;
     // Une run touchée par le debug (cf. debugSetStats/debugJumpToNode) ne rapporte pas de Points
     // de Savoir et n'est pas comptée dans les achievements — même règle qu'à la fin normale d'une
     // run (finalizeRun) : ce n'est pas une vraie partie.
     const { total: knowledgePointsEarned, bonus: knowledgePointsBonus } = run.isDebugRun
       ? { total: 0, bonus: 0 }
-      : await this.knowledgePointsForRun(userId, run.gold);
+      : await this.knowledgePointsForRun(run);
     await prisma.brainrunRun.update({
       where: { id: run.id },
       data: {
@@ -1697,8 +1720,7 @@ export class BrainrunService {
       throw createError({ statusCode: 409, statusMessage: "Aucune question en cours." });
     }
 
-    const isBossOnlyType =
-      type === "BOSS_CHRONO_BOOST" || type === "BOSS_DAMAGE_BOOST" || type === "MALUS_CANCEL";
+    const isBossOnlyType = brainrunConsumableUsage(type) === "BOSS_QUESTION";
     if (isBossOnlyType && activeRoom.type !== "BOSS") {
       throw createError({
         statusCode: 409,
@@ -1715,13 +1737,20 @@ export class BrainrunService {
       );
       const updatedQuestionIds = [...activeRoom.questionIds];
       updatedQuestionIds[responses.length] = newQuestionId;
+      // Nouvelle question : les éventuels effets 50/50/indice/chrono/dégâts de l'ancienne
+      // question ne doivent pas se reporter dessus — seul Sixième Sens est re-tiré pour elle (le
+      // client relance sa jauge à chaque changement de question). Pas de charge de 50/50
+      // automatique : elle a déjà été dépensée sur la question remplacée.
+      const { reveal: redrawReveal } = await this.computeQuestionEntryReveal(
+        newQuestionId,
+        getActiveRelicEffects(run.relics),
+        0,
+      );
       await prisma.brainrunRoom.update({
         where: { id: activeRoom.id },
         data: {
           questionIds: updatedQuestionIds,
-          // Nouvelle question : les éventuels effets 50/50/indice/chrono/dégâts de l'ancienne
-          // question ne doivent pas se reporter dessus.
-          consumableReveal: Prisma.JsonNull,
+          consumableReveal: redrawReveal.autoHintId !== undefined ? redrawReveal : Prisma.JsonNull,
           ...(activeRoom.type === "BOSS" ? { questionStartedAt: new Date() } : {}),
         },
       });
@@ -2323,7 +2352,7 @@ export class BrainrunService {
     const xpEarned = run.isDebugRun ? 0 : calculBrainrunUserXP(clearedRooms, status === "WON");
     const { total: knowledgePointsEarned, bonus: knowledgePointsBonus } = run.isDebugRun
       ? { total: 0, bonus: 0 }
-      : await this.knowledgePointsForRun(run.userId, run.gold);
+      : await this.knowledgePointsForRun(run);
     // Palier du 3e acte (Boss final vaincu) : les actes 1/2 sont déjà crédités au moment de
     // leur transition, cf. advanceAfterRoomClear. Rien pour LOST/ABANDONED (acte en cours non
     // complété).

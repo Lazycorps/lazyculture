@@ -26,6 +26,7 @@ import {
   type BrainrunRelicId,
 } from "#shared/brainrunItems";
 import {
+  brainrunRestHealAmount,
   getBrainrunEruditionEffects,
   type BrainrunEruditionEffects,
 } from "#shared/brainrunErudition";
@@ -34,7 +35,6 @@ import {
   BRAINRUN_BOSS_HP_BY_ID,
   BRAINRUN_BOSS_MAX_HP_BY_ACT,
   BRAINRUN_CONSOLATION_GOLD,
-  BRAINRUN_REST_HEAL,
   BRAINRUN_MAX_CONSECUTIVE_MONO_NODES,
   BRAINRUN_MAX_TARGET_DRIFT,
   BRAINRUN_ENEMY_THEME_BONUS_BY_ACT,
@@ -44,7 +44,9 @@ import {
   BRAINRUN_FLASH_TIME_REDUCTION_STEP_RATIO,
   BRAINRUN_FORCED_ELITE_MID_FLOOR_INDEX,
   BRAINRUN_HAGGLER_MULTIPLIER,
-  BRAINRUN_KP_PER_GOLD,
+  BRAINRUN_KP_PER_BOSS_BY_ACT,
+  BRAINRUN_KP_PER_DIFFICULTY_POINT,
+  BRAINRUN_KP_PER_FLOOR,
   BRAINRUN_MAX_ELITE_PER_ROUTE,
   BRAINRUN_MIN_EVENT_OFFERS,
   BRAINRUN_MIN_PURE_COMBAT_RATIO,
@@ -92,8 +94,7 @@ export function instantRoomHealthDelta(
   eruditionLevel: number = 0,
 ): number {
   if (type !== "REST") return 0;
-  const { restHealMalus } = getBrainrunEruditionEffects(eruditionLevel);
-  return Math.max(0, BRAINRUN_REST_HEAL - restHealMalus);
+  return brainrunRestHealAmount(eruditionLevel);
 }
 
 /**
@@ -319,10 +320,29 @@ export function grantShieldCharge(currentCharges: number, healthPoint: number): 
   return Math.min(currentCharges + 1, Math.max(healthPoint, 0));
 }
 
-/** Conversion de l'or de fin de run en Points de Savoir (monnaie meta persistante), arrondie
- * à l'entier inférieur. Appelée à la fin d'une run (WON/LOST/ABANDONED). */
-export function goldToKnowledgePoints(gold: number): number {
-  return Math.max(0, Math.floor(gold * BRAINRUN_KP_PER_GOLD));
+/** Points de Savoir de base d'une run terminée (WON/LOST/ABANDONED), avant bonus de talent :
+ * - performance : somme des difficultés des bonnes réponses × BRAINRUN_KP_PER_DIFFICULTY_POINT ;
+ * - progression : étage global atteint × BRAINRUN_KP_PER_FLOOR ;
+ * - jalons : BRAINRUN_KP_PER_BOSS_BY_ACT pour chaque boss vaincu (acte du boss).
+ * L'or restant n'entre plus en compte (cf. brainrunConfig.ts). */
+export function brainrunKnowledgePoints(input: {
+  correctAnswerDifficulties: number[];
+  floorReached: number;
+  bossesClearedActs: number[];
+}): number {
+  const difficultySum = input.correctAnswerDifficulties.reduce((sum, d) => sum + Math.max(0, d), 0);
+  // Parts fractionnaires (coefficients < 1) : arrondi à l'inférieur une seule fois, sur leur somme
+  // (epsilon : 0.15 n'est pas exact en flottant, 20 × 0.15 ne doit pas retomber à 2.999…).
+  const performanceAndProgression = Math.floor(
+    difficultySum * BRAINRUN_KP_PER_DIFFICULTY_POINT +
+      Math.max(0, input.floorReached) * BRAINRUN_KP_PER_FLOOR +
+      1e-9,
+  );
+  const milestones = input.bossesClearedActs.reduce(
+    (sum, act) => sum + (BRAINRUN_KP_PER_BOSS_BY_ACT[act - 1] ?? 0),
+    0,
+  );
+  return performanceAndProgression + milestones;
 }
 
 /** Effets agrégés des talents permanents débloqués ; valeurs neutres si aucun talent.

@@ -33,7 +33,7 @@ import {
   getActiveRelicEffects,
   getActiveTalentEffects,
   getCandidateCols,
-  goldToKnowledgePoints,
+  brainrunKnowledgePoints,
   instantRoomHealthDelta,
   isBossAnswerTimedOut,
   maybeConvertNodeToEvent,
@@ -63,7 +63,6 @@ import {
   BRAINRUN_MIN_REST_OFFERS,
   BRAINRUN_MIN_SHOP_OFFERS,
   BRAINRUN_BOSS_MAX_HP_BY_ACT,
-  BRAINRUN_REST_HEAL,
   BRAINRUN_ROCK_DAMAGE_RESIST_MULTIPLIER,
   BRAINRUN_THEME_CARD_COEFFICIENT_BY_RARITY,
   BRAINRUN_THEME_COEFFICIENT_MAX,
@@ -82,6 +81,7 @@ import {
 import {
   BRAINRUN_ERUDITION_LADDER,
   BRAINRUN_MAX_ERUDITION,
+  BRAINRUN_REST_HEAL,
   brainrunEruditionLabel,
   getBrainrunEruditionEffects,
 } from "#shared/brainrunErudition";
@@ -977,7 +977,7 @@ describe("getActiveRelicEffects", () => {
     expect(effects.eventBonusChance).toBeCloseTo(0.3);
     expect(effects.hasForesight).toBe(true);
     expect(effects.goldOnBonusSkip).toBe(15);
-    expect(effects.autoHintChance).toBeCloseTo(0.05);
+    expect(effects.autoHintChance).toBeCloseTo(0.1);
     expect(effects.bonusConsumableSlots).toBe(2);
     expect(effects.canSkipThemeCard).toBe(true);
   });
@@ -992,15 +992,62 @@ describe("getActiveRelicEffects", () => {
   });
 });
 
-describe("goldToKnowledgePoints", () => {
-  it("converts gold at the configured ratio, rounded down", () => {
-    expect(goldToKnowledgePoints(0)).toBe(0);
-    expect(goldToKnowledgePoints(7)).toBe(1); // 7 * 0.2 = 1.4 -> 1, not 1.4
-    expect(goldToKnowledgePoints(100)).toBe(20);
+describe("brainrunKnowledgePoints", () => {
+  const none = { correctAnswerDifficulties: [], floorReached: 0, bossesClearedActs: [] };
+
+  it("returns 0 for an empty run", () => {
+    expect(brainrunKnowledgePoints(none)).toBe(0);
   });
 
-  it("never goes negative", () => {
-    expect(goldToKnowledgePoints(-50)).toBe(0);
+  it("rewards progression even without any gold (run reaching the 1st boss)", () => {
+    // 20 bonnes réponses de difficulté 2 (40 × 0.15 = 6) + étage 10 (× 0.5 = 5) = 11
+    expect(
+      brainrunKnowledgePoints({
+        ...none,
+        correctAnswerDifficulties: Array(20).fill(2),
+        floorReached: 10,
+      }),
+    ).toBe(11);
+  });
+
+  it("weights correct answers by difficulty, flooring once on the fractional sum", () => {
+    expect(brainrunKnowledgePoints({ ...none, correctAnswerDifficulties: [5, 5] })).toBe(1); // 1.5
+    expect(brainrunKnowledgePoints({ ...none, correctAnswerDifficulties: Array(4).fill(5) })).toBe(
+      3,
+    ); // 20 × 0.15, pas 2.999…
+    expect(
+      brainrunKnowledgePoints({ ...none, correctAnswerDifficulties: [3], floorReached: 1 }),
+    ).toBe(0); // 0.45 + 0.5 = 0.95
+  });
+
+  it("adds a milestone bonus per cleared boss, by act", () => {
+    expect(brainrunKnowledgePoints({ ...none, bossesClearedActs: [1] })).toBe(5);
+    expect(brainrunKnowledgePoints({ ...none, bossesClearedActs: [1, 2, 3] })).toBe(38);
+  });
+
+  it("matches the calibration targets (~½ / 1 / 2 tier-1 talents at 40 PS)", () => {
+    const act = (n: number) => Array(29 * n).fill(2.3);
+    const endAct1 = brainrunKnowledgePoints({
+      correctAnswerDifficulties: act(1),
+      floorReached: 10,
+      bossesClearedActs: [1],
+    });
+    const endAct2 = brainrunKnowledgePoints({
+      correctAnswerDifficulties: act(2),
+      floorReached: 19,
+      bossesClearedActs: [1, 2],
+    });
+    const win = brainrunKnowledgePoints({
+      correctAnswerDifficulties: act(3),
+      floorReached: 28,
+      bossesClearedActs: [1, 2, 3],
+    });
+    expect(endAct1).toBeGreaterThanOrEqual(15);
+    expect(endAct1).toBeLessThanOrEqual(25);
+    expect(endAct2).toBeGreaterThanOrEqual(35);
+    expect(endAct2).toBeLessThanOrEqual(50);
+    expect(win).toBeGreaterThanOrEqual(70);
+    expect(win).toBeLessThanOrEqual(95);
   });
 });
 

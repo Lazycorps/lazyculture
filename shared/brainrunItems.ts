@@ -56,6 +56,33 @@ export type BrainrunConsumableDef = {
   shopPrice?: number;
 };
 
+/** Moment où un consommable peut être utilisé — pilote l'aide affichée au joueur (infobulle HUD)
+ * et la garde serveur des consommables réservés au boss (cf. BrainrunService.useConsumable) :
+ * - `ANYTIME` : n'importe quand pendant la run (carte, salle, question) ;
+ * - `QUESTION` : sur la question de combat en cours ;
+ * - `BOSS_QUESTION` : sur la question en cours d'un combat de boss uniquement ;
+ * - `AUTO` : jamais manuellement, se déclenche tout seul. */
+export type BrainrunConsumableUsage = "ANYTIME" | "QUESTION" | "BOSS_QUESTION" | "AUTO";
+
+export function brainrunConsumableUsage(id: BrainrunConsumableId): BrainrunConsumableUsage {
+  switch (id) {
+    case "SHIELD":
+    case "HEAL_POTION":
+    case "RANDOM_STASH":
+      return "ANYTIME";
+    case "BOSS_CHRONO_BOOST":
+    case "BOSS_DAMAGE_BOOST":
+    case "MALUS_CANCEL":
+      return "BOSS_QUESTION";
+    case "REVIVE_TOKEN":
+      return "AUTO";
+    case "FIFTY_FIFTY":
+    case "PHONE_A_FRIEND":
+    case "REDRAW_QUESTION":
+      return "QUESTION";
+  }
+}
+
 /** Effet ponctuel appliqué à la question en cours d'une salle (persisté sur BrainrunRoom.consumableReveal,
  * réinitialisé dès la question suivante) : 50/50, Appel à un ami, et les nouveaux consommables de combat de boss. */
 export type BrainrunConsumableReveal = {
@@ -196,7 +223,7 @@ export const BRAINRUN_RELICS: Record<BrainrunRelicId, BrainrunRelicDef> = {
   SIXTH_SENSE: {
     id: "SIXTH_SENSE",
     name: "Sixième Sens",
-    description: "5% de chance par question de révéler la bonne réponse après 8 secondes.",
+    description: "10% de chance par question de révéler la bonne réponse après 8 secondes.",
     icon: "i-heroicons-light-bulb",
     rarity: "COMMON",
   },

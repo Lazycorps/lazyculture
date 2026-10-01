@@ -36,11 +36,11 @@
               <div
                 class="w-9 h-9 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 text-lg shrink-0"
               >
-                <UIcon :name="room.icon" />
+                <UIcon :name="roomTypeIcon(room.type)" />
               </div>
               <div class="min-w-0">
                 <p class="text-xs font-black font-display text-white tracking-wide">
-                  {{ room.label }}
+                  {{ roomTypeLabel(room.type) }}
                 </p>
                 <p class="text-[11px] text-gray-400 leading-relaxed mt-0.5">
                   {{ room.description }}
@@ -50,9 +50,10 @@
           </div>
 
           <p class="text-[11px] text-gray-500 leading-relaxed">
-            L'or gagné en combat se dépense en Librairie. À la fin de la run, l'XP et les Points de
-            Savoir récoltés servent à progresser et à débloquer des talents permanents dans l'Arbre
-            de talents.
+            L'or gagné en combat se dépense en Librairie : dépensez-le sans regret, il ne compte pas
+            dans vos gains de fin de run. Les Points de Savoir récompensent vos bonnes réponses
+            (davantage si les questions sont difficiles), l'étage atteint et chaque Boss vaincu ;
+            ils débloquent des talents permanents dans l'Arbre de talents.
           </p>
         </div>
       </UCard>
@@ -62,47 +63,40 @@
 
 <script setup lang="ts">
 import type { BrainrunRoomType } from "#shared/brainrun";
+import { BRAINRUN_REST_HEAL } from "#shared/brainrunErudition";
 
 const open = defineModel<boolean>("open", { required: true });
 
-const rooms: { type: BrainrunRoomType; icon: string; label: string; description: string }[] = [
+// Icônes/libellés partagés avec la carte et sa légende (cf. useBrainrunRoomTypeDisplay).
+const { roomTypeLabel, roomTypeIcon } = useBrainrunRoomTypeDisplay();
+
+const rooms: { type: BrainrunRoomType; description: string }[] = [
   {
     type: "STANDARD",
-    icon: "i-heroicons-bolt",
-    label: "Combat",
     description: "Affrontez un ennemi standard sur une série de questions. Rapporte or et XP.",
   },
   {
     type: "ELITE",
-    icon: "i-heroicons-fire",
-    label: "Elite",
     description:
       "Un ennemi plus coriace, plus de questions à enchaîner. Meilleures récompenses et un bonus (relique ou consommable) au choix à la victoire.",
   },
   {
     type: "BOSS",
-    icon: "i-heroicons-shield-exclamation",
-    label: "Boss",
     description:
       "Termine l'acte. Répondez vite pour infliger plus de dégâts ; chaque erreur vous coûte des PV. Bonus garanti à la victoire.",
   },
   {
     type: "REST",
-    icon: "i-heroicons-building-library",
-    label: "Bibliothèque",
-    description:
-      "Aucune question : reposez-vous pour regagner 1 point de vie, ou bannissez un thème pour le reste de la run (même règle que la relique Purge Thématique).",
+    // Montant tiré de la même constante que le serveur (il était affiché "1" alors que le repos
+    // rend 2 PV) ; l'Érudition IV le réduit, d'où la précision.
+    description: `Aucune question : reposez-vous pour regagner ${BRAINRUN_REST_HEAL} points de vie (moins à haute Érudition), ou bannissez un thème pour le reste de la run (même règle que la relique Purge Thématique).`,
   },
   {
     type: "SHOP",
-    icon: "i-heroicons-book-open",
-    label: "Librairie",
     description: "Dépensez votre or pour acheter des reliques et des consommables.",
   },
   {
     type: "EVENT",
-    icon: "i-heroicons-question-mark-circle",
-    label: "Événement",
     description: "Un choix aléatoire aux effets surprises, bons ou mauvais.",
   },
 ];

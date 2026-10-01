@@ -231,7 +231,7 @@ export type BrainrunRunDTO = {
   maxHealthPoint: number;
   gold: number;
   xpEarned: number | null;
-  /** Points de Savoir gagnés à la fin de cette run (or converti, bonus de talent inclus), null
+  /** Points de Savoir gagnés à la fin de cette run (performance + progression, bonus de talent inclus), null
    * tant qu'elle est en cours. */
   knowledgePointsEarned: number | null;
   /** Part de knowledgePointsEarned due au talent Intérêts Composés (Utilitaire) ; 0 si non

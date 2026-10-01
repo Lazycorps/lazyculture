@@ -32,10 +32,23 @@ export const BRAINRUN_XP_BY_ROOM_TYPE: Record<"STANDARD" | "ELITE" | "BOSS", num
 };
 export const BRAINRUN_WIN_BONUS_XP = 150;
 
-/** Taux de conversion de l'or de fin de run en Points de Savoir (monnaie meta persistante),
- * arrondi à l'entier inférieur (cf. goldToKnowledgePoints dans brainrunLogic.ts). Valeur
- * indicative, à ajuster après tests réels : ~10-50 PS pour une run typique. */
-export const BRAINRUN_KP_PER_GOLD = 0.2;
+/** Points de Savoir (monnaie meta persistante) de fin de run — refonte du 2026-10-01 : ils
+ * récompensent la performance et la progression, plus l'or restant (qui pénalisait les joueurs
+ * dépensant leur or en Librairie : une run jusqu'au 1er boss pouvait rapporter 0 PS). Cf.
+ * brainrunKnowledgePoints dans brainrunLogic.ts.
+ *
+ * Calibrage voulu (talent de palier 1 = 40 PS) pour que l'arbre ne se débloque pas en quelques
+ * runs : finir l'acte 1 ≈ ½ talent de palier 1 (~20 PS), finir l'acte 2 ≈ 1 talent (~40 PS),
+ * gagner la run ≈ 2 talents (~80 PS). Hypothèse : ~29 bonnes réponses par acte, de difficulté
+ * moyenne ~2,3 (somme des difficultés ≈ 67/acte) → acte 1 ≈ 10 + 5 + 5 = 20, acte 2 ≈ 21 + 9 + 13
+ * = 43, victoire ≈ 32 + 14 + 38 = 84. À réajuster si les runs réelles s'en écartent. */
+/** PS par point de difficulté d'une bonne réponse (difficulté 1-5). */
+export const BRAINRUN_KP_PER_DIFFICULTY_POINT = 0.15;
+/** PS par étage global atteint (cf. brainrunGlobalFloor : 1er boss = 10, boss final = 28). */
+export const BRAINRUN_KP_PER_FLOOR = 0.5;
+/** PS bonus par boss vaincu, indexé par acte (acte 1 → [0]) ; le dernier fait office de prime de
+ * victoire. */
+export const BRAINRUN_KP_PER_BOSS_BY_ACT = [5, 8, 25];
 
 /** Nombre de questions pour les salles de combat standard ; le combat de boss n'a pas de
  * limite de questions, il continue jusqu'à ce que le boss soit à 0 PV (cf. BRAINRUN_BOSS_MAX_HP). */
@@ -301,17 +314,12 @@ export const BRAINRUN_COINS_PER_ACT = [5, 10, 25];
  * changement de jour (heure locale serveur) que le Daily quiz. */
 export const BRAINRUN_DAILY_COIN_CAP = 100;
 
-/** PV rendus par la Bibliothèque (salle REST). Monté de 1 à 2 en même temps que l'ajout de
- * l'Érudition : à 1 PV, ce repos garanti avant le boss était trop tiède pour que le niveau IV
- * (qui le ramène à 1) retire quelque chose de réel au joueur. */
-export const BRAINRUN_REST_HEAL = 2;
-
 /** Or gagné en cliquant "Passer" sur le bonus post-combat (relique Lot de Consolation). */
 export const BRAINRUN_CONSOLATION_GOLD = 15;
 /** Probabilité, par point de choix restant, qu'un Événement s'ajoute en 3e option (relique Aimant à Événements). */
 export const BRAINRUN_EVENT_MAGNET_CHANCE = 0.3;
 /** Probabilité, par question, que la bonne réponse soit révélée après coup (relique Sixième Sens). */
-export const BRAINRUN_SIXTH_SENSE_CHANCE = 0.05;
+export const BRAINRUN_SIXTH_SENSE_CHANCE = 0.1;
 /** Multiplicateur appliqué aux prix de Boutique (relique Marchandeur). */
 export const BRAINRUN_HAGGLER_MULTIPLIER = 0.8;
 /** Plafond absolu de Pv max atteignable (relique Cœur Supplémentaire, cumulable). */

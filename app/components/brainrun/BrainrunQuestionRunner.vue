@@ -53,6 +53,41 @@
         Répondez à la question précédente
       </p>
 
+      <!-- Relique Sixième Sens : jauge de 8s à chaque question, puis réussite (bonne réponse
+           mise en évidence) ou échec — cf. autoHintPhase. -->
+      <div
+        v-if="localQuestion && !responded && autoHintPhase !== 'idle'"
+        class="mx-auto mb-2 w-fit max-w-full flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black font-display uppercase tracking-wider transition-colors duration-300"
+        :class="{
+          'border-violet-500/30 bg-violet-500/10 text-violet-300': autoHintPhase === 'charging',
+          'border-amber-400/60 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/20 animate-sixth-sense-pop':
+            autoHintPhase === 'success',
+          'border-white/10 bg-white/5 text-gray-500': autoHintPhase === 'fail',
+        }"
+      >
+        <UIcon
+          :name="
+            autoHintPhase === 'fail' ? 'i-heroicons-light-bulb' : 'i-heroicons-light-bulb-solid'
+          "
+          class="text-sm shrink-0"
+          :class="{ 'animate-pulse': autoHintPhase === 'charging' }"
+        />
+        <template v-if="autoHintPhase === 'charging'">
+          <span>Sixième Sens</span>
+          <span class="relative w-14 h-1 rounded-full bg-white/10 overflow-hidden">
+            <span
+              :key="autoHintCycle"
+              class="absolute inset-y-0 left-0 bg-violet-400 rounded-full sixth-sense-gauge"
+              :style="{ animationDuration: `${BRAINRUN_SIXTH_SENSE_DELAY_MS}ms` }"
+            />
+          </span>
+        </template>
+        <span v-else-if="autoHintPhase === 'success'">
+          Sixième Sens : la réponse vous apparaît !
+        </span>
+        <span v-else>Sixième Sens : rien cette fois…</span>
+      </div>
+
       <QuestionDisplay
         v-if="localQuestion"
         ref="questionDisplay"
@@ -75,9 +110,15 @@
       />
 
       <!-- Consommables : 50/50, Appel à un ami, Bouclier — usage unique pendant la question. -->
+      <p
+        v-if="!responded && availableConsumables.length > 0"
+        class="text-center text-[9px] font-bold text-gray-500 uppercase tracking-wider font-display mt-3"
+      >
+        Utiliser un objet
+      </p>
       <div
         v-if="!responded && availableConsumables.length > 0"
-        class="flex justify-center flex-wrap gap-2 mt-3"
+        class="flex justify-center flex-wrap gap-2 mt-1.5"
       >
         <div v-for="consumable in availableConsumables" :key="consumable.id" class="relative">
           <button
@@ -262,13 +303,23 @@ const eliminatedIds = computed(
   () => brainrun.currentRoom.value?.consumableReveal?.eliminatedIds ?? [],
 );
 const hintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.hintId ?? null);
-// Relique Sixième Sens : le tirage (5% de chance) est déjà décidé côté serveur pour la question
-// en cours ; ce timer ne pilote que le délai d'affichage (8s) avant de révéler autoHintId.
+// Relique Sixième Sens : le tirage est déjà décidé côté serveur pour la question en cours
+// (autoHintId présent = réussite) ; ce timer ne pilote que le délai d'affichage (8s). Le joueur
+// voit la relique "se charger" à chaque question puis le résultat, réussite comme échec — sans
+// ce retour visuel, un échec était indiscernable d'une relique qui ne fait rien.
+const hasSixthSense = computed(() => brainrun.run.value?.relics.includes("SIXTH_SENSE") ?? false);
 const autoHintId = computed(() => brainrun.currentRoom.value?.consumableReveal?.autoHintId ?? null);
-const autoHintRevealed = ref(false);
+type AutoHintPhase = "idle" | "charging" | "success" | "fail";
+const autoHintPhase = ref<AutoHintPhase>("idle");
+// Change à chaque nouvelle question : sert de :key à la jauge pour relancer son animation CSS.
+const autoHintCycle = ref(0);
 let autoHintTimeout: ReturnType<typeof setTimeout> | null = null;
 const revealedHintId = computed(() =>
-  hintId.value !== null ? hintId.value : autoHintRevealed.value ? autoHintId.value : null,
+  hintId.value !== null
+    ? hintId.value
+    : autoHintPhase.value === "success"
+      ? autoHintId.value
+      : null,
 );
 const chronoBoostUsed = computed(
   () => (brainrun.currentRoom.value?.consumableReveal?.chronoBonusMs ?? 0) > 0,
@@ -366,10 +417,13 @@ function stopAutoHintTimer() {
 
 function startAutoHintTimerIfNeeded() {
   stopAutoHintTimer();
-  autoHintRevealed.value = false;
-  if (!localQuestion.value || autoHintId.value === null) return;
+  autoHintPhase.value = "idle";
+  if (!localQuestion.value || !hasSixthSense.value) return;
+  autoHintPhase.value = "charging";
+  autoHintCycle.value += 1;
   autoHintTimeout = setTimeout(() => {
-    autoHintRevealed.value = true;
+    // Lu à l'échéance (et non au démarrage) : l'état serveur de la question est alors à jour.
+    autoHintPhase.value = autoHintId.value !== null ? "success" : "fail";
   }, BRAINRUN_SIXTH_SENSE_DELAY_MS);
 }
 
@@ -726,10 +780,43 @@ async function nextQuestion() {
   containerRef.value?.scrollIntoView({ block: "start" });
 
   startBossTimerIfNeeded();
+  // Indispensable ici : la question suivante arrive pendant le feedback (responded = true), donc
+  // le watch sur props.question l'ignore — sans cet appel, Sixième Sens ne s'armait que sur la
+  // 1re question de chaque salle (bug corrigé le 2026-10-01).
+  startAutoHintTimerIfNeeded();
 }
 </script>
 
 <style scoped>
+/* Relique Sixième Sens : jauge qui se remplit pendant le délai de révélation, puis "pop" en cas
+   de réussite (cf. autoHintPhase). */
+@keyframes sixth-sense-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.sixth-sense-gauge {
+  animation-name: sixth-sense-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes sixth-sense-pop {
+  0% {
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-sixth-sense-pop {
+  animation: sixth-sense-pop 0.35s ease-out;
+}
 @keyframes shake {
   0%,
   100% {
