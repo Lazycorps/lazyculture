@@ -3,13 +3,7 @@ ARG NODE_VERSION=24.16.0
 FROM node:${NODE_VERSION}-slim AS build
 
 # Installer les dépendances système nécessaires
-RUN apt-get update && apt-get install -y curl bash openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# Installer la CLI Vite+ (vp) globalement dans le conteneur
-RUN curl -fsSL https://vite.plus | bash
-
-# Ajouter le binaire vp au PATH pour que Docker le trouve
-ENV PATH="/root/.local/share/vite-plus/bin:/root/.vite-plus/bin:$PATH"
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Définir le répertoire de travail
 WORKDIR /app
@@ -17,8 +11,8 @@ WORKDIR /app
 # Copier le package.json et le package-lock.json
 COPY package*.json ./
 
-# Installer les dépendances via Vite+
-RUN vp install
+# Installer les dépendances (vite-plus est fourni par node_modules, pas besoin de l'installateur global)
+RUN npm ci
 
 # Copier le reste du code de l'application
 COPY . .
@@ -27,7 +21,7 @@ COPY . .
 RUN npx prisma generate
 
 # Construire l'application Nuxt
-RUN vp run build
+RUN npm run build
 
 # Étape 2 : Exécution de l'application
 FROM node:24-slim
